@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "dsScreen Backend - Multi-Tenant Auth & Video Upload",
-    "description": "Complete API collection for dsScreen backend with multi-tenant authentication, company management, and video upload system",
+    "name": "dsScreen Backend - Complete API Collection",
+    "description": "Complete API collection for dsScreen backend with multi-tenant authentication, company management, video upload system, and schedule management for digital signage.\n\n**Features:**\n- Multi-tenant authentication with JWT\n- Company and user management\n- Video upload and streaming (500MB limit per company)\n- Schedule management with timeline-based playback\n- Public schedule viewing via unique codes\n- Role-based access control\n\n**Quick Start:**\n1. Register → Select Company → Get Access Token\n2. Upload videos\n3. Create schedule (get unique code)\n4. Add videos to timeline\n5. Share schedule publicly via code",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "12345678"
   },
@@ -43,6 +43,21 @@
     },
     {
       "key": "videoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "scheduleId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "scheduleCode",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "scheduleItemId",
       "value": "",
       "type": "string"
     }
@@ -805,6 +820,392 @@
         }
       ],
       "description": "Video upload and management endpoints. Each company has its own isolated video storage in `videos/{companyId}/` directory.\n\n**Features:**\n- Company-specific folders (isolated storage)\n- Unique file names per company\n- File size limit: 500MB\n- Video file validation\n- Role-based access control\n- Automatic cleanup on deletion\n\n**Permissions:**\n- Upload: owner, admin, manager, member\n- View/List: All roles\n- Update: Own videos (member) or any (owner/admin)\n- Delete: Own videos (member) or any (owner/admin/manager)"
+    },
+    {
+      "name": "Schedule Management",
+      "item": [
+        {
+          "name": "Create Schedule",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('scheduleId', response.data.id);",
+                  "    pm.collectionVariables.set('scheduleCode', response.data.code);",
+                  "    pm.environment.set('scheduleId', response.data.id);",
+                  "    pm.environment.set('scheduleCode', response.data.code);",
+                  "    console.log('Schedule ID:', response.data.id);",
+                  "    console.log('Schedule Code:', response.data.code);",
+                  "    console.log('Public URL: /api/schedules/public/' + response.data.code);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Main Display Schedule\",\n  \"description\": \"Schedule for lobby digital signage\",\n  \"timezone\": \"America/New_York\",\n  \"settings\": {\n    \"loop\": true,\n    \"autoStart\": true\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules"]
+            },
+            "description": "Create a new schedule with a unique 5-character code for public access. The code is automatically generated and allows anyone to view the schedule without authentication."
+          },
+          "response": []
+        },
+        {
+          "name": "List All Schedules",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules"]
+            },
+            "description": "Get all schedules for your company with basic information and item count."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Schedule by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules/{{scheduleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules", "{{scheduleId}}"]
+            },
+            "description": "Get detailed schedule information including all timeline items and videos."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Schedule by Code (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules/public/{{scheduleCode}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules", "public", "{{scheduleCode}}"]
+            },
+            "description": "⭐ PUBLIC ENDPOINT - No authentication required! View a schedule using its 5-character code. Perfect for digital signage displays and public viewing."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Storage Usage",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/videos/storage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "videos", "storage"]
+            },
+            "description": "Get storage usage statistics for your company including current usage, available space, and video count."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Schedule",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Schedule Name\",\n  \"description\": \"Updated description\",\n  \"timezone\": \"America/Los_Angeles\",\n  \"settings\": {\n    \"loop\": false,\n    \"autoStart\": true,\n    \"volume\": 80\n  },\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules/{{scheduleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules", "{{scheduleId}}"]
+            },
+            "description": "Update schedule details. Members can only update schedules they created. Owner/admin/manager can update any schedule."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Schedule",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules/{{scheduleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules", "{{scheduleId}}"]
+            },
+            "description": "Soft delete a schedule. Members can only delete schedules they created. Owner/admin/manager can delete any schedule."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Video to Schedule",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('scheduleItemId', response.data.id);",
+                  "    pm.environment.set('scheduleItemId', response.data.id);",
+                  "    console.log('Schedule Item ID:', response.data.id);",
+                  "    console.log('Start Time:', response.data.startTime);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"videoId\": \"{{videoId}}\",\n  \"startTime\": \"09:00:00\",\n  \"duration\": 30,\n  \"dayOfWeek\": [1, 2, 3, 4, 5],\n  \"startDate\": \"2024-01-01\",\n  \"endDate\": \"2024-12-31\",\n  \"order\": 0,\n  \"metadata\": {\n    \"transition\": \"fade\",\n    \"volume\": 80\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules/{{scheduleId}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules", "{{scheduleId}}", "items"]
+            },
+            "description": "Add a video to the schedule timeline.\n\n**Fields:**\n- videoId (required): Video UUID\n- startTime (required): HH:MM:SS or HH:MM\n- duration (required): Seconds\n- dayOfWeek (optional): Array [0-6], 0=Sunday, null=every day\n- startDate/endDate (optional): YYYY-MM-DD\n- order (optional): Display order\n- metadata (optional): Custom data"
+          },
+          "response": []
+        },
+        {
+          "name": "Add Video to Schedule (Weekdays Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('Schedule Item ID:', response.data.id);",
+                  "    console.log('Days: Monday-Friday');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"videoId\": \"{{videoId}}\",\n  \"startTime\": \"12:00:00\",\n  \"duration\": 60,\n  \"dayOfWeek\": [1, 2, 3, 4, 5]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules/{{scheduleId}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules", "{{scheduleId}}", "items"]
+            },
+            "description": "Example: Add a video that only plays on weekdays (Monday-Friday) at noon for 60 seconds."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Video to Schedule (Weekends Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('Schedule Item ID:', response.data.id);",
+                  "    console.log('Days: Saturday-Sunday');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"videoId\": \"{{videoId}}\",\n  \"startTime\": \"19:00:00\",\n  \"duration\": 90,\n  \"dayOfWeek\": [0, 6]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules/{{scheduleId}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules", "{{scheduleId}}", "items"]
+            },
+            "description": "Example: Add a video that only plays on weekends (Saturday-Sunday) at 7 PM for 90 seconds."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Video to Schedule (Every Day)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('Schedule Item ID:', response.data.id);",
+                  "    console.log('Days: Every day');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"videoId\": \"{{videoId}}\",\n  \"startTime\": \"14:00:00\",\n  \"duration\": 45\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules/{{scheduleId}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules", "{{scheduleId}}", "items"]
+            },
+            "description": "Example: Add a video that plays every day at 2 PM for 45 seconds. Omit dayOfWeek field for daily playback."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Schedule Item",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startTime\": \"10:00:00\",\n  \"duration\": 45,\n  \"dayOfWeek\": [1, 3, 5],\n  \"order\": 1,\n  \"metadata\": {\n    \"transition\": \"slide\",\n    \"volume\": 90\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules/{{scheduleId}}/items/{{scheduleItemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules", "{{scheduleId}}", "items", "{{scheduleItemId}}"]
+            },
+            "description": "Update a schedule item. All fields are optional - only include fields you want to change."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Schedule Item",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules/{{scheduleId}}/items/{{scheduleItemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules", "{{scheduleId}}", "items", "{{scheduleItemId}}"]
+            },
+            "description": "Remove a video from the schedule timeline (soft delete)."
+          },
+          "response": []
+        }
+      ],
+      "description": "Schedule management for timeline-based video playback. Create schedules with unique 5-character codes for public access.\n\n**Features:**\n- Timeline-based scheduling (HH:MM:SS)\n- Day-specific playback (weekdays, weekends, specific days)\n- Date range support (seasonal campaigns)\n- Unique 5-character codes (e.g., Ab3Xy)\n- Public viewing without authentication\n- Duration control per video\n- Custom metadata support\n- Timezone support\n\n**Schedule Code Format:**\n- 5 characters (alphanumeric)\n- Example: Ab3Xy, Mn7Qw, Rt5Zk\n- Excludes confusing chars (0, O, I, l)\n- Public URL: /api/schedules/public/{code}\n\n**Day of Week:**\n- 0 = Sunday\n- 1 = Monday\n- 2 = Tuesday\n- 3 = Wednesday\n- 4 = Thursday\n- 5 = Friday\n- 6 = Saturday\n- null/omitted = Every day\n\n**Permissions:**\n- Create: owner, admin, manager, member\n- View: All roles + Public (via code)\n- Update: Creator (member) or any (owner/admin/manager)\n- Delete: Creator (member) or any (owner/admin/manager)\n\n**Use Cases:**\n- Digital signage displays\n- Scheduled announcements\n- Day-specific content\n- Seasonal campaigns\n- Multi-location displays"
     }
   ]
 }

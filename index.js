@@ -33,12 +33,14 @@ const authRoutes = require('./routes/auth');
 const companyRoutes = require('./routes/company');
 const userRoutes = require('./routes/user');
 const videoRoutes = require('./routes/video');
+const scheduleRoutes = require('./routes/schedule');
 
 app.use('/', indexRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/company', companyRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/videos', videoRoutes);
+app.use('/api/schedules', scheduleRoutes);
 
 // Initialize database and start server
 const startServer = async () => {

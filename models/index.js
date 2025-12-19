@@ -5,6 +5,8 @@ const User = require('./User');
 const Company = require('./Company');
 const UserCompany = require('./UserCompany');
 const Video = require('./Video');
+const Schedule = require('./Schedule');
+const ScheduleItem = require('./ScheduleItem');
 
 // Define relationships
 // User <-> Company (Many-to-Many through UserCompany)
@@ -64,6 +66,48 @@ User.hasMany(Video, {
   as: 'uploadedVideos'
 });
 
+// Schedule associations
+Schedule.belongsTo(Company, {
+  foreignKey: 'companyId',
+  as: 'company'
+});
+
+Schedule.belongsTo(User, {
+  foreignKey: 'createdBy',
+  as: 'creator'
+});
+
+Company.hasMany(Schedule, {
+  foreignKey: 'companyId',
+  as: 'schedules'
+});
+
+User.hasMany(Schedule, {
+  foreignKey: 'createdBy',
+  as: 'createdSchedules'
+});
+
+// ScheduleItem associations
+ScheduleItem.belongsTo(Schedule, {
+  foreignKey: 'scheduleId',
+  as: 'schedule'
+});
+
+ScheduleItem.belongsTo(Video, {
+  foreignKey: 'videoId',
+  as: 'video'
+});
+
+Schedule.hasMany(ScheduleItem, {
+  foreignKey: 'scheduleId',
+  as: 'items'
+});
+
+Video.hasMany(ScheduleItem, {
+  foreignKey: 'videoId',
+  as: 'scheduleItems'
+});
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -72,5 +116,7 @@ module.exports = {
   Company,
   UserCompany,
   Video,
+  Schedule,
+  ScheduleItem,
 };
 

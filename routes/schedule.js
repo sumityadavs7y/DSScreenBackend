@@ -11,6 +11,7 @@ const { body, validationResult, param } = require('express-validator');
 const { Schedule, ScheduleItem, Video, User, Company, Device, sequelize, Sequelize } = require('../models');
 const { verifyToken, requireRole } = require('../middleware/jwtAuth');
 const { generateUniqueCode, isValidCode } = require('../utils/scheduleCode');
+const { generateDeviceName } = require('../utils/deviceName');
 
 /**
  * Helper function to validate UUID format
@@ -645,6 +646,7 @@ router.post('/device/register',
         defaults: {
           scheduleId: schedule.id,
           uid: uid,
+          name: generateDeviceName(), // Auto-generate friendly name
           deviceInfo: deviceInfo || {},
           lastSeen: new Date(),
           isActive: true,
@@ -668,6 +670,7 @@ router.post('/device/register',
         device: {
           id: device.id,
           uid: device.uid,
+          name: device.name,
           lastSeen: device.lastSeen,
           registered: created,
         },
@@ -702,6 +705,98 @@ router.post('/device/register',
       res.status(500).json({
         success: false,
         message: 'An error occurred while registering the device',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
+    }
+  }
+);
+
+/**
+ * PUT /api/schedules/device/:deviceId/name
+ * Update device name
+ * Requires: accessToken
+ * Allowed roles: owner, admin, manager, member
+ */
+router.put('/device/:deviceId/name',
+  verifyToken,
+  requireRole('owner', 'admin', 'manager', 'member'),
+  [
+    body('name')
+      .trim()
+      .notEmpty()
+      .withMessage('Device name is required')
+      .isLength({ min: 1, max: 100 })
+      .withMessage('Device name must be between 1 and 100 characters'),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array(),
+        });
+      }
+
+      const { deviceId } = req.params;
+      const { name } = req.body;
+
+      if (!isValidUUID(deviceId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid device ID format',
+        });
+      }
+
+      // Find device and verify it belongs to user's company
+      const device = await Device.findOne({
+        where: {
+          id: deviceId,
+          isActive: true,
+        },
+        include: [
+          {
+            model: Schedule,
+            as: 'schedule',
+            where: {
+              companyId: req.company.id,
+              isActive: true,
+            },
+            attributes: ['id', 'name', 'companyId'],
+          },
+        ],
+      });
+
+      if (!device) {
+        return res.status(404).json({
+          success: false,
+          message: 'Device not found or does not belong to your company',
+        });
+      }
+
+      // Update device name
+      await device.update({ name });
+
+      res.json({
+        success: true,
+        message: 'Device name updated successfully',
+        data: {
+          id: device.id,
+          uid: device.uid,
+          name: device.name,
+          lastSeen: device.lastSeen,
+          schedule: {
+            id: device.schedule.id,
+            name: device.schedule.name,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Update device name error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'An error occurred while updating device name',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined,
       });
     }

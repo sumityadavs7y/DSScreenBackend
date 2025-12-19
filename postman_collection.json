@@ -973,6 +973,33 @@
           "response": []
         },
         {
+          "name": "Update Device Name",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Lobby Display - Main\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules/device/{{deviceId}}/name",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules", "device", "{{deviceId}}", "name"]
+            },
+            "description": "Update the friendly name of a device. Requires authentication and the device must belong to a schedule in your company."
+          },
+          "response": []
+        },
+        {
           "name": "Get Storage Usage",
           "request": {
             "method": "GET",

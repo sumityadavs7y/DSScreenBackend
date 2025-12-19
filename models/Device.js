@@ -22,6 +22,11 @@ const Device = sequelize.define('Device', {
     allowNull: false,
     comment: 'Unique device identifier (e.g., MAC address, serial number)',
   },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Friendly name for the device (auto-generated or user-defined)',
+  },
   deviceInfo: {
     type: DataTypes.JSONB,
     defaultValue: {},

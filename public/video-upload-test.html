@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Upload Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        input[type="file"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .video-list {
+            margin-top: 20px;
+        }
+
+        .video-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .video-info h3 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .video-meta {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .video-actions button {
+            padding: 8px 16px;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+
+        .delete-btn {
+            background: #dc3545;
+        }
+
+        .checkbox-col {
+            width: 40px;
+            text-align: center;
+        }
+
+        .video-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .bulk-actions {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .bulk-actions.show {
+            display: block;
+        }
+
+        .bulk-actions button {
+            background: #dc3545;
+            margin-right: 10px;
+        }
+
+        .token-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .token-display {
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+        }
+
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🎥 Video Upload System Test</h1>
+            <p class="subtitle">Company-Specific Video Upload & Management</p>
+
+            <div id="authSection">
+                <h2>Step 1: Authentication</h2>
+                <div class="form-group">
+                    <label for="accessToken">Access Token:</label>
+                    <input type="password" id="accessToken" placeholder="Paste your access token here">
+                    <small style="color: #666; display: block; margin-top: 5px;">
+                        Get this by logging in and selecting a company via /api/auth/login and /api/auth/select-company
+                    </small>
+                </div>
+                <button onclick="saveToken()">Save Token & Load Videos</button>
+                
+                <div id="tokenStatus" class="status"></div>
+            </div>
+        </div>
+
+        <div class="card" id="uploadSection" style="display: none;">
+            <h2>Step 2: Upload Video</h2>
+            <form id="uploadForm" onsubmit="uploadVideo(event)">
+                <div class="form-group">
+                    <label for="videoFile">Select Video File:</label>
+                    <input type="file" id="videoFile" accept="video/*" required>
+                    <small style="color: #666; display: block; margin-top: 5px;">
+                        Maximum size: 500MB. Supported formats: mp4, mpeg, mov, avi, wmv, webm, etc.
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="displayName">Display Name (optional):</label>
+                    <input type="text" id="displayName" placeholder="My Video">
+                    <small style="color: #666; display: block; margin-top: 5px;">
+                        If not provided, the original filename will be used
+                    </small>
+                </div>
+
+                <button type="submit" id="uploadBtn">Upload Video</button>
+                
+                <div id="uploadStatus" class="status"></div>
+            </form>
+        </div>
+
+        <div class="card" id="listSection" style="display: none;">
+            <h2>Step 3: Your Company's Videos</h2>
+            <button onclick="loadVideos()">🔄 Refresh List</button>
+            
+            <div class="bulk-actions" id="bulkActions">
+                <strong><span id="selectedCount">0</span> video(s) selected</strong>
+                <button onclick="bulkDeleteVideos()" id="bulkDeleteBtn">🗑️ Delete Selected</button>
+                <button onclick="clearSelection()" style="background: #6c757d;">Clear Selection</button>
+            </div>
+            
+            <div id="videoListStatus" class="status"></div>
+            <div id="videoList" class="video-list"></div>
+        </div>
+
+        <div class="card">
+            <h2>📖 Quick Reference</h2>
+            <h3>API Endpoints:</h3>
+            <pre>
+POST   /api/videos/upload     - Upload a video
+GET    /api/videos            - List all company videos
+GET    /api/videos/:id        - Get video details
+PUT    /api/videos/:id        - Update video metadata
+DELETE /api/videos/:id        - Delete a video
+            </pre>
+
+            <h3>Getting Started:</h3>
+            <ol style="margin-left: 20px; color: #666;">
+                <li>Login: POST /api/auth/login</li>
+                <li>Select Company: POST /api/auth/select-company</li>
+                <li>Copy the accessToken from the response</li>
+                <li>Paste it in the "Access Token" field above</li>
+                <li>Click "Save Token & Load Videos"</li>
+                <li>Upload videos and manage them!</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin + '/api';
+        let accessToken = '';
+
+        function showStatus(elementId, message, type) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.className = `status show ${type}`;
+        }
+
+        function hideStatus(elementId) {
+            const el = document.getElementById(elementId);
+            el.className = 'status';
+        }
+
+        function saveToken() {
+            const token = document.getElementById('accessToken').value.trim();
+            
+            if (!token) {
+                showStatus('tokenStatus', 'Please enter an access token', 'error');
+                return;
+            }
+
+            accessToken = token;
+            localStorage.setItem('videoApiToken', token);
+            
+            showStatus('tokenStatus', '✅ Token saved! Loading videos...', 'success');
+            
+            document.getElementById('uploadSection').style.display = 'block';
+            document.getElementById('listSection').style.display = 'block';
+            
+            loadVideos();
+        }
+
+        async function uploadVideo(event) {
+            event.preventDefault();
+            
+            const fileInput = document.getElementById('videoFile');
+            const displayName = document.getElementById('displayName').value.trim();
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            if (!fileInput.files[0]) {
+                showStatus('uploadStatus', 'Please select a video file', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('video', fileInput.files[0]);
+            if (displayName) {
+                formData.append('displayName', displayName);
+            }
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading...';
+            showStatus('uploadStatus', 'Uploading video...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/videos/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatus('uploadStatus', `✅ ${data.message}`, 'success');
+                    fileInput.value = '';
+                    document.getElementById('displayName').value = '';
+                    
+                    // Reload video list
+                    setTimeout(() => {
+                        loadVideos();
+                    }, 1000);
+                } else {
+                    showStatus('uploadStatus', `❌ ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showStatus('uploadStatus', `❌ Upload failed: ${error.message}`, 'error');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload Video';
+            }
+        }
+
+        async function loadVideos() {
+            showStatus('videoListStatus', 'Loading videos...', 'info');
+            const videoList = document.getElementById('videoList');
+            videoList.innerHTML = '';
+
+            try {
+                const response = await fetch(`${API_BASE}/videos`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    hideStatus('videoListStatus');
+                    
+                    if (data.data.videos.length === 0) {
+                        videoList.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">No videos uploaded yet. Upload your first video above!</p>';
+                        return;
+                    }
+
+                    data.data.videos.forEach(video => {
+                        const videoItem = document.createElement('div');
+                        videoItem.className = 'video-item';
+                        
+                        const fileSizeMB = (video.fileSize / 1024 / 1024).toFixed(2);
+                        const uploadDate = new Date(video.uploadedAt).toLocaleDateString();
+                        
+                        videoItem.innerHTML = `
+                            <div class="checkbox-col">
+                                <input type="checkbox" class="video-checkbox" data-video-id="${video.id}" data-video-name="${video.fileName}" onchange="updateBulkActions()">
+                            </div>
+                            <div class="video-info">
+                                <h3>${video.fileName}</h3>
+                                <div class="video-meta">
+                                    ${fileSizeMB} MB • ${video.mimeType} • Uploaded by ${video.uploadedBy.name} on ${uploadDate}
+                                </div>
+                            </div>
+                            <div class="video-actions">
+                                <button onclick="downloadVideo('${video.id}', '${video.fileName}')">⬇️ Download</button>
+                                <button onclick="deleteVideo('${video.id}', '${video.fileName}')" class="delete-btn">🗑️ Delete</button>
+                            </div>
+                        `;
+                        
+                        videoList.appendChild(videoItem);
+                    });
+                } else {
+                    showStatus('videoListStatus', `❌ ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showStatus('videoListStatus', `❌ Failed to load videos: ${error.message}`, 'error');
+            }
+        }
+
+        async function downloadVideo(videoId, fileName) {
+            try {
+                showStatus('videoListStatus', 'Downloading video...', 'info');
+
+                const response = await fetch(`${API_BASE}/videos/${videoId}/download`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    showStatus('videoListStatus', `❌ ${data.message}`, 'error');
+                    return;
+                }
+
+                // Get the blob
+                const blob = await response.blob();
+                
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                
+                // Cleanup
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                showStatus('videoListStatus', '✅ Video downloaded successfully', 'success');
+                setTimeout(() => hideStatus('videoListStatus'), 3000);
+            } catch (error) {
+                showStatus('videoListStatus', `❌ Download failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteVideo(videoId, fileName) {
+            if (!confirm(`Are you sure you want to delete "${fileName}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/videos/${videoId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatus('videoListStatus', `✅ ${data.message}`, 'success');
+                    loadVideos();
+                } else {
+                    showStatus('videoListStatus', `❌ ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showStatus('videoListStatus', `❌ Delete failed: ${error.message}`, 'error');
+            }
+        }
+
+        function updateBulkActions() {
+            const checkboxes = document.querySelectorAll('.video-checkbox:checked');
+            const selectedCount = checkboxes.length;
+            const bulkActions = document.getElementById('bulkActions');
+            
+            document.getElementById('selectedCount').textContent = selectedCount;
+            
+            if (selectedCount > 0) {
+                bulkActions.classList.add('show');
+            } else {
+                bulkActions.classList.remove('show');
+            }
+        }
+
+        function clearSelection() {
+            const checkboxes = document.querySelectorAll('.video-checkbox');
+            checkboxes.forEach(cb => cb.checked = false);
+            updateBulkActions();
+        }
+
+        async function bulkDeleteVideos() {
+            const checkboxes = document.querySelectorAll('.video-checkbox:checked');
+            const videoIds = Array.from(checkboxes).map(cb => cb.dataset.videoId);
+            const videoNames = Array.from(checkboxes).map(cb => cb.dataset.videoName);
+            
+            if (videoIds.length === 0) {
+                showStatus('videoListStatus', '⚠️ No videos selected', 'error');
+                return;
+            }
+
+            const confirmMsg = `Are you sure you want to delete ${videoIds.length} video(s)?\n\n${videoNames.join('\n')}`;
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+            bulkDeleteBtn.disabled = true;
+            bulkDeleteBtn.textContent = 'Deleting...';
+            showStatus('videoListStatus', `Deleting ${videoIds.length} video(s)...`, 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/videos/bulk-delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ videoIds })
+                });
+
+                const data = await response.json();
+
+                if (data.success || data.data.deletedCount > 0) {
+                    const msg = `✅ Deleted ${data.data.summary.deletedCount} video(s)`;
+                    const failMsg = data.data.summary.failedCount > 0 ? `, ${data.data.summary.failedCount} failed` : '';
+                    showStatus('videoListStatus', msg + failMsg, data.data.summary.failedCount > 0 ? 'info' : 'success');
+                    
+                    // Show details of failures
+                    if (data.data.failed.length > 0) {
+                        const failures = data.data.failed.map(f => `${f.fileName}: ${f.reason}`).join('\n');
+                        console.log('Failed deletions:\n', failures);
+                    }
+                    
+                    clearSelection();
+                    setTimeout(() => loadVideos(), 1000);
+                } else {
+                    showStatus('videoListStatus', `❌ ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showStatus('videoListStatus', `❌ Bulk delete failed: ${error.message}`, 'error');
+            } finally {
+                bulkDeleteBtn.disabled = false;
+                bulkDeleteBtn.textContent = '🗑️ Delete Selected';
+            }
+        }
+
+        // Load token from localStorage on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedToken = localStorage.getItem('videoApiToken');
+            if (savedToken) {
+                document.getElementById('accessToken').value = savedToken;
+                accessToken = savedToken;
+                document.getElementById('uploadSection').style.display = 'block';
+                document.getElementById('listSection').style.display = 'block';
+                loadVideos();
+            }
+        });
+    </script>
+</body>
+</html>
+

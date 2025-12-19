@@ -1,0 +1,811 @@
+{
+  "info": {
+    "name": "dsScreen Backend - Multi-Tenant Auth & Video Upload",
+    "description": "Complete API collection for dsScreen backend with multi-tenant authentication, company management, and video upload system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "12345678"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "tempToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "companyId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "newUserEmail",
+      "value": "newuser@example.com",
+      "type": "string"
+    },
+    {
+      "key": "videoId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Public Endpoints",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "1. Register User (Creates Company)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('tempToken', response.data.tempToken);",
+                  "    pm.collectionVariables.set('userId', response.data.user.id);",
+                  "    if (response.data.company) {",
+                  "        pm.collectionVariables.set('companyId', response.data.company.id);",
+                  "    }",
+                  "    pm.environment.set('tempToken', response.data.tempToken);",
+                  "    console.log('Temp Token:', response.data.tempToken);",
+                  "    console.log('Company ID:', response.data.company?.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\",\n  \"firstName\": \"Admin\",\n  \"lastName\": \"User\",\n  \"phoneNumber\": \"+1234567890\",\n  \"companyName\": \"Acme Corporation\",\n  \"companyDescription\": \"We make everything!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2. Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('tempToken', response.data.tempToken);",
+                  "    pm.collectionVariables.set('userId', response.data.user.id);",
+                  "    if (response.data.companies && response.data.companies.length > 0) {",
+                  "        pm.collectionVariables.set('companyId', response.data.companies[0].id);",
+                  "    }",
+                  "    pm.environment.set('tempToken', response.data.tempToken);",
+                  "    console.log('Temp Token:', response.data.tempToken);",
+                  "    console.log('Companies:', response.data.companies);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3. Select Company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', response.data.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', response.data.refreshToken);",
+                  "    pm.environment.set('accessToken', response.data.accessToken);",
+                  "    pm.environment.set('refreshToken', response.data.refreshToken);",
+                  "    console.log('Access Token:', response.data.accessToken);",
+                  "    console.log('Company:', response.data.company.name);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tempToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyId\": \"{{companyId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/select-company",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "select-company"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Companies",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/companies",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "companies"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Switch Company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', response.data.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', response.data.refreshToken);",
+                  "    pm.environment.set('accessToken', response.data.accessToken);",
+                  "    pm.environment.set('refreshToken', response.data.refreshToken);",
+                  "    console.log('Switched to company:', response.data.company.name);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyId\": \"{{companyId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/switch-company",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "switch-company"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', response.data.accessToken);",
+                  "    pm.environment.set('accessToken', response.data.accessToken);",
+                  "    console.log('Token refreshed successfully');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "User Management",
+      "item": [
+        {
+          "name": "Create User and Add to Company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('newUserEmail', response.data.user.email);",
+                  "    console.log('New User Created:', response.data.user.email);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{newUserEmail}}\",\n  \"password\": \"password123\",\n  \"firstName\": \"New\",\n  \"lastName\": \"User\",\n  \"phoneNumber\": \"+9876543210\",\n  \"addToCurrentCompany\": true,\n  \"role\": \"member\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "create"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Users by Email",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/search?email=user",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "search"],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "user"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Company Management",
+      "item": [
+        {
+          "name": "Get Company Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/company/info",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "company", "info"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Company Info",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Corporation Updated\",\n  \"description\": \"We make everything - and more!\",\n  \"website\": \"https://acme.example.com\",\n  \"email\": \"contact@acme.example.com\",\n  \"phoneNumber\": \"+1-555-0123\",\n  \"address\": \"123 Main St, City, State 12345\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/company/info",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "company", "info"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Members",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/company/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "company", "members"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Member by Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{newUserEmail}}\",\n  \"role\": \"member\",\n  \"permissions\": {\n    \"canViewReports\": true\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/company/members/add",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "company", "members", "add"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Member by User ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"role\": \"admin\",\n  \"permissions\": {\n    \"canManageUsers\": true,\n    \"canViewReports\": true\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/company/members/add-by-id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "company", "members", "add-by-id"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Member Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"manager\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/company/members/{{userId}}/role",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "company", "members", "{{userId}}", "role"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Member Permissions",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissions\": {\n    \"canManageProducts\": true,\n    \"canViewReports\": true,\n    \"canExportData\": false\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/company/members/{{userId}}/permissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "company", "members", "{{userId}}", "permissions"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Member",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/company/members/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "company", "members", "{{userId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Video Management",
+      "item": [
+        {
+          "name": "Upload Video",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('videoId', response.data.id);",
+                  "    pm.environment.set('videoId', response.data.id);",
+                  "    console.log('Video ID:', response.data.id);",
+                  "    console.log('File Name:', response.data.fileName);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "video",
+                  "description": "Select a video file to upload",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "displayName",
+                  "value": "Demo Presentation Video",
+                  "description": "Optional display name for the video",
+                  "type": "text"
+                },
+                {
+                  "key": "metadata",
+                  "value": "{\"category\":\"training\",\"tags\":[\"demo\",\"tutorial\"]}",
+                  "description": "Optional JSON metadata",
+                  "type": "text",
+                  "disabled": true
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/videos/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "videos", "upload"]
+            },
+            "description": "Upload a video file to your company's folder. The video will be stored in `videos/{companyId}/` directory. Display names must be unique within your company."
+          },
+          "response": []
+        },
+        {
+          "name": "List All Videos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/videos",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "videos"]
+            },
+            "description": "Get a list of all videos in your company. Returns video metadata including file size, uploader info, and timestamps."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Video Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/videos/{{videoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "videos", "{{videoId}}"]
+            },
+            "description": "Get detailed information about a specific video including file path, metadata, and uploader information."
+          },
+          "response": []
+        },
+        {
+          "name": "Download/Stream Video",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/videos/{{videoId}}/download",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "videos", "{{videoId}}", "download"]
+            },
+            "description": "Download or stream a video file. Supports HTTP range requests for video streaming. The video will be served with appropriate headers for inline playback in browsers."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Video Metadata",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fileName\": \"Updated Video Name\",\n  \"metadata\": {\n    \"category\": \"tutorial\",\n    \"tags\": [\"advanced\", \"demo\"],\n    \"description\": \"Updated description\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/videos/{{videoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "videos", "{{videoId}}"]
+            },
+            "description": "Update the display name or custom metadata of a video. Only the uploader or owner/admin can update videos."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Video",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/videos/{{videoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "videos", "{{videoId}}"]
+            },
+            "description": "Delete a video. This removes both the file from the filesystem and the database record. Only the uploader or owner/admin/manager can delete videos."
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Delete Videos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"videoIds\": [\n    \"{{videoId}}\",\n    \"video-id-2\",\n    \"video-id-3\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/videos/bulk-delete",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "videos", "bulk-delete"]
+            },
+            "description": "Delete multiple videos in one request. Supports up to 100 videos per request. Returns detailed results showing which videos were successfully deleted and which failed (with reasons). Only the uploader or owner/admin/manager can delete videos."
+          },
+          "response": []
+        }
+      ],
+      "description": "Video upload and management endpoints. Each company has its own isolated video storage in `videos/{companyId}/` directory.\n\n**Features:**\n- Company-specific folders (isolated storage)\n- Unique file names per company\n- File size limit: 500MB\n- Video file validation\n- Role-based access control\n- Automatic cleanup on deletion\n\n**Permissions:**\n- Upload: owner, admin, manager, member\n- View/List: All roles\n- Update: Own videos (member) or any (owner/admin)\n- Delete: Own videos (member) or any (owner/admin/manager)"
+    }
+  ]
+}
+

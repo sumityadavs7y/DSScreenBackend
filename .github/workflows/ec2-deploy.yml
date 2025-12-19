@@ -1,0 +1,104 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT || 22 }}
+          script: |
+            set -e
+            echo "🚀 Starting deployment..."
+            
+            # Load Node.js environment (add npm to PATH)
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" || true
+            export PATH="/usr/local/bin:/usr/bin:$PATH"
+            
+            # Source profile to load environment variables
+            [ -f ~/.profile ] && source ~/.profile || true
+            [ -f ~/.bashrc ] && source ~/.bashrc || true
+            
+            # Verify npm is available
+            echo "🔍 Checking npm..."
+            which npm || echo "npm not found in PATH"
+            npm --version || echo "npm command failed"
+            
+            # Navigate to project directory
+            cd ${{ secrets.EC2_PROJECT_PATH || '~/ds' }}
+            
+            # Show current branch
+            echo "📍 Current branch: $(git branch --show-current)"
+            
+            # Fetch latest changes
+            echo "📥 Fetching latest changes..."
+            git fetch origin
+            
+            # Stash any local changes
+            echo "💾 Stashing local changes..."
+            git stash
+            
+            # Pull latest code from master/main branch
+            echo "⬇️  Pulling latest code..."
+            git pull origin ${{ github.ref_name }}
+            
+            # Install/update dependencies
+            echo "📦 Installing dependencies..."
+            npm install --production
+            
+            # Run database migrations if needed (optional)
+            # echo "🗄️  Running database migrations..."
+            # npm run migrate
+            
+            # Restart application with PM2
+            echo "🔄 Restarting application..."
+            
+            # Verify PM2 is available
+            which pm2 || echo "pm2 not found in PATH"
+            
+            # Check if PM2 process exists
+            if pm2 describe dsinfra > /dev/null 2>&1; then
+              echo "♻️  Reloading existing PM2 process..."
+              pm2 reload dsinfra --update-env
+            else
+              echo "🆕 Starting new PM2 process..."
+              pm2 start index.js --name dsinfra
+            fi
+            
+            # Save PM2 process list
+            pm2 save
+            
+            # Show PM2 status
+            echo "✅ Deployment completed successfully!"
+            echo "📊 PM2 Status:"
+            pm2 list
+            
+            # Show application logs (last 20 lines)
+            echo "📋 Recent logs:"
+            pm2 logs dsinfra --lines 20 --nostream
+
+      - name: Deployment Status
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Deployment completed successfully!"
+          else
+            echo "❌ Deployment failed!"
+            exit 1
+          fi

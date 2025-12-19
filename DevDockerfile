@@ -1,0 +1,20 @@
+FROM node:21.4.0-bullseye-slim
+
+RUN apt-get update && \
+    apt-get install -y git postgresql postgresql-contrib locales && \
+    echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
+    locale-gen en_US.UTF-8 && \
+    update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+RUN service postgresql start && \
+    sleep 5 && \
+    su - postgres -c "psql -c \"ALTER USER postgres PASSWORD 'password';\"" && \
+    su - postgres -c "psql -c \"CREATE DATABASE dsscreen;\"" && \
+    su - postgres -c "psql -c \"CREATE USER dsuser WITH PASSWORD 'dspassword';\"" && \
+    su - postgres -c "psql -c \"ALTER DATABASE dsscreen OWNER TO dsuser;\"" && \
+    su - postgres -c "psql -c \"ALTER USER dsuser CREATEDB;\"" && \
+    su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE dsscreen TO dsuser;\"" && \
+    sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/13/main/postgresql.conf && \
+    echo "host    all             all             0.0.0.0/0               md5" >> /etc/postgresql/13/main/pg_hba.conf
+
+# psql -h localhost -U dsuser -d dsscreen for logging in to the database

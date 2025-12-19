@@ -727,21 +727,16 @@
           "response": []
         },
         {
-          "name": "Download/Stream Video",
+          "name": "Download/Stream Video (Public)",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{accessToken}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/videos/{{videoId}}/download",
               "host": ["{{baseUrl}}"],
               "path": ["api", "videos", "{{videoId}}", "download"]
             },
-            "description": "Download or stream a video file. Supports HTTP range requests for video streaming. The video will be served with appropriate headers for inline playback in browsers."
+            "description": "⭐ PUBLIC ENDPOINT - No authentication required! Download or stream a video file. Supports HTTP range requests for video streaming. Perfect for digital signage displays, embedded video players, and public viewing. The video will be served with appropriate headers for inline playback in browsers."
           },
           "response": []
         },

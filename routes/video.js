@@ -460,11 +460,11 @@ router.get('/:videoId', verifyToken, async (req, res) => {
 /**
  * GET /api/videos/:videoId/download
  * Download or stream a video file
- * Requires: accessToken
- * Allowed roles: All authenticated users
+ * PUBLIC ENDPOINT - No authentication required
  * Supports: Range requests for video streaming
+ * Perfect for: Digital signage displays, public viewing, embedded players
  */
-router.get('/:videoId/download', verifyToken, async (req, res) => {
+router.get('/:videoId/download', async (req, res) => {
   try {
     const { videoId } = req.params;
 
@@ -476,11 +476,10 @@ router.get('/:videoId/download', verifyToken, async (req, res) => {
       });
     }
 
-    // Find video and verify access
+    // Find video (public access - no company check)
     const video = await Video.findOne({
       where: {
         id: videoId,
-        companyId: req.company.id, // Ensure user can only access their company's videos
         isActive: true,
       },
     });

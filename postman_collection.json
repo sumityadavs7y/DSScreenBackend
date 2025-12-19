@@ -60,6 +60,16 @@
       "key": "scheduleItemId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "deviceId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "deviceUID",
+      "value": "TEST-DEVICE-001",
+      "type": "string"
     }
   ],
   "item": [
@@ -915,6 +925,50 @@
               "path": ["api", "schedules", "public", "{{scheduleCode}}"]
             },
             "description": "⭐ PUBLIC ENDPOINT - No authentication required! View a schedule using its 5-character code. Perfect for digital signage displays and public viewing."
+          },
+          "response": []
+        },
+        {
+          "name": "Register Device to Schedule (Public)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.device && response.device.id) {",
+                  "        pm.collectionVariables.set('deviceId', response.device.id);",
+                  "        pm.environment.set('deviceId', response.device.id);",
+                  "        console.log('Device ID:', response.device.id);",
+                  "        console.log('Device UID:', response.device.uid);",
+                  "        console.log('Registered:', response.device.registered);",
+                  "        console.log('Schedule:', response.schedule.name);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduleCode\": \"{{scheduleCode}}\",\n  \"uid\": \"{{deviceUID}}\",\n  \"deviceInfo\": {\n    \"resolution\": \"1920x1080\",\n    \"os\": \"Android 12\",\n    \"location\": \"Lobby Display 1\",\n    \"model\": \"Samsung Smart Display\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/schedules/device/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "schedules", "device", "register"]
+            },
+            "description": "⭐ PUBLIC ENDPOINT - Register a device to a schedule using the schedule code. Returns full schedule details for the device to play. Device info is flexible and can include any JSON data (resolution, OS, location, etc.). If device already exists, updates its info and lastSeen timestamp."
           },
           "response": []
         },

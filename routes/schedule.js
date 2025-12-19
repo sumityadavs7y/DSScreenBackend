@@ -8,7 +8,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult, param } = require('express-validator');
-const { Schedule, ScheduleItem, Video, User, Company, sequelize, Sequelize } = require('../models');
+const { Schedule, ScheduleItem, Video, User, Company, Device, sequelize, Sequelize } = require('../models');
 const { verifyToken, requireRole } = require('../middleware/jwtAuth');
 const { generateUniqueCode, isValidCode } = require('../utils/scheduleCode');
 
@@ -405,6 +405,14 @@ router.get('/:scheduleId', verifyToken, async (req, res) => {
       });
     }
 
+    // Get device count
+    const deviceCount = await Device.count({
+      where: {
+        scheduleId: schedule.id,
+        isActive: true,
+      },
+    });
+
     res.json({
       success: true,
       data: {
@@ -415,6 +423,7 @@ router.get('/:scheduleId', verifyToken, async (req, res) => {
         timezone: schedule.timezone,
         settings: schedule.settings,
         isActive: schedule.isActive,
+        deviceCount: deviceCount,
         creator: {
           id: schedule.creator.id,
           email: schedule.creator.email,
@@ -499,6 +508,14 @@ router.get('/public/:code', async (req, res) => {
       });
     }
 
+    // Get device count
+    const deviceCount = await Device.count({
+      where: {
+        scheduleId: schedule.id,
+        isActive: true,
+      },
+    });
+
     res.json({
       success: true,
       data: {
@@ -508,6 +525,7 @@ router.get('/public/:code', async (req, res) => {
         code: schedule.code,
         timezone: schedule.timezone,
         settings: schedule.settings,
+        deviceCount: deviceCount,
         company: {
           name: schedule.company.name,
           logo: schedule.company.logo,
@@ -536,6 +554,159 @@ router.get('/public/:code', async (req, res) => {
     });
   }
 });
+
+/**
+ * POST /api/schedules/device/register
+ * Register a device to a schedule using the schedule code
+ * PUBLIC ENDPOINT - No authentication required
+ * Creates or updates device registration and returns schedule details
+ */
+router.post('/device/register',
+  [
+    body('scheduleCode')
+      .trim()
+      .notEmpty()
+      .withMessage('Schedule code is required')
+      .isLength({ min: 5, max: 5 })
+      .withMessage('Schedule code must be exactly 5 characters'),
+    body('uid')
+      .trim()
+      .notEmpty()
+      .withMessage('Device UID is required'),
+    body('deviceInfo')
+      .optional()
+      .isObject()
+      .withMessage('Device info must be an object'),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array(),
+        });
+      }
+
+      const { scheduleCode, uid, deviceInfo } = req.body;
+
+      // Validate code format
+      if (!isValidCode(scheduleCode)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid schedule code format',
+        });
+      }
+
+      // Find schedule by code
+      const schedule = await Schedule.findOne({
+        where: {
+          code: scheduleCode,
+          isActive: true,
+        },
+        include: [
+          {
+            model: Company,
+            as: 'company',
+            attributes: ['id', 'name', 'logo'],
+          },
+          {
+            model: ScheduleItem,
+            as: 'items',
+            where: { isActive: true },
+            required: false,
+            include: [
+              {
+                model: Video,
+                as: 'video',
+                where: { isActive: true },
+                attributes: ['id', 'fileName', 'fileSize', 'mimeType', 'duration', 'resolution'],
+              },
+            ],
+            order: [['startTime', 'ASC']],
+          },
+        ],
+      });
+
+      if (!schedule) {
+        return res.status(404).json({
+          success: false,
+          message: 'Schedule not found or inactive',
+        });
+      }
+
+      // Create or update device registration
+      const [device, created] = await Device.findOrCreate({
+        where: {
+          scheduleId: schedule.id,
+          uid: uid,
+        },
+        defaults: {
+          scheduleId: schedule.id,
+          uid: uid,
+          deviceInfo: deviceInfo || {},
+          lastSeen: new Date(),
+          isActive: true,
+        },
+      });
+
+      // If device already exists, update it
+      if (!created) {
+        await device.update({
+          deviceInfo: deviceInfo || device.deviceInfo,
+          lastSeen: new Date(),
+          isActive: true,
+        });
+      }
+
+      res.status(created ? 201 : 200).json({
+        success: true,
+        message: created 
+          ? 'Device registered successfully'
+          : 'Device updated successfully',
+        device: {
+          id: device.id,
+          uid: device.uid,
+          lastSeen: device.lastSeen,
+          registered: created,
+        },
+        schedule: {
+          id: schedule.id,
+          name: schedule.name,
+          description: schedule.description,
+          code: schedule.code,
+          timezone: schedule.timezone,
+          settings: schedule.settings,
+          company: {
+            name: schedule.company.name,
+            logo: schedule.company.logo,
+          },
+          items: schedule.items ? schedule.items.map(item => ({
+            id: item.id,
+            startTime: item.startTime,
+            duration: item.duration,
+            dayOfWeek: item.dayOfWeek,
+            startDate: item.startDate,
+            endDate: item.endDate,
+            order: item.order,
+            metadata: item.metadata,
+            video: item.video,
+          })) : [],
+          createdAt: schedule.createdAt,
+          updatedAt: schedule.updatedAt,
+        },
+      });
+    } catch (error) {
+      console.error('Device registration error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'An error occurred while registering the device',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
+    }
+  }
+);
 
 /**
  * PUT /api/schedules/:scheduleId

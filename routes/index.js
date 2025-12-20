@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const router = express.Router();
 
 // Home page
@@ -53,6 +54,16 @@ router.get('/health', (req, res) => {
         status: 'healthy',
         timestamp: new Date().toISOString()
     });
+});
+
+// Video demo page
+router.get('/demo/video', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/video-demo.html'));
+});
+
+// Favicon handler (prevent 404)
+router.get('/favicon.ico', (req, res) => {
+    res.status(204).end();
 });
 
 module.exports = router;

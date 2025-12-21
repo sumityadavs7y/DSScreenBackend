@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Company - dsScreen</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem 0;
+        }
+        .selection-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .selection-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .selection-body {
+            padding: 2rem;
+        }
+        .company-card {
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 1.5rem;
+            transition: all 0.3s;
+            cursor: pointer;
+            background: white;
+        }
+        .company-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
+            transform: translateY(-5px);
+        }
+        .company-logo {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            color: white;
+            margin: 0 auto 1rem;
+        }
+        .company-card button {
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="selection-card">
+            <div class="selection-header">
+                <h1 class="mb-2"><i class="bi bi-building"></i> Select Company</h1>
+                <p class="mb-0">Welcome <%= user.firstName %>! Choose a company to continue</p>
+            </div>
+            <div class="selection-body">
+                <% if (typeof error !== 'undefined' && error) { %>
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i><%= error %>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <% } %>
+
+                <div class="row g-4">
+                    <% companies.forEach(company => { %>
+                        <div class="col-md-6">
+                            <form action="/company-selection" method="POST">
+                                <input type="hidden" name="companyId" value="<%= company.id %>">
+                                <button type="submit" class="company-card">
+                                    <div class="company-logo">
+                                        <%= company.name.charAt(0).toUpperCase() %>
+                                    </div>
+                                    <h4 class="text-center mb-2"><%= company.name %></h4>
+                                    <p class="text-center mb-0">
+                                        <span class="badge bg-primary"><%= company.role %></span>
+                                    </p>
+                                </button>
+                            </form>
+                        </div>
+                    <% }) %>
+                </div>
+
+                <hr class="my-4">
+
+                <div class="text-center">
+                    <form action="/logout" method="POST" class="d-inline">
+                        <button type="submit" class="btn btn-outline-secondary">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

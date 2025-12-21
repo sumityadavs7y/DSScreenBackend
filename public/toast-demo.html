@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toast Notification System - Demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/toast.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .demo-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 3rem;
+        }
+        .demo-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        .demo-header h1 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+        .demo-header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        .demo-section {
+            margin-bottom: 2rem;
+        }
+        .demo-section h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+        .btn-demo {
+            margin: 0.5rem;
+            min-width: 150px;
+        }
+        .code-block {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 1rem;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            margin: 1rem 0;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 0.5rem 0;
+            padding-left: 2rem;
+            position: relative;
+        }
+        .feature-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Toast Container - Required for toast system -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="demo-card">
+        <div class="demo-header">
+            <h1><i class="bi bi-bell"></i> Toast Notification System</h1>
+            <p>Modular, reusable, and easy to integrate!</p>
+        </div>
+
+        <!-- Basic Demos -->
+        <div class="demo-section">
+            <h3>Basic Notifications</h3>
+            <p>Click any button to see the notification in action:</p>
+            <div class="text-center">
+                <button class="btn btn-success btn-demo" onclick="Toast.success('Operation completed successfully!')">
+                    <i class="bi bi-check-circle"></i> Success
+                </button>
+                <button class="btn btn-danger btn-demo" onclick="Toast.error('Something went wrong!')">
+                    <i class="bi bi-x-circle"></i> Error
+                </button>
+                <button class="btn btn-info btn-demo" onclick="Toast.info('Processing your request...')">
+                    <i class="bi bi-info-circle"></i> Info
+                </button>
+                <button class="btn btn-warning btn-demo" onclick="Toast.warning('Please check your input.')">
+                    <i class="bi bi-exclamation-triangle"></i> Warning
+                </button>
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- Custom Duration -->
+        <div class="demo-section">
+            <h3>Custom Duration</h3>
+            <p>Control how long notifications stay visible:</p>
+            <div class="text-center">
+                <button class="btn btn-primary btn-demo" onclick="Toast.success('Quick message!', 2000)">
+                    2 Seconds
+                </button>
+                <button class="btn btn-primary btn-demo" onclick="Toast.info('Standard message', 4000)">
+                    4 Seconds
+                </button>
+                <button class="btn btn-primary btn-demo" onclick="Toast.warning('Longer message...', 8000)">
+                    8 Seconds
+                </button>
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- Multiple Toasts -->
+        <div class="demo-section">
+            <h3>Multiple Notifications</h3>
+            <p>Show multiple notifications at once:</p>
+            <div class="text-center">
+                <button class="btn btn-secondary btn-demo" onclick="showMultiple()">
+                    <i class="bi bi-stack"></i> Show 3 Toasts
+                </button>
+                <button class="btn btn-outline-secondary btn-demo" onclick="Toast.clearAll()">
+                    <i class="bi bi-x-lg"></i> Clear All
+                </button>
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- Integration Example -->
+        <div class="demo-section">
+            <h3>How to Integrate</h3>
+            <p><strong>Step 1:</strong> Include the CSS and JS files:</p>
+            <div class="code-block">
+&lt;!-- In your &lt;head&gt; --&gt;<br>
+&lt;link rel="stylesheet" href="/css/toast.css"&gt;<br>
+<br>
+&lt;!-- Before closing &lt;/body&gt; --&gt;<br>
+&lt;script src="/js/toast.js"&gt;&lt;/script&gt;
+            </div>
+
+            <p><strong>Step 2:</strong> Add the toast container:</p>
+            <div class="code-block">
+&lt;div class="toast-container" id="toastContainer"&gt;&lt;/div&gt;
+            </div>
+
+            <p><strong>Step 3:</strong> Show notifications:</p>
+            <div class="code-block">
+Toast.success('Video uploaded!');<br>
+Toast.error('Upload failed.');<br>
+Toast.info('Processing...');<br>
+Toast.warning('File too large.');
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- Features -->
+        <div class="demo-section">
+            <h3>Features</h3>
+            <ul class="feature-list">
+                <li>Modular & reusable across entire website</li>
+                <li>Auto-dismiss with customizable duration</li>
+                <li>Smooth slide-in/slide-out animations</li>
+                <li>Multiple notification types (success, error, info, warning)</li>
+                <li>Mobile responsive design</li>
+                <li>Automatic URL parameter detection</li>
+                <li>Clean URLs after showing notification</li>
+                <li>Zero dependencies (vanilla JavaScript)</li>
+                <li>Dark theme support</li>
+                <li>Stackable notifications</li>
+            </ul>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- API Reference -->
+        <div class="demo-section">
+            <h3>Quick API Reference</h3>
+            <div class="code-block">
+// Basic methods<br>
+Toast.success('Message');<br>
+Toast.error('Message');<br>
+Toast.info('Message');<br>
+Toast.warning('Message');<br>
+<br>
+// Custom duration<br>
+Toast.success('Message', 5000);<br>
+<br>
+// Advanced<br>
+Toast.show('Message', 'type', duration, 'title');<br>
+Toast.clearAll();<br>
+Toast.close(toastElement);
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- Navigation -->
+        <div class="text-center">
+            <a href="/dashboard" class="btn btn-lg btn-primary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+            <a href="/TOAST_SYSTEM_GUIDE.md" class="btn btn-lg btn-outline-primary" target="_blank">
+                <i class="bi bi-book"></i> Full Documentation
+            </a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/toast.js"></script>
+    <script>
+        // Show welcome message on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            Toast.info('Welcome to the Toast Demo! Try clicking the buttons above.');
+        });
+
+        // Function to show multiple toasts
+        function showMultiple() {
+            Toast.success('First notification');
+            setTimeout(() => Toast.info('Second notification'), 300);
+            setTimeout(() => Toast.warning('Third notification'), 600);
+        }
+
+        // Test URL parameter support
+        // Try visiting: toast-demo.html?success=This came from a URL parameter!
+    </script>
+</body>
+</html>
+

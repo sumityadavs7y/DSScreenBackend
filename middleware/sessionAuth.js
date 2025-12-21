@@ -126,6 +126,75 @@ const protect = [loadUserContext, hasCompanyContext];
  */
 const authenticate = [loadUserContext];
 
+/**
+ * Alias for loadUserContext (for compatibility)
+ */
+const requireAuth = loadUserContext;
+
+/**
+ * Alias for hasCompanyContext (for compatibility)
+ */
+const requireCompany = hasCompanyContext;
+
+/**
+ * Web middleware - redirects instead of JSON responses
+ */
+const webRequireAuth = async (req, res, next) => {
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.redirect('/login');
+    }
+
+    const user = await User.findByPk(req.session.userId);
+    if (!user || !user.isActive) {
+      req.session.destroy();
+      return res.redirect('/login');
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('Session authentication error:', error);
+    res.redirect('/login');
+  }
+};
+
+const webRequireCompany = async (req, res, next) => {
+  if (!req.session || !req.session.companyId) {
+    return res.redirect('/company-selection');
+  }
+
+  try {
+    const company = await Company.findByPk(req.session.companyId);
+    if (!company || !company.isActive) {
+      delete req.session.companyId;
+      delete req.session.role;
+      return res.redirect('/company-selection');
+    }
+
+    const userCompany = await UserCompany.findOne({
+      where: {
+        userId: req.session.userId,
+        companyId: req.session.companyId,
+        isActive: true,
+      },
+    });
+
+    if (!userCompany) {
+      delete req.session.companyId;
+      delete req.session.role;
+      return res.redirect('/company-selection');
+    }
+
+    req.company = company;
+    req.userCompany = userCompany;
+    next();
+  } catch (error) {
+    console.error('Company context error:', error);
+    res.redirect('/dashboard');
+  }
+};
+
 module.exports = {
   isAuthenticated,
   hasCompanyContext,
@@ -133,5 +202,9 @@ module.exports = {
   requireRole,
   protect,
   authenticate,
+  requireAuth,
+  requireCompany,
+  webRequireAuth,
+  webRequireCompany,
 };
 

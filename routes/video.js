@@ -11,9 +11,9 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { body, validationResult } = require('express-validator');
-const { Video, User } = require('../models');
-const { protect, requireRole } = require('../middleware/sessionAuth');
-const verifyToken = protect; // Alias for compatibility
+const { Video, User, ScheduleItem, Schedule } = require('../models');
+const { requireAuth, requireCompany, requireRole } = require('../middleware/sessionAuth');
+const verifyToken = requireAuth; // Alias for compatibility
 const { storageConfig } = require('../config');
 const {
   ensureCompanyDir,
@@ -666,8 +666,69 @@ router.put('/:videoId',
 );
 
 /**
+ * GET /api/videos/:videoId/schedule-usage
+ * Check if video is used in any schedules
+ * Requires: accessToken
+ */
+router.get('/:videoId/schedule-usage',
+  verifyToken,
+  async (req, res) => {
+    try {
+      const { videoId } = req.params;
+
+      if (!isValidUUID(videoId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid video ID format',
+        });
+      }
+
+      // Find all schedule items using this video
+      const scheduleItems = await ScheduleItem.findAll({
+        where: {
+          videoId: videoId,
+          isActive: true,
+        },
+        include: [{
+          model: Schedule,
+          as: 'schedule',
+          where: {
+            companyId: req.company.id,
+            isActive: true,
+          },
+          attributes: ['id', 'name', 'description'],
+        }],
+      });
+
+      res.json({
+        success: true,
+        data: {
+          isUsed: scheduleItems.length > 0,
+          usageCount: scheduleItems.length,
+          schedules: scheduleItems.map(item => ({
+            scheduleId: item.schedule.id,
+            scheduleName: item.schedule.name,
+            scheduleDescription: item.schedule.description,
+            itemId: item.id,
+            startTime: item.startTime,
+          })),
+        },
+      });
+    } catch (error) {
+      console.error('Check video usage error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'An error occurred while checking video usage',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
+    }
+  }
+);
+
+/**
  * DELETE /api/videos/:videoId
  * Delete a video (soft delete in DB, hard delete file)
+ * Also removes video from all schedules if forceDelete=true
  * Requires: accessToken
  * Allowed roles: owner, admin, manager (or the uploader)
  */
@@ -677,6 +738,7 @@ router.delete('/:videoId',
   async (req, res) => {
     try {
       const { videoId } = req.params;
+      const { forceDelete } = req.query; // Query param to force delete even if in schedules
 
       // Validate UUID format
       if (!isValidUUID(videoId)) {
@@ -714,6 +776,52 @@ router.delete('/:videoId',
         });
       }
 
+      // Check if video is used in any schedules
+      const scheduleItems = await ScheduleItem.findAll({
+        where: {
+          videoId: videoId,
+          isActive: true,
+        },
+        include: [{
+          model: Schedule,
+          as: 'schedule',
+          where: {
+            companyId: req.company.id,
+            isActive: true,
+          },
+          attributes: ['id', 'name'],
+        }],
+      });
+
+      // If video is in schedules and forceDelete is not true, return error
+      if (scheduleItems.length > 0 && forceDelete !== 'true') {
+        return res.status(409).json({
+          success: false,
+          message: 'Video is currently used in schedules',
+          data: {
+            usageCount: scheduleItems.length,
+            schedules: scheduleItems.map(item => ({
+              scheduleId: item.schedule.id,
+              scheduleName: item.schedule.name,
+              itemId: item.id,
+            })),
+          },
+        });
+      }
+
+      // If forceDelete is true, remove from all schedules first
+      if (scheduleItems.length > 0 && forceDelete === 'true') {
+        await ScheduleItem.update(
+          { isActive: false },
+          {
+            where: {
+              videoId: videoId,
+              isActive: true,
+            },
+          }
+        );
+      }
+
       // Delete file from filesystem
       const fileDeleted = await deleteFile(video.filePath);
 
@@ -727,6 +835,7 @@ router.delete('/:videoId',
           id: video.id,
           fileName: video.fileName,
           fileDeleted: fileDeleted,
+          removedFromSchedules: scheduleItems.length,
           deletedAt: new Date(),
         },
       });
@@ -757,6 +866,10 @@ router.post('/bulk-delete',
     body('videoIds.*')
       .isUUID()
       .withMessage('All video IDs must be valid UUIDs'),
+    body('forceDelete')
+      .optional()
+      .isBoolean()
+      .withMessage('forceDelete must be a boolean'),
   ],
   async (req, res) => {
     try {
@@ -769,7 +882,7 @@ router.post('/bulk-delete',
         });
       }
 
-      const { videoIds } = req.body;
+      const { videoIds, forceDelete } = req.body;
 
       // Limit bulk operations to prevent abuse
       if (videoIds.length > 100) {
@@ -817,6 +930,38 @@ router.post('/bulk-delete',
             continue;
           }
 
+          // Check if video is used in schedules
+          const scheduleItems = await ScheduleItem.findAll({
+            where: {
+              videoId: video.id,
+              isActive: true,
+            },
+          });
+
+          // If video is in schedules and forceDelete is not true, skip
+          if (scheduleItems.length > 0 && !forceDelete) {
+            results.failed.push({
+              id: video.id,
+              fileName: video.fileName,
+              reason: `Used in ${scheduleItems.length} schedule(s)`,
+              usedInSchedules: true,
+            });
+            continue;
+          }
+
+          // If forceDelete is true, remove from all schedules first
+          if (scheduleItems.length > 0 && forceDelete) {
+            await ScheduleItem.update(
+              { isActive: false },
+              {
+                where: {
+                  videoId: video.id,
+                  isActive: true,
+                },
+              }
+            );
+          }
+
           // Delete file from filesystem
           const fileDeleted = await deleteFile(video.filePath);
 
@@ -827,6 +972,7 @@ router.post('/bulk-delete',
             id: video.id,
             fileName: video.fileName,
             fileDeleted: fileDeleted,
+            removedFromSchedules: scheduleItems.length,
           });
         } catch (error) {
           console.error(`Error deleting video ${video.id}:`, error);

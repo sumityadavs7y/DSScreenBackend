@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - dsScreen</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/video-js.css">
+    <link rel="stylesheet" href="/css/toast.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .content-wrapper {
+            padding: 2rem 0;
+        }
+        .stats-card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        .stats-card:hover {
+            transform: translateY(-5px);
+        }
+        .table-card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .btn-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+        }
+        .btn-gradient:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
+            color: white;
+        }
+        .video-thumbnail {
+            width: 60px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .video-thumbnail:hover {
+            transform: scale(1.1);
+        }
+        .video-name-clickable {
+            cursor: pointer;
+            color: #667eea;
+            transition: color 0.2s;
+        }
+        .video-name-clickable:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+        #videoPlayerModal .modal-dialog {
+            max-width: 900px;
+        }
+        #videoPlayerModal .modal-body {
+            padding: 0;
+            background: #000;
+        }
+        .video-js {
+            width: 100%;
+            height: 500px;
+        }
+        .modal-content {
+            border-radius: 15px;
+            border: none;
+        }
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+        .empty-state i {
+            font-size: 5rem;
+            color: #dee2e6;
+        }
+        /* Custom Tab Styling */
+        .nav-tabs-custom {
+            border-bottom: 2px solid #dee2e6;
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 0;
+        }
+        .nav-tabs-custom .nav-item {
+            margin-bottom: 0;
+        }
+        .nav-tabs-custom .nav-link {
+            border: none;
+            border-bottom: 3px solid transparent;
+            background: transparent;
+            color: #6c757d;
+            padding: 1rem 2rem;
+            font-weight: 500;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            position: relative;
+            border-radius: 0;
+        }
+        .nav-tabs-custom .nav-link:hover {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        .nav-tabs-custom .nav-link.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: transparent;
+            font-weight: 600;
+        }
+        .nav-tabs-custom .nav-link i {
+            font-size: 1.1rem;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+        @media (max-width: 768px) {
+            .table-responsive {
+                font-size: 0.875rem;
+            }
+            .nav-tabs-custom .nav-link {
+                padding: 0.75rem 1rem;
+                font-size: 0.9rem;
+            }
+            .nav-tabs-custom .nav-link i {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/dashboard">
+                <i class="bi bi-tv"></i> dsScreen
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> <%= user.firstName %> <%= user.lastName %>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><h6 class="dropdown-header"><%= company.name %></h6></li>
+                            <li><span class="dropdown-item-text"><small class="text-muted">Role: <%= userCompany.role %></small></span></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form action="/logout" method="POST">
+                                    <button type="submit" class="dropdown-item">
+                                        <i class="bi bi-box-arrow-right"></i> Logout
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="content-wrapper">
+        <div class="container">
+
+            <!-- Navigation Tabs -->
+            <ul class="nav nav-tabs-custom" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link <%= activeTab === 'uploads' ? 'active' : '' %>" href="/dashboard?tab=uploads">
+                        <i class="bi bi-film"></i> Video Library
+                    </a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link <%= activeTab === 'schedules' ? 'active' : '' %>" href="/dashboard?tab=schedules">
+                        <i class="bi bi-calendar3"></i> Schedules
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <% if (activeTab === 'uploads') { %>
+                    <!-- Uploads Tab -->
+                    <div class="tab-pane fade show active">
+                        <div class="card table-card">
+                            <div class="card-header bg-white border-0 py-3">
+                                <div class="row align-items-center">
+                                    <div class="col">
+                                        <h4 class="mb-0"><i class="bi bi-film"></i> Video Library</h4>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button class="btn btn-gradient me-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                                            <i class="bi bi-cloud-upload"></i> Upload Video
+                                        </button>
+                                        <% if (videos && videos.length > 0) { %>
+                                            <button class="btn btn-danger" onclick="showBulkDeleteModal()">
+                                                <i class="bi bi-trash"></i> <span class="d-none d-md-inline">Delete Selected</span>
+                                            </button>
+                                        <% } %>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <% if (!videos || videos.length === 0) { %>
+                                    <!-- Empty State -->
+                                    <div class="empty-state">
+                                        <i class="bi bi-film"></i>
+                                        <h3 class="mt-3">No Videos Yet</h3>
+                                        <p class="text-muted">Upload your first video using the button above.</p>
+                                    </div>
+                                <% } else { %>
+                                    <!-- Video Table -->
+                                    <div class="table-responsive">
+                                        <table class="table table-hover mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th width="50">
+                                                        <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll(this)">
+                                                    </th>
+                                                    <th>Video</th>
+                                                    <th class="d-none d-md-table-cell">Size</th>
+                                                    <th class="d-none d-lg-table-cell">Duration</th>
+                                                    <th class="d-none d-lg-table-cell">Uploaded</th>
+                                                    <th width="120">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <% videos.forEach(video => { %>
+                                                    <tr>
+                                                        <td>
+                                                            <input type="checkbox" class="form-check-input video-checkbox" 
+                                                                   value="<%= video.id %>" 
+                                                                   data-name="<%= video.fileName %>">
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex align-items-center">
+                                                                <div class="video-thumbnail me-3" onclick='playVideo("<%= video.id %>", "<%= video.fileName.replace(/"/g, "&quot;") %>")'>
+                                                                    <i class="bi bi-play-fill"></i>
+                                                                </div>
+                                                                <div>
+                                                                    <div class="fw-bold video-name-clickable" onclick='playVideo("<%= video.id %>", "<%= video.fileName.replace(/"/g, "&quot;") %>")'>
+                                                                        <%= video.fileName %>
+                                                                    </div>
+                                                                    <small class="text-muted d-md-none">
+                                                                        <%= formatFileSize(video.fileSize) %>
+                                                                    </small>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="d-none d-md-table-cell"><%= formatFileSize(video.fileSize) %></td>
+                                                        <td class="d-none d-lg-table-cell"><%= video.duration ? formatDuration(video.duration) : 'N/A' %></td>
+                                                        <td class="d-none d-lg-table-cell"><%= new Date(video.uploadedAt).toLocaleDateString() %></td>
+                                                        <td>
+                                                            <button class="btn btn-sm btn-outline-primary me-1" 
+                                                                    onclick='openEditModal("<%= video.id %>", "<%= video.fileName.replace(/"/g, '&quot;') %>")'
+                                                                    title="Edit">
+                                                                <i class="bi bi-pencil"></i>
+                                                            </button>
+                                                            <form action="/dashboard/videos/<%= video.id %>/delete" 
+                                                                  method="POST" 
+                                                                  class="d-inline"
+                                                                  onsubmit="return confirm('Are you sure you want to delete this video?')">
+                                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                                                    <i class="bi bi-trash"></i>
+                                                                </button>
+                                                            </form>
+                                                        </td>
+                                                    </tr>
+                                                <% }) %>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                <% } %>
+                            </div>
+                        </div>
+                    </div>
+                <% } %>
+
+                <% if (activeTab === 'schedules') { %>
+                    <!-- Schedules Tab -->
+                    <div class="tab-pane fade show active">
+                        <div class="card table-card">
+                            <div class="card-body">
+                                <div class="empty-state">
+                                    <i class="bi bi-calendar3"></i>
+                                    <h3 class="mt-3">Schedules</h3>
+                                    <p class="text-muted">Schedule management functionality will be implemented here.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal fade" id="uploadModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-cloud-upload"></i> Upload Video</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="/dashboard/upload" method="POST" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="video" class="form-label">Select Video File</label>
+                            <input type="file" class="form-control" id="video" name="video" accept="video/*" required>
+                            <small class="text-muted">Max size: 500MB. Supported: MP4, WebM, OGG, MOV, AVI</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-gradient">
+                            <i class="bi bi-upload"></i> Upload
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil"></i> Edit Video Name</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="editForm" method="POST">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="editFileName" class="form-label">Video Name</label>
+                            <input type="text" class="form-control" id="editFileName" name="fileName" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-gradient">
+                            <i class="bi bi-check-lg"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Delete Modal -->
+    <div class="modal fade" id="bulkDeleteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-trash"></i> Delete Videos</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="/dashboard/videos/bulk-delete" method="POST">
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete the following videos?</p>
+                        <div id="selectedVideosList" class="list-group mb-3"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Player Modal -->
+    <div class="modal fade" id="videoPlayerModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="videoPlayerTitle">
+                        <i class="bi bi-play-circle"></i> Video Player
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <video id="videoPlayer" class="video-js vjs-default-skin" controls preload="auto">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/video.min.js"></script>
+    <script src="/js/toast.js"></script>
+    <script>
+        const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+        const bulkDeleteModal = new bootstrap.Modal(document.getElementById('bulkDeleteModal'));
+        const videoPlayerModal = new bootstrap.Modal(document.getElementById('videoPlayerModal'));
+        let player = null;
+
+        function openEditModal(videoId, videoName) {
+            document.getElementById('editForm').action = `/dashboard/videos/${videoId}/edit`;
+            document.getElementById('editFileName').value = videoName;
+            editModal.show();
+        }
+
+        function playVideo(videoId, videoName) {
+            // Set modal title
+            document.getElementById('videoPlayerTitle').innerHTML = `<i class="bi bi-play-circle"></i> ${videoName}`;
+            
+            // Dispose of existing player if any
+            if (player) {
+                player.dispose();
+                player = null;
+            }
+
+            // Get or recreate video element
+            let videoElement = document.getElementById('videoPlayer');
+            
+            // If element doesn't exist, recreate it
+            if (!videoElement) {
+                const modalBody = document.querySelector('#videoPlayerModal .modal-body');
+                modalBody.innerHTML = '<video id="videoPlayer" class="video-js vjs-default-skin" controls preload="auto">Your browser does not support the video tag.</video>';
+                videoElement = document.getElementById('videoPlayer');
+            }
+            
+            // Initialize video.js player
+            player = videojs(videoElement, {
+                controls: true,
+                autoplay: false,
+                preload: 'auto',
+                fluid: false,
+                responsive: true,
+                aspectRatio: '16:9',
+                sources: [{
+                    src: `/api/videos/${videoId}/download`,
+                    type: 'video/mp4'
+                }]
+            });
+
+            // Show modal
+            videoPlayerModal.show();
+
+            // Play video when modal is fully shown
+            const modalElement = document.getElementById('videoPlayerModal');
+            modalElement.addEventListener('shown.bs.modal', function () {
+                if (player) {
+                    player.play().catch(err => {
+                        console.log('Autoplay prevented:', err);
+                    });
+                }
+            }, { once: true });
+        }
+
+        // Clean up player when modal is hidden
+        document.getElementById('videoPlayerModal').addEventListener('hidden.bs.modal', function () {
+            if (player) {
+                player.pause();
+                // Don't dispose here - we'll dispose when creating a new player
+            }
+        });
+
+        function toggleSelectAll(checkbox) {
+            const checkboxes = document.querySelectorAll('.video-checkbox');
+            checkboxes.forEach(cb => cb.checked = checkbox.checked);
+        }
+
+        function showBulkDeleteModal() {
+            const checkboxes = document.querySelectorAll('.video-checkbox:checked');
+            
+            if (checkboxes.length === 0) {
+                alert('Please select at least one video to delete.');
+                return;
+            }
+            
+            const listHtml = Array.from(checkboxes).map(cb => 
+                `<input type="hidden" name="videoIds[]" value="${cb.value}">
+                 <div class="list-group-item">${cb.dataset.name}</div>`
+            ).join('');
+            
+            document.getElementById('selectedVideosList').innerHTML = listHtml;
+            bulkDeleteModal.show();
+        }
+    </script>
+</body>
+</html>
+
+<%
+function formatFileSize(bytes) {
+    if (!bytes) return 'N/A';
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + sizes[i];
+}
+
+function formatDuration(seconds) {
+    if (!seconds) return 'N/A';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+%>

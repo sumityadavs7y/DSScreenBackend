@@ -1,0 +1,186 @@
+/**
+ * Toast Notification System - Styles
+ * Modular CSS for website-wide toast notifications
+ * 
+ * Usage: Include this CSS file in any page that needs toast notifications
+ * <link rel="stylesheet" href="/css/toast.css">
+ */
+
+/* Toast Container */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 400px;
+    pointer-events: none;
+}
+
+/* Toast Notification */
+.toast-notification {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: slideInRight 0.3s ease-out;
+    min-width: 300px;
+    border-left: 4px solid;
+    pointer-events: auto;
+    cursor: default;
+}
+
+/* Toast Types */
+.toast-notification.success {
+    border-left-color: #28a745;
+}
+
+.toast-notification.error {
+    border-left-color: #dc3545;
+}
+
+.toast-notification.info {
+    border-left-color: #17a2b8;
+}
+
+.toast-notification.warning {
+    border-left-color: #ffc107;
+}
+
+/* Toast Icon */
+.toast-notification .toast-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.toast-notification.success .toast-icon {
+    color: #28a745;
+}
+
+.toast-notification.error .toast-icon {
+    color: #dc3545;
+}
+
+.toast-notification.info .toast-icon {
+    color: #17a2b8;
+}
+
+.toast-notification.warning .toast-icon {
+    color: #ffc107;
+}
+
+/* Toast Content */
+.toast-notification .toast-content {
+    flex-grow: 1;
+}
+
+.toast-notification .toast-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #333;
+    font-size: 15px;
+}
+
+.toast-notification .toast-message {
+    font-size: 14px;
+    color: #666;
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* Toast Close Button */
+.toast-notification .toast-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #999;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.toast-notification .toast-close:hover {
+    color: #333;
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Toast Hiding Animation */
+.toast-notification.hiding {
+    animation: slideOutRight 0.3s ease-out forwards;
+}
+
+/* Animations */
+@keyframes slideInRight {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .toast-container {
+        right: 10px;
+        left: 10px;
+        max-width: none;
+    }
+    
+    .toast-notification {
+        min-width: auto;
+        width: 100%;
+    }
+}
+
+/* Dark Theme Support (Optional) */
+@media (prefers-color-scheme: dark) {
+    .toast-notification {
+        background: #2d2d2d;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+    
+    .toast-notification .toast-title {
+        color: #f0f0f0;
+    }
+    
+    .toast-notification .toast-message {
+        color: #b0b0b0;
+    }
+    
+    .toast-notification .toast-close {
+        color: #888;
+    }
+    
+    .toast-notification .toast-close:hover {
+        color: #f0f0f0;
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+}
+

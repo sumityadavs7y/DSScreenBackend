@@ -10,8 +10,6 @@ const { runMigrations } = require('./utils/migrate');
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }));
-app.use(express.static(__dirname + '/public'));
-app.use('/videos', express.static(__dirname + '/videos'));
 
 // Session configuration
 app.use(session({
@@ -28,20 +26,28 @@ app.use(session({
 app.set('view engine', 'ejs');
 app.set('views', 'views');
 
-// Routes
+// Routes (BEFORE static middleware to allow route precedence)
 const indexRoutes = require('./routes/index');
+const webRoutes = require('./routes/web');
 const authRoutes = require('./routes/auth');
+const dashboardRoutes = require('./routes/dashboard');
 const companyRoutes = require('./routes/company');
 const userRoutes = require('./routes/user');
 const videoRoutes = require('./routes/video');
 const scheduleRoutes = require('./routes/schedule');
 
-app.use('/', indexRoutes);
+app.use('/', webRoutes);  // Web routes (login, register, logout)
+app.use('/dashboard', dashboardRoutes); // Dashboard routes BEFORE static files
 app.use('/api/auth', authRoutes);
 app.use('/api/company', companyRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/schedules', scheduleRoutes);
+app.use('/', indexRoutes); // Static pages
+
+// Static files (AFTER routes so routes take precedence)
+app.use(express.static(__dirname + '/public'));
+app.use('/videos', express.static(__dirname + '/videos'));
 
 // Initialize database and start server
 const startServer = async () => {

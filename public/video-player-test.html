@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Player Popup - Test Page</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/video-js.css">
+    <link rel="stylesheet" href="/css/toast.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding: 2rem;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .page-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 15px;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .video-card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .video-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        .video-thumbnail {
+            width: 80px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+        }
+        .video-name-clickable {
+            color: #667eea;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .video-name-clickable:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+        #videoPlayerModal .modal-dialog {
+            max-width: 900px;
+        }
+        #videoPlayerModal .modal-body {
+            padding: 0;
+            background: #000;
+        }
+        .video-js {
+            width: 100%;
+            height: 500px;
+        }
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+        }
+        .btn-gradient:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
+            color: white;
+        }
+        .status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            display: inline-block;
+            margin-top: 1rem;
+        }
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-loading {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <!-- Header -->
+        <div class="page-header">
+            <h1><i class="bi bi-play-circle"></i> Video Player Popup Test</h1>
+            <p class="mb-0">Click on any video to test the popup player with video.js</p>
+        </div>
+
+        <!-- Status -->
+        <div class="alert alert-info">
+            <h5><i class="bi bi-info-circle"></i> Test Status</h5>
+            <div id="statusMessage" class="status-badge status-loading">
+                <i class="bi bi-clock"></i> Loading videos...
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5><i class="bi bi-lightbulb"></i> How to Test</h5>
+                <ol>
+                    <li>Click on any video thumbnail or name below</li>
+                    <li>A modal popup will open with video.js player</li>
+                    <li>Video should start playing automatically</li>
+                    <li>Test player controls: play/pause, seek, volume, fullscreen</li>
+                    <li>Close modal by clicking X or clicking outside</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Video List -->
+        <div id="videoList" class="row">
+            <div class="col-12 text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="card" style="display: none;">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-film" style="font-size: 5rem; color: #dee2e6;"></i>
+                <h3 class="mt-3">No Videos Available</h3>
+                <p class="text-muted">Please upload some videos first to test the player.</p>
+                <a href="/dashboard" class="btn btn-gradient mt-3">
+                    <i class="bi bi-arrow-left"></i> Go to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Player Modal -->
+    <div class="modal fade" id="videoPlayerModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="videoPlayerTitle">
+                        <i class="bi bi-play-circle"></i> Video Player
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <video id="videoPlayer" class="video-js vjs-default-skin" controls preload="auto">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/video.min.js"></script>
+    <script src="/js/toast.js"></script>
+    <script>
+        const videoPlayerModal = new bootstrap.Modal(document.getElementById('videoPlayerModal'));
+        let player = null;
+
+        // Load videos on page load
+        document.addEventListener('DOMContentLoaded', loadVideos);
+
+        async function loadVideos() {
+            try {
+                const response = await fetch('/api/videos', {
+                    credentials: 'include',
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Failed to load videos');
+                }
+
+                const videos = data.data?.videos || [];
+                displayVideos(videos);
+                updateStatus(videos.length > 0 ? 'success' : 'empty');
+                
+                if (videos.length > 0) {
+                    Toast.success(`Loaded ${videos.length} video(s) successfully!`);
+                }
+            } catch (error) {
+                console.error('Error loading videos:', error);
+                updateStatus('error', error.message);
+                Toast.error('Failed to load videos: ' + error.message);
+            }
+        }
+
+        function displayVideos(videos) {
+            const videoList = document.getElementById('videoList');
+            const emptyState = document.getElementById('emptyState');
+
+            if (videos.length === 0) {
+                videoList.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            videoList.innerHTML = videos.map(video => `
+                <div class="col-md-6 col-lg-4">
+                    <div class="card video-card" onclick='playVideo("${video.id}", "${escapeHtml(video.fileName)}")'>
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="video-thumbnail me-3">
+                                    <i class="bi bi-play-fill"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="video-name-clickable">${escapeHtml(video.fileName)}</div>
+                                    <small class="text-muted">
+                                        ${formatFileSize(video.fileSize)} • ${formatDuration(video.duration)}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function playVideo(videoId, videoName) {
+            // Set modal title
+            document.getElementById('videoPlayerTitle').innerHTML = 
+                `<i class="bi bi-play-circle"></i> ${videoName}`;
+            
+            // Dispose of existing player if any
+            if (player) {
+                player.dispose();
+                player = null;
+            }
+
+            // Get or recreate video element
+            let videoElement = document.getElementById('videoPlayer');
+            
+            // If element doesn't exist, recreate it
+            if (!videoElement) {
+                const modalBody = document.querySelector('#videoPlayerModal .modal-body');
+                modalBody.innerHTML = '<video id="videoPlayer" class="video-js vjs-default-skin" controls preload="auto">Your browser does not support the video tag.</video>';
+                videoElement = document.getElementById('videoPlayer');
+            }
+            
+            // Initialize video.js player
+            player = videojs(videoElement, {
+                controls: true,
+                autoplay: false,
+                preload: 'auto',
+                fluid: false,
+                responsive: true,
+                aspectRatio: '16:9',
+                sources: [{
+                    src: `/api/videos/${videoId}/download`,
+                    type: 'video/mp4'
+                }]
+            });
+
+            // Show modal
+            videoPlayerModal.show();
+
+            // Play video when modal is fully shown
+            const modalElement = document.getElementById('videoPlayerModal');
+            modalElement.addEventListener('shown.bs.modal', function () {
+                if (player) {
+                    player.play().catch(err => {
+                        console.log('Autoplay prevented:', err);
+                    });
+                }
+            }, { once: true });
+        }
+
+        // Clean up player when modal is hidden
+        document.getElementById('videoPlayerModal').addEventListener('hidden.bs.modal', function () {
+            if (player) {
+                player.pause();
+                // Don't dispose here - we'll dispose when creating a new player
+            }
+        });
+
+        function updateStatus(status, message = '') {
+            const statusElement = document.getElementById('statusMessage');
+            
+            switch (status) {
+                case 'success':
+                    statusElement.className = 'status-badge status-success';
+                    statusElement.innerHTML = '<i class="bi bi-check-circle"></i> Videos loaded successfully!';
+                    break;
+                case 'empty':
+                    statusElement.className = 'status-badge status-loading';
+                    statusElement.innerHTML = '<i class="bi bi-inbox"></i> No videos found';
+                    break;
+                case 'error':
+                    statusElement.className = 'status-badge status-error';
+                    statusElement.innerHTML = `<i class="bi bi-x-circle"></i> Error: ${message}`;
+                    break;
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes) return 'N/A';
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds) return 'N/A';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
+

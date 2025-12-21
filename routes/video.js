@@ -12,7 +12,8 @@ const path = require('path');
 const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const { Video, User } = require('../models');
-const { verifyToken, requireRole } = require('../middleware/jwtAuth');
+const { protect, requireRole } = require('../middleware/sessionAuth');
+const verifyToken = protect; // Alias for compatibility
 const { storageConfig } = require('../config');
 const {
   ensureCompanyDir,

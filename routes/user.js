@@ -9,7 +9,8 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const { User, Company, UserCompany } = require('../models');
-const { verifyToken, requireRole } = require('../middleware/jwtAuth');
+const { protect, requireRole } = require('../middleware/sessionAuth');
+const verifyToken = protect; // Alias for compatibility
 
 /**
  * POST /api/users/create

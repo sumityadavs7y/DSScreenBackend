@@ -6,7 +6,9 @@
 
 const express = require('express');
 const router = express.Router();
-const { verifyToken, requireRole, optionalAuth } = require('../middleware/jwtAuth');
+const { protect, requireRole } = require('../middleware/sessionAuth');
+const verifyToken = protect; // Alias for compatibility
+const optionalAuth = (req, res, next) => next(); // Optional auth not needed for sessions
 
 /**
  * Example 1: Basic Protected Route

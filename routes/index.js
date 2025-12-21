@@ -2,8 +2,33 @@ const express = require('express');
 const path = require('path');
 const router = express.Router();
 
-// Home page
+// Home page - Device Registration
 router.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// Login page
+router.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/login.html'));
+});
+
+// Register page
+router.get('/register', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/register.html'));
+});
+
+// Company selection page
+router.get('/company-selection', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/company-selection.html'));
+});
+
+// Dashboard page
+router.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/dashboard.html'));
+});
+
+// API info endpoint (for developers)
+router.get('/api', (req, res) => {
     res.json({
         status: 'success',
         message: 'dsScreen Backend API - Multi-Tenant Authentication',

@@ -6,6 +6,7 @@ const { Video, User, Company, UserCompany, ScheduleItem, Schedule } = require('.
 const { webRequireAuth, webRequireCompany } = require('../middleware/sessionAuth');
 const { ensureCompanyDir, deleteFile, isValidVideoMimeType } = require('../utils/fileStorage');
 const { storageConfig } = require('../config');
+const { generateUniqueCode } = require('../utils/scheduleCode');
 
 /**
  * Configure multer for video uploads
@@ -107,14 +108,121 @@ router.get('/videos', webRequireAuth, webRequireCompany, async (req, res) => {
  */
 router.get('/schedules', webRequireAuth, webRequireCompany, async (req, res) => {
   try {
+    // Fetch all schedules for the company
+    const schedules = await Schedule.findAll({
+      where: {
+        companyId: req.company.id,
+      },
+      include: [
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'firstName', 'lastName', 'email'],
+        },
+        {
+          model: ScheduleItem,
+          as: 'items',
+          attributes: ['id'],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
+
     res.render('schedules', {
       user: req.user,
       company: req.company,
       userCompany: req.userCompany,
+      schedules: schedules,
     });
   } catch (error) {
     console.error('Schedules error:', error);
     res.status(500).send('Error loading schedules');
+  }
+});
+
+/**
+ * POST /dashboard/schedules/create
+ * Create a new schedule
+ */
+router.post('/schedules/create', webRequireAuth, webRequireCompany, async (req, res) => {
+  try {
+    const { name, description, timezone, loop, autoStart } = req.body;
+
+    // Validate required fields
+    if (!name || !name.trim()) {
+      return res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Schedule name is required'));
+    }
+
+    // Build settings object
+    const settings = {
+      loop: loop === 'on' || loop === true,
+      autoStart: autoStart === 'on' || autoStart === true
+    };
+
+    // Generate unique code
+    const code = await generateUniqueCode(Schedule);
+
+    // Create schedule in database
+    const schedule = await Schedule.create({
+      companyId: req.company.id,
+      createdBy: req.user.id,
+      name: name.trim(),
+      description: description ? description.trim() : null,
+      code: code,
+      timezone: timezone || 'Asia/Kolkata',
+      settings: settings,
+      isActive: true
+    });
+
+    res.redirect('/dashboard/schedules?success=' + encodeURIComponent(`Schedule "${schedule.name}" created successfully! Code: ${schedule.code}`));
+  } catch (error) {
+    console.error('Error creating schedule:', error);
+    res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Failed to create schedule: ' + error.message));
+  }
+});
+
+/**
+ * POST /dashboard/schedules/:scheduleId/delete
+ * Delete a schedule
+ */
+router.post('/schedules/:scheduleId/delete', webRequireAuth, webRequireCompany, async (req, res) => {
+  try {
+    const { scheduleId } = req.params;
+
+    // Find the schedule
+    const schedule = await Schedule.findOne({
+      where: {
+        id: scheduleId,
+        companyId: req.company.id
+      },
+      include: [{
+        model: ScheduleItem,
+        as: 'items'
+      }]
+    });
+
+    if (!schedule) {
+      return res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Schedule not found'));
+    }
+
+    // Check permissions - only creator, owner, admin, or manager can delete
+    const isCreator = schedule.createdBy === req.user.id;
+    const canDelete = isCreator || ['owner', 'admin', 'manager'].includes(req.userCompany.role);
+
+    if (!canDelete) {
+      return res.redirect('/dashboard/schedules?error=' + encodeURIComponent('You do not have permission to delete this schedule'));
+    }
+
+    const scheduleName = schedule.name;
+    const itemCount = schedule.items ? schedule.items.length : 0;
+
+    // Delete the schedule (cascade will delete schedule items)
+    await schedule.destroy();
+
+    res.redirect('/dashboard/schedules?success=' + encodeURIComponent(`Schedule "${scheduleName}" and its ${itemCount} video item(s) deleted successfully`));
+  } catch (error) {
+    console.error('Error deleting schedule:', error);
+    res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Failed to delete schedule: ' + error.message));
   }
 });
 

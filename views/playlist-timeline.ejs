@@ -150,17 +150,21 @@
             position: absolute;
             top: 10px;
             height: 70px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #667eea;
             border-radius: 6px;
             color: white;
             padding: 0.5rem 0;
-            cursor: move;
+            cursor: grab;
             transition: all 0.2s;
             box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-            overflow: hidden;
+            overflow: visible;
             display: flex;
             flex-direction: column;
             justify-content: center;
+        }
+        
+        .timeline-video-block:active {
+            cursor: grabbing;
         }
 
         .timeline-video-block:hover {
@@ -170,8 +174,56 @@
         }
         
         .timeline-video-block.dragging {
-            opacity: 0.5;
+            opacity: 0.7;
             z-index: 100;
+            transform: scale(1.05) rotate(2deg);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            cursor: grabbing !important;
+        }
+        
+        .timeline-video-block.dragging .timeline-video-block-title,
+        .timeline-video-block.dragging .timeline-video-block-duration {
+            color: white;
+            opacity: 1;
+        }
+        
+        .timeline-video-block.drop-before::before {
+            content: '';
+            position: absolute;
+            left: -3px;
+            top: -5px;
+            bottom: -5px;
+            width: 3px;
+            background: #3b82f6;
+            border-radius: 2px;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.7);
+            animation: pulse 1s ease-in-out infinite;
+            z-index: 1000;
+        }
+        
+        .timeline-video-block.drop-after::after {
+            content: '';
+            position: absolute;
+            right: -3px;
+            top: -5px;
+            bottom: -5px;
+            width: 3px;
+            background: #3b82f6;
+            border-radius: 2px;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.7);
+            animation: pulse 1s ease-in-out infinite;
+            z-index: 1000;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { 
+                opacity: 0.9;
+                box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
+            }
+            50% { 
+                opacity: 1;
+                box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+            }
         }
         
         .timeline-video-block-title {
@@ -182,16 +234,20 @@
             text-overflow: ellipsis;
             margin-bottom: 0.25rem;
             padding: 0 24px; /* Space for resize handles */
+            color: white;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
         }
 
         .timeline-video-block-duration {
             font-size: 0.7rem;
-            opacity: 0.9;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             padding: 0 24px; /* Space for resize handles */
             line-height: 1.2;
+            color: white;
+            opacity: 0.95;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         }
 
         .timeline-video-block-resize-handle {
@@ -285,26 +341,7 @@
             margin-bottom: 1rem;
         }
 
-        /* Video colors */
-        .timeline-video-block:nth-child(5n+1) {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .timeline-video-block:nth-child(5n+2) {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-
-        .timeline-video-block:nth-child(5n+3) {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-
-        .timeline-video-block:nth-child(5n+4) {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-        }
-
-        .timeline-video-block:nth-child(5n+5) {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-        }
+        /* Video colors - will be applied via inline styles to stick with video */
 
         /* Video Library Styles */
         .video-library-container {
@@ -606,6 +643,38 @@
             return pixelsPerSecond * 60;
         }
 
+        // Color assignment functions - generate color from video ID hash
+        function hashStringToNumber(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32-bit integer
+            }
+            return Math.abs(hash);
+        }
+        
+        function getColorIndexForVideo(videoId) {
+            // Generate consistent color index from video ID
+            return hashStringToNumber(videoId) % 10;
+        }
+        
+        function getGradientColor(index) {
+            const solidColors = [
+                '#667eea', // Purple
+                '#f43f5e', // Rose/Red
+                '#0ea5e9', // Sky Blue
+                '#10b981', // Emerald Green
+                '#f59e0b', // Amber/Orange
+                '#8b5cf6', // Violet
+                '#ec4899', // Pink
+                '#06b6d4', // Cyan
+                '#14b8a6', // Teal
+                '#f97316', // Orange
+            ];
+            return solidColors[index % solidColors.length];
+        }
+
         // Initialize timeline on page load
         document.addEventListener('DOMContentLoaded', function() {
             updateZoomDisplay();
@@ -646,6 +715,9 @@
 
         // Calculate timeline metrics
         function calculateTimelineMetrics() {
+            // Sort by order field first
+            timelineData.sort((a, b) => (a.order || 0) - (b.order || 0));
+            
             totalDurationSeconds = 0;
             let currentTime = 0;
 
@@ -654,6 +726,7 @@
                 item._startSeconds = currentTime;
                 item._endSeconds = currentTime + duration;
                 item._duration = duration;
+                item._arrayIndex = index; // Store array index for reference
                 currentTime += duration;
             });
 
@@ -748,6 +821,16 @@
                 track.appendChild(block);
             });
 
+            // Add drag over and drop handlers to the track
+            track.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (draggedBlock) {
+                    updateDropIndicator(e.clientX);
+                }
+            });
+            
+            track.addEventListener('drop', handleBlockDrop);
+
             timelineTracks.appendChild(track);
         }
         
@@ -827,6 +910,7 @@
             block.className = 'timeline-video-block';
             block.dataset.itemId = item.id;
             block.dataset.index = index;
+            block.dataset.order = item.order || index;
 
             const pixelsPerSecond = zoomScale / 60;
             const startPixels = item._startSeconds * pixelsPerSecond;
@@ -834,6 +918,12 @@
 
             block.style.left = `${startPixels}px`;
             block.style.width = `${durationPixels}px`;
+            
+            // Assign color based on video ID hash (stays with the video permanently)
+            const videoId = item.video ? item.video.id : item.videoId || item.id;
+            const colorIndex = getColorIndexForVideo(videoId);
+            block.style.background = getGradientColor(colorIndex);
+            block.dataset.videoId = videoId; // Store for reference
 
             const videoName = item.video ? item.video.fileName : 'Unknown Video';
             const duration = item._duration;
@@ -986,18 +1076,167 @@
 
         // Drag and drop for video blocks
         let draggedBlock = null;
+        let draggedItemId = null;
 
         function handleBlockDragStart(e) {
             draggedBlock = e.target;
+            draggedItemId = draggedBlock.dataset.itemId;
             draggedBlock.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/html', draggedBlock.innerHTML);
+            e.dataTransfer.setData('itemId', draggedItemId);
         }
 
         function handleBlockDragEnd(e) {
             if (draggedBlock) {
                 draggedBlock.classList.remove('dragging');
+                
+                // Remove all drop indicators
+                document.querySelectorAll('.timeline-video-block').forEach(block => {
+                    block.classList.remove('drop-before', 'drop-after');
+                });
+                
                 draggedBlock = null;
+                draggedItemId = null;
+            }
+        }
+        
+        function handleBlockDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!draggedBlock) return;
+            
+            updateDropIndicator(e.clientX);
+        }
+        
+        function updateDropIndicator(mouseX) {
+            const track = document.querySelector('.timeline-track');
+            if (!track) return;
+            
+            // Remove all previous indicators
+            document.querySelectorAll('.timeline-video-block').forEach(block => {
+                block.classList.remove('drop-before', 'drop-after');
+            });
+            
+            const blocks = [...document.querySelectorAll('.timeline-video-block:not(.dragging)')];
+            
+            if (blocks.length === 0) return;
+            
+            // Find which block we're closest to
+            let closestBlock = null;
+            let closestDistance = Infinity;
+            let dropPosition = 'after'; // 'before' or 'after'
+            
+            blocks.forEach(block => {
+                const rect = block.getBoundingClientRect();
+                const blockCenter = rect.left + rect.width / 2;
+                const distance = Math.abs(mouseX - blockCenter);
+                
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestBlock = block;
+                    // Determine if we should drop before or after this block
+                    dropPosition = mouseX < blockCenter ? 'before' : 'after';
+                }
+            });
+            
+            if (closestBlock) {
+                closestBlock.classList.add(`drop-${dropPosition}`);
+            }
+        }
+        
+        function handleBlockDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('Drop event triggered', { draggedItemId });
+            
+            if (!draggedItemId) {
+                console.log('No dragged item ID');
+                return;
+            }
+            
+            const mouseX = e.clientX;
+            const blocks = [...document.querySelectorAll('.timeline-video-block:not(.dragging)')];
+            
+            console.log('Available blocks:', blocks.length);
+            
+            if (blocks.length === 0) {
+                console.log('No blocks to drop onto');
+                return;
+            }
+            
+            // Find drop position
+            let newOrder = 0;
+            let closestBlock = null;
+            let closestDistance = Infinity;
+            let dropPosition = 'after';
+            
+            blocks.forEach(block => {
+                const rect = block.getBoundingClientRect();
+                const blockCenter = rect.left + rect.width / 2;
+                const distance = Math.abs(mouseX - blockCenter);
+                
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestBlock = block;
+                    dropPosition = mouseX < blockCenter ? 'before' : 'after';
+                }
+            });
+            
+            if (closestBlock) {
+                const targetOrder = parseInt(closestBlock.dataset.order);
+                newOrder = dropPosition === 'before' ? targetOrder : targetOrder + 1;
+            } else {
+                newOrder = timelineData.length;
+            }
+            
+            const draggedItem = timelineData.find(item => item.id === draggedItemId);
+            const draggedOrder = draggedItem ? (draggedItem.order || draggedItem._arrayIndex) : -1;
+            
+            console.log('Reorder calculation:', { 
+                draggedItemId, 
+                draggedOrder, 
+                newOrder, 
+                dropPosition,
+                targetBlockOrder: closestBlock ? parseInt(closestBlock.dataset.order) : null,
+                allItems: timelineData.map(i => ({ id: i.id, order: i.order }))
+            });
+            
+            // Only reorder if position actually changed
+            if (draggedOrder !== newOrder && draggedOrder !== (newOrder - 1)) {
+                console.log('Triggering reorder');
+                reorderVideo(draggedItemId, newOrder);
+            } else {
+                console.log('Position unchanged, not reordering');
+            }
+        }
+        
+        async function reorderVideo(itemId, newOrder) {
+            console.log('Calling reorder API:', { itemId, newOrder });
+            
+            try {
+                const response = await fetch(`/dashboard/playlists/<%= playlist.id %>/timeline/${itemId}/reorder`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ newOrder }),
+                });
+
+                console.log('Response status:', response.status);
+                const result = await response.json();
+                console.log('Response result:', result);
+                
+                if (result.success) {
+                    Toast.success('Video reordered');
+                    window.location.reload();
+                } else {
+                    Toast.error(result.error || 'Failed to reorder video');
+                    console.error('Reorder failed:', result);
+                }
+            } catch (error) {
+                console.error('Error reordering video:', error);
+                Toast.error('Failed to reorder video');
             }
         }
 
@@ -1020,17 +1259,29 @@
             
             timeline.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                e.dataTransfer.dropEffect = 'copy';
+                
+                // Check if dragging from library or reordering
+                const videoId = e.dataTransfer.types.includes('videoid');
+                const itemId = e.dataTransfer.types.includes('itemid');
+                
+                if (videoId) {
+                    e.dataTransfer.dropEffect = 'copy';
+                } else if (itemId) {
+                    e.dataTransfer.dropEffect = 'move';
+                }
             });
 
             timeline.addEventListener('drop', async (e) => {
                 e.preventDefault();
+                
+                // Check if this is a new video from library
                 const videoId = e.dataTransfer.getData('videoId');
                 const videoDuration = e.dataTransfer.getData('videoDuration');
                 
                 if (videoId) {
                     await addVideoToTimeline(videoId, videoDuration);
                 }
+                // Reordering is handled by handleBlockDrop
             });
         }
 
@@ -1064,12 +1315,12 @@
 
         // Edit video modal
         function openEditModal(item) {
-            const itemIndex = timelineData.findIndex(i => i.id === item.id);
+            const itemOrder = item.order !== undefined ? item.order : item._arrayIndex;
             
             document.getElementById('editItemId').value = item.id;
             document.getElementById('editVideoName').value = item.video ? item.video.fileName : 'Unknown';
             document.getElementById('editDuration').value = item._duration;
-            document.getElementById('editVideoPosition').value = `Video #${itemIndex + 1} of ${timelineData.length}`;
+            document.getElementById('editVideoPosition').value = `Position #${itemOrder + 1} of ${timelineData.length}`;
             document.getElementById('editTimeRange').value = `${formatTime(item._startSeconds)} - ${formatTime(item._endSeconds)}`;
             
             const modal = new bootstrap.Modal(document.getElementById('editVideoModal'));

@@ -358,6 +358,77 @@ router.post('/playlists/:playlistId/timeline/:itemId/update', webRequireAuth, we
 });
 
 /**
+ * POST /dashboard/playlists/:playlistId/timeline/:itemId/reorder
+ * Reorder a playlist item
+ */
+router.post('/playlists/:playlistId/timeline/:itemId/reorder', webRequireAuth, webRequireCompany, async (req, res) => {
+  try {
+    const { Playlist, PlaylistItem } = require('../models');
+    const { playlistId, itemId } = req.params;
+    const { newOrder } = req.body;
+
+    // Validate input
+    if (typeof newOrder !== 'number' || newOrder < 0) {
+      return res.status(400).json({ success: false, error: 'Invalid order' });
+    }
+
+    // Verify playlist belongs to company
+    const playlist = await Playlist.findOne({
+      where: {
+        id: playlistId,
+        companyId: req.company.id,
+        isActive: true,
+      },
+    });
+
+    if (!playlist) {
+      return res.status(404).json({ success: false, error: 'Playlist not found' });
+    }
+
+    // Get all playlist items ordered by current order
+    const items = await PlaylistItem.findAll({
+      where: { playlistId },
+      order: [['order', 'ASC']],
+    });
+
+    // Find the item to move
+    const itemToMove = items.find(item => item.id === itemId);
+    if (!itemToMove) {
+      return res.status(404).json({ success: false, error: 'Item not found' });
+    }
+
+    const oldOrder = itemToMove.order;
+    
+    // Reorder logic
+    if (oldOrder !== newOrder) {
+      if (oldOrder < newOrder) {
+        // Moving down - shift items up
+        for (const item of items) {
+          if (item.order > oldOrder && item.order <= newOrder) {
+            await item.update({ order: item.order - 1 });
+          }
+        }
+      } else {
+        // Moving up - shift items down
+        for (const item of items) {
+          if (item.order >= newOrder && item.order < oldOrder) {
+            await item.update({ order: item.order + 1 });
+          }
+        }
+      }
+      
+      // Update the moved item
+      await itemToMove.update({ order: newOrder });
+    }
+
+    res.json({ success: true, message: 'Video reordered successfully' });
+  } catch (error) {
+    console.error('Reorder playlist item error:', error);
+    res.status(500).json({ success: false, error: 'Error reordering video' });
+  }
+});
+
+/**
  * POST /dashboard/playlists/:playlistId/timeline/:itemId/remove
  * Remove a video from playlist timeline
  */

@@ -65,6 +65,12 @@ const Video = sequelize.define('Video', {
     allowNull: true,
     comment: 'Video resolution (e.g., 1920x1080)',
   },
+  thumbnailPath: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'thumbnail_path',
+    comment: 'Path to video thumbnail image',
+  },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,

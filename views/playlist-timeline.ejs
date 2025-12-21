@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <%- include('partials/head') %>
-    <title>Timeline - <%= schedule.name %> - dsScreen</title>
+    <title>Timeline - <%= playlist.name %> - dsScreen</title>
     <style>
         .timeline-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -12,7 +12,7 @@
             margin-bottom: 2rem;
         }
         
-        .schedule-code-display {
+        .playlist-code-display {
             background: rgba(255, 255, 255, 0.2);
             padding: 0.5rem 1rem;
             border-radius: 6px;
@@ -104,7 +104,6 @@
         }
 
         .timeline-time-axis {
-            display: flex;
             position: sticky;
             top: 0;
             background: white;
@@ -112,22 +111,24 @@
             padding-bottom: 0.5rem;
             margin-bottom: 1rem;
             z-index: 10;
+            height: 24px;
+            position: relative;
         }
 
         .timeline-hour-marker {
-            flex: 1;
-            min-width: 60px;
-            text-align: center;
+            position: absolute;
+            top: 0;
             font-size: 0.75rem;
             color: #6c757d;
-            position: relative;
             font-weight: 500;
+            white-space: nowrap;
+            transform: translateX(-50%);
         }
 
         .timeline-hour-marker::after {
             content: '';
             position: absolute;
-            left: 0;
+            left: 50%;
             bottom: -8px;
             width: 1px;
             height: 8px;
@@ -140,7 +141,7 @@
 
         .timeline-track {
             position: relative;
-            height: 80px;
+            height: 90px;
             border-bottom: 1px solid #e9ecef;
             padding: 0.5rem 0;
         }
@@ -148,11 +149,11 @@
         .timeline-video-block {
             position: absolute;
             top: 10px;
-            height: 60px;
+            height: 70px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 6px;
             color: white;
-            padding: 0.75rem;
+            padding: 0.5rem 0;
             cursor: move;
             transition: all 0.2s;
             box-shadow: 0 2px 6px rgba(0,0,0,0.15);
@@ -180,19 +181,25 @@
             overflow: hidden;
             text-overflow: ellipsis;
             margin-bottom: 0.25rem;
+            padding: 0 24px; /* Space for resize handles */
         }
 
         .timeline-video-block-duration {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             opacity: 0.9;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 24px; /* Space for resize handles */
+            line-height: 1.2;
         }
 
         .timeline-video-block-resize-handle {
             position: absolute;
             top: 0;
             bottom: 0;
-            width: 12px;
-            background: rgba(255, 255, 255, 0.2);
+            width: 8px;
+            background: rgba(255, 255, 255, 0.15);
             cursor: ew-resize;
             transition: all 0.2s;
             z-index: 10;
@@ -209,8 +216,8 @@
         }
 
         .timeline-video-block-resize-handle:hover {
-            background: rgba(255, 255, 255, 0.6);
-            width: 16px;
+            background: rgba(255, 255, 255, 0.5);
+            width: 12px;
         }
 
         .timeline-video-block-resize-handle.left:hover {
@@ -224,16 +231,23 @@
         .timeline-grid-lines {
             position: absolute;
             top: 0;
-            left: 1rem;
-            right: 1rem;
+            left: 0;
+            right: 0;
             bottom: 0;
-            display: flex;
             pointer-events: none;
         }
 
         .timeline-grid-line {
-            flex: 1;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 1px;
             border-left: 1px solid #f1f3f5;
+        }
+        
+        .timeline-grid-line-sub {
+            border-left: 1px dashed #e9ecef !important;
+            opacity: 0.6;
         }
 
         .timeline-current-time-indicator {
@@ -348,16 +362,18 @@
             }
 
             .timeline-video-block {
-                height: 50px;
-                padding: 0.5rem;
+                height: 60px;
+                padding: 0.25rem 0;
             }
 
             .timeline-video-block-title {
                 font-size: 0.75rem;
-        }
+                padding: 0 16px;
+            }
         
             .timeline-video-block-duration {
-                font-size: 0.65rem;
+                font-size: 0.6rem;
+                padding: 0 16px;
             }
         }
     </style>
@@ -372,18 +388,18 @@
         <div class="container-fluid" style="max-width: 1600px;">
             <!-- Timeline Header -->
             <div class="timeline-header">
-                <a href="/dashboard/schedules" class="btn-back mb-3">
-                    <i class="bi bi-arrow-left"></i> Back to Schedules
+                <a href="/dashboard/playlists" class="btn-back mb-3">
+                    <i class="bi bi-arrow-left"></i> Back to Playlists
                 </a>
                 <h2 class="mb-2">
-                    <i class="bi bi-film"></i> <%= schedule.name %>
+                    <i class="bi bi-film"></i> <%= playlist.name %>
                 </h2>
-                <p class="mb-2 opacity-75"><%= schedule.description || 'Manage video timeline and playback order' %></p>
+                <p class="mb-2 opacity-75"><%= playlist.description || 'Manage video playback order and durations' %></p>
                 <div class="d-flex align-items-center gap-3 flex-wrap">
-                    <span>Schedule Code:</span>
-                    <span class="schedule-code-display"><%= schedule.code %></span>
-                    <span class="badge bg-light text-dark"><%= schedule.items ? schedule.items.length : 0 %> videos</span>
-                    <% if (schedule.settings && schedule.settings.loop) { %>
+                    <span>Playlist Code:</span>
+                    <span class="playlist-code-display"><%= playlist.code %></span>
+                    <span class="badge bg-light text-dark"><%= playlist.items ? playlist.items.length : 0 %> videos</span>
+                    <% if (playlist.settings && playlist.settings.loop) { %>
                         <span class="badge bg-success"><i class="bi bi-repeat"></i> Loop Enabled</span>
                     <% } %>
                 </div>
@@ -396,7 +412,7 @@
                         <!-- Controls -->
                         <div class="timeline-view-controls">
                             <h4 class="mb-0 me-auto">
-                                <i class="bi bi-calendar-week"></i> Schedule Timeline
+                                <i class="bi bi-collection-play"></i> Playlist Order
                             </h4>
                             <div class="timeline-zoom-controls">
                                 <button class="btn btn-sm btn-outline-secondary" id="btnZoomOut" title="Zoom Out">
@@ -410,7 +426,7 @@
                             <button class="btn btn-sm btn-outline-primary" id="btnToggleView">
                                 <i class="bi bi-list"></i> List View
                             </button>
-                            <button class="btn btn-sm btn-outline-danger" id="btnClearTimeline" <%= (!schedule.items || schedule.items.length === 0) ? 'disabled' : '' %>>
+                            <button class="btn btn-sm btn-outline-danger" id="btnClearTimeline" <%= (!playlist.items || playlist.items.length === 0) ? 'disabled' : '' %>>
                                 <i class="bi bi-trash"></i> Clear All
                             </button>
                         </div>
@@ -419,30 +435,26 @@
                         <div class="timeline-stats">
                             <div class="timeline-stat">
                                 <span class="timeline-stat-label">Total Videos</span>
-                                <span class="timeline-stat-value" id="totalVideos"><%= schedule.items ? schedule.items.length : 0 %></span>
+                                <span class="timeline-stat-value" id="totalVideos"><%= playlist.items ? playlist.items.length : 0 %></span>
                             </div>
                             <div class="timeline-stat">
                                 <span class="timeline-stat-label">Total Duration</span>
                                 <span class="timeline-stat-value" id="totalDuration">--</span>
                             </div>
                             <div class="timeline-stat">
-                                <span class="timeline-stat-label">Start Time</span>
-                                <span class="timeline-stat-value" id="startTime">00:00</span>
-                            </div>
-                            <div class="timeline-stat">
-                                <span class="timeline-stat-label">End Time</span>
-                                <span class="timeline-stat-value" id="endTime">--</span>
+                                <span class="timeline-stat-label">Average Duration</span>
+                                <span class="timeline-stat-value" id="avgDuration">--</span>
                             </div>
                         </div>
 
                         <!-- Timeline Visualization -->
                         <div class="timeline-visualization" id="timelineVisualization">
-                            <% if (!schedule.items || schedule.items.length === 0) { %>
+                            <% if (!playlist.items || playlist.items.length === 0) { %>
                                 <div class="timeline-empty">
                                     <i class="bi bi-collection-play"></i>
-                                    <h5>No Videos in Timeline</h5>
-                                    <p class="text-muted">Drag and drop videos from the library to build your schedule</p>
-                                    <p class="text-muted small">Videos will appear as blocks on the timeline showing their duration and playback order</p>
+                                    <h5>No Videos in Playlist</h5>
+                                    <p class="text-muted">Drag and drop videos from the library to build your playlist</p>
+                                    <p class="text-muted small">Videos will play sequentially in order, showing cumulative elapsed time</p>
                                 </div>
                             <% } else { %>
                                 <div class="timeline-grid" id="timelineGrid">
@@ -542,9 +554,15 @@
                             <input type="number" class="form-control" id="editDuration" min="1" step="1">
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Start Time</label>
-                            <input type="text" class="form-control" id="editStartTime" readonly>
+                            <label class="form-label">Position</label>
+                            <input type="text" class="form-control" id="editVideoPosition" readonly>
+                            <small class="text-muted">Video order in playlist</small>
                         </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Elapsed Time Range</label>
+                        <input type="text" class="form-control" id="editTimeRange" readonly>
+                        <small class="text-muted">Cumulative playback time from start</small>
                     </div>
                     <div class="alert alert-info small">
                         <i class="bi bi-info-circle"></i> You can also drag the edges of video blocks to adjust duration
@@ -566,13 +584,31 @@
     <%- include('partials/scripts') %>
     <script>
         // Timeline Data
-        let timelineData = <%- JSON.stringify(schedule.items || []) %>;
+        let timelineData = <%- JSON.stringify(playlist.items || []) %>;
         let zoomScale = 100; // pixels per minute
         let totalDurationSeconds = 0;
         let isListView = false;
+        
+        // Zoom levels: 
+        // Max zoom: 3600 pixels per minute (60 px/sec) - can see individual seconds
+        // Min zoom: calculated dynamically to fit 24 hours in container
+        const MAX_ZOOM = 3600; // 60 pixels per second
+        const HOURS_24_IN_SECONDS = 86400;
+        
+        // Calculate minimum zoom dynamically based on container width
+        function getMinZoom() {
+            const container = document.getElementById('timelineVisualization');
+            if (!container) return 1.2; // fallback
+            const containerWidth = container.clientWidth - 40;
+            // Calculate pixels per second needed to fit 24 hours in container
+            const pixelsPerSecond = containerWidth / HOURS_24_IN_SECONDS;
+            // Convert to pixels per minute
+            return pixelsPerSecond * 60;
+        }
 
         // Initialize timeline on page load
         document.addEventListener('DOMContentLoaded', function() {
+            updateZoomDisplay();
             if (timelineData && timelineData.length > 0) {
                 calculateTimelineMetrics();
                 renderTimeline();
@@ -634,37 +670,72 @@
             const timelineTracks = document.getElementById('timelineTracks');
 
             // Calculate dimensions
-            const totalMinutes = Math.ceil(totalDurationSeconds / 60);
-            const pixelsPerMinute = zoomScale;
-            const totalWidth = totalMinutes * pixelsPerMinute;
+            const pixelsPerSecond = zoomScale / 60;
+            const videosWidth = totalDurationSeconds * pixelsPerSecond;
+            
+            // Get container width to ensure timeline fills viewport
+            const containerWidth = document.getElementById('timelineVisualization').clientWidth - 40; // minus padding
+            
+            // Timeline should be at least as wide as container, or videos width + 20%, whichever is larger
+            const minWidth = Math.max(containerWidth, videosWidth * 1.2);
+            const totalWidth = Math.max(minWidth, videosWidth + 200);
+            const displayDuration = totalDurationSeconds + ((totalWidth - videosWidth) / pixelsPerSecond);
 
             // Set grid width
             timelineGrid.style.minWidth = `${totalWidth + 40}px`;
 
-            // Render time axis
+            // Render time axis with adaptive intervals
             timelineAxis.innerHTML = '';
             gridLines.innerHTML = '';
             
-            const intervals = Math.max(6, Math.min(24, totalMinutes));
-            const minutesPerInterval = Math.ceil(totalMinutes / intervals);
+            // Set axis width to match total timeline width
+            timelineAxis.style.width = `${totalWidth}px`;
             
-            for (let i = 0; i <= intervals; i++) {
-                const minutes = i * minutesPerInterval;
-                const hours = Math.floor(minutes / 60);
-                const mins = minutes % 60;
-                const timeLabel = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+            // Determine appropriate interval based on zoom level
+            const { intervalSeconds, format } = getTimeAxisConfig(pixelsPerSecond, displayDuration);
+            
+            const numIntervals = Math.ceil(displayDuration / intervalSeconds);
+            
+            for (let i = 0; i <= numIntervals; i++) {
+                const currentSeconds = i * intervalSeconds;
+                if (currentSeconds > displayDuration) break;
                 
+                const timeLabel = formatTimeAxis(currentSeconds, format);
+                const positionPx = currentSeconds * pixelsPerSecond;
+                
+                // Add marker at exact position
                 const marker = document.createElement('div');
                 marker.className = 'timeline-hour-marker';
                 marker.textContent = timeLabel;
-                marker.style.minWidth = `${pixelsPerMinute * minutesPerInterval}px`;
+                marker.style.left = `${positionPx}px`;
+                marker.title = `Elapsed: ${formatTime(currentSeconds)}`;
                 timelineAxis.appendChild(marker);
 
-                // Add grid line
+                // Add main grid line at exact position
                 const line = document.createElement('div');
                 line.className = 'timeline-grid-line';
-                line.style.minWidth = `${pixelsPerMinute * minutesPerInterval}px`;
+                line.style.position = 'absolute';
+                line.style.left = `${positionPx}px`;
+                line.style.width = '1px';
+                line.style.height = '100%';
+                line.style.borderLeft = '1px solid #f1f3f5';
                 gridLines.appendChild(line);
+                
+                // Add sub-divider at half interval if there's enough space
+                const intervalWidth = intervalSeconds * pixelsPerSecond;
+                if (intervalWidth > 100) {
+                    const halfSeconds = currentSeconds + (intervalSeconds / 2);
+                    if (halfSeconds <= displayDuration) {
+                        const subLine = document.createElement('div');
+                        subLine.className = 'timeline-grid-line timeline-grid-line-sub';
+                        subLine.style.position = 'absolute';
+                        subLine.style.left = `${halfSeconds * pixelsPerSecond}px`;
+                        subLine.style.width = '1px';
+                        subLine.style.height = '100%';
+                        subLine.style.borderLeft = '1px dashed #e9ecef';
+                        gridLines.appendChild(subLine);
+                    }
+                }
             }
 
             // Render video blocks
@@ -678,9 +749,76 @@
             });
 
             timelineTracks.appendChild(track);
-
-            // Add current time indicator if schedule is running
-            updateCurrentTimeIndicator();
+        }
+        
+        // Get appropriate time axis configuration based on zoom level
+        function getTimeAxisConfig(pixelsPerSecond, totalSeconds) {
+            // Minimum spacing between markers (in pixels) to prevent overlap
+            const MIN_MARKER_SPACING = 80;
+            
+            // Calculate what interval gives us at least MIN_MARKER_SPACING pixels
+            const minIntervalSeconds = MIN_MARKER_SPACING / pixelsPerSecond;
+            
+            // Define available interval options in seconds
+            const intervals = [
+                { seconds: 1, format: 'seconds' },
+                { seconds: 2, format: 'seconds' },
+                { seconds: 5, format: 'seconds' },
+                { seconds: 10, format: 'seconds' },
+                { seconds: 15, format: 'short' },
+                { seconds: 30, format: 'short' },
+                { seconds: 60, format: 'short' },        // 1 min
+                { seconds: 120, format: 'short' },       // 2 min
+                { seconds: 300, format: 'short' },       // 5 min
+                { seconds: 600, format: 'short' },       // 10 min
+                { seconds: 900, format: 'short' },       // 15 min
+                { seconds: 1800, format: 'short' },      // 30 min
+                { seconds: 3600, format: 'short' },      // 1 hour
+                { seconds: 7200, format: 'short' },      // 2 hours
+                { seconds: 10800, format: 'short' },     // 3 hours
+                { seconds: 14400, format: 'short' },     // 4 hours
+                { seconds: 21600, format: 'short' },     // 6 hours
+                { seconds: 43200, format: 'short' },     // 12 hours
+                { seconds: 86400, format: 'short' },     // 24 hours
+            ];
+            
+            // Find the smallest interval that gives us enough spacing
+            for (const interval of intervals) {
+                if (interval.seconds >= minIntervalSeconds) {
+                    return { intervalSeconds: interval.seconds, format: interval.format };
+                }
+            }
+            
+            // If nothing matches, use the largest interval
+            return intervals[intervals.length - 1];
+        }
+        
+        // Format time for axis based on format type
+        function formatTimeAxis(seconds, format) {
+            if (format === 'seconds') {
+                if (seconds < 60) {
+                    return `${seconds}s`;
+                }
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return secs === 0 ? `${mins}m` : `${mins}m ${secs}s`;
+            } else if (format === 'short') {
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                const secs = seconds % 60;
+                
+                if (hours > 0) {
+                    if (minutes === 0 && secs === 0) return `${hours}h`;
+                    if (secs === 0) return `${hours}h ${minutes}m`;
+                    return `${hours}h ${minutes}m`;
+                } else if (minutes > 0) {
+                    if (secs === 0) return `${minutes}m`;
+                    return `${minutes}m ${secs}s`;
+                } else {
+                    return `${secs}s`;
+                }
+            }
+            return formatTime(seconds);
         }
 
         // Create video block element
@@ -690,8 +828,9 @@
             block.dataset.itemId = item.id;
             block.dataset.index = index;
 
-            const startPixels = (item._startSeconds / 60) * zoomScale;
-            const durationPixels = (item._duration / 60) * zoomScale;
+            const pixelsPerSecond = zoomScale / 60;
+            const startPixels = item._startSeconds * pixelsPerSecond;
+            const durationPixels = item._duration * pixelsPerSecond;
 
             block.style.left = `${startPixels}px`;
             block.style.width = `${durationPixels}px`;
@@ -700,10 +839,10 @@
             const duration = item._duration;
 
             block.innerHTML = `
-                <div class="timeline-video-block-title" title="${videoName}">${videoName}</div>
+                <div class="timeline-video-block-title" title="${videoName}">#${index + 1}: ${videoName}</div>
                 <div class="timeline-video-block-duration">
                     ${formatDuration(duration)} 
-                    <span style="opacity: 0.7;">| ${formatTime(item._startSeconds)} - ${formatTime(item._endSeconds)}</span>
+                    <span style="opacity: 0.7;">| Elapsed: ${formatTime(item._startSeconds)} - ${formatTime(item._endSeconds)}</span>
                 </div>
                 <div class="timeline-video-block-resize-handle left"></div>
                 <div class="timeline-video-block-resize-handle right"></div>
@@ -771,7 +910,9 @@
                 if (!isResizing) return;
                 
                 const deltaX = e.clientX - startX;
-                const minWidth = 40; // Minimum 40px width
+                // Minimum 1 second
+                const pixelsPerSecond = zoomScale / 60;
+                const minWidth = pixelsPerSecond; // 1 second minimum
 
                 if (resizeDirection === 'right') {
                     const newWidth = Math.max(minWidth, startWidth + deltaX);
@@ -797,19 +938,46 @@
 
                 // Calculate new duration
                 const newWidth = block.offsetWidth;
-                const newDurationMinutes = newWidth / zoomScale;
-                const newDurationSeconds = Math.max(1, Math.round(newDurationMinutes * 60));
+                const pixelsPerSecond = zoomScale / 60;
+                const newDurationSeconds = Math.max(1, Math.round(newWidth / pixelsPerSecond));
 
-                // Update the item
+                // Update the item locally
                 item._duration = newDurationSeconds;
                 item.duration = newDurationSeconds;
 
-                // Recalculate timeline
-                calculateTimelineMetrics();
-                renderTimeline();
-                updateStats();
+                // Save to database
+                try {
+                    const response = await fetch(`/dashboard/playlists/<%= playlist.id %>/timeline/${item.id}/update`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            duration: newDurationSeconds
+                        }),
+                    });
 
-                Toast.success(`Duration updated to ${formatDuration(newDurationSeconds)}`);
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Recalculate timeline
+                        calculateTimelineMetrics();
+                        renderTimeline();
+                        updateStats();
+                        Toast.success(`Duration updated to ${formatDuration(newDurationSeconds)}`);
+                    } else {
+                        Toast.error(result.error || 'Failed to update duration');
+                        // Revert on failure
+                        calculateTimelineMetrics();
+                        renderTimeline();
+                    }
+                } catch (error) {
+                    console.error('Error updating duration:', error);
+                    Toast.error('Failed to save duration');
+                    // Revert on failure
+                    calculateTimelineMetrics();
+                    renderTimeline();
+                }
             };
 
             leftHandle.addEventListener('mousedown', (e) => startResize(e, 'left'));
@@ -858,22 +1026,26 @@
             timeline.addEventListener('drop', async (e) => {
                 e.preventDefault();
                 const videoId = e.dataTransfer.getData('videoId');
+                const videoDuration = e.dataTransfer.getData('videoDuration');
                 
                 if (videoId) {
-                    await addVideoToTimeline(videoId);
+                    await addVideoToTimeline(videoId, videoDuration);
                 }
             });
         }
 
         // Add video to timeline
-        async function addVideoToTimeline(videoId) {
+        async function addVideoToTimeline(videoId, videoDuration) {
             try {
-                const response = await fetch('/dashboard/schedules/<%= schedule.id %>/timeline/add', {
+                const response = await fetch('/dashboard/playlists/<%= playlist.id %>/timeline/add', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ videoId }),
+                    body: JSON.stringify({ 
+                        videoId,
+                        duration: parseInt(videoDuration) || 10
+                    }),
                 });
 
                 const result = await response.json();
@@ -892,10 +1064,13 @@
 
         // Edit video modal
         function openEditModal(item) {
+            const itemIndex = timelineData.findIndex(i => i.id === item.id);
+            
             document.getElementById('editItemId').value = item.id;
             document.getElementById('editVideoName').value = item.video ? item.video.fileName : 'Unknown';
             document.getElementById('editDuration').value = item._duration;
-            document.getElementById('editStartTime').value = formatTime(item._startSeconds);
+            document.getElementById('editVideoPosition').value = `Video #${itemIndex + 1} of ${timelineData.length}`;
+            document.getElementById('editTimeRange').value = `${formatTime(item._startSeconds)} - ${formatTime(item._endSeconds)}`;
             
             const modal = new bootstrap.Modal(document.getElementById('editVideoModal'));
             modal.show();
@@ -905,17 +1080,43 @@
             const itemId = document.getElementById('editItemId').value;
             const newDuration = parseInt(document.getElementById('editDuration').value);
 
-            const item = timelineData.find(i => i.id == itemId);
-            if (item) {
-                item.duration = newDuration;
-                item._duration = newDuration;
+            if (newDuration < 1) {
+                Toast.error('Duration must be at least 1 second');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/dashboard/playlists/<%= playlist.id %>/timeline/${itemId}/update`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        duration: newDuration
+                    }),
+                });
+
+                const result = await response.json();
                 
-                calculateTimelineMetrics();
-                renderTimeline();
-                updateStats();
-                
-                bootstrap.Modal.getInstance(document.getElementById('editVideoModal')).hide();
-                Toast.success('Video updated successfully');
+                if (result.success) {
+                    const item = timelineData.find(i => i.id == itemId);
+                    if (item) {
+                        item.duration = newDuration;
+                        item._duration = newDuration;
+                        
+                        calculateTimelineMetrics();
+                        renderTimeline();
+                        updateStats();
+                    }
+                    
+                    bootstrap.Modal.getInstance(document.getElementById('editVideoModal')).hide();
+                    Toast.success('Video updated successfully');
+                } else {
+                    Toast.error(result.error || 'Failed to update video');
+                }
+            } catch (error) {
+                console.error('Error updating video:', error);
+                Toast.error('Failed to update video');
             }
         }
 
@@ -931,7 +1132,7 @@
             }
 
             try {
-                const response = await fetch(`/dashboard/schedules/<%= schedule.id %>/timeline/${itemId}/remove`, {
+                const response = await fetch(`/dashboard/playlists/<%= playlist.id %>/timeline/${itemId}/remove`, {
                     method: 'POST',
                 });
 
@@ -955,7 +1156,7 @@
             }
 
             try {
-                const response = await fetch('/dashboard/schedules/<%= schedule.id %>/timeline/clear', {
+                const response = await fetch('/dashboard/playlists/<%= playlist.id %>/timeline/clear', {
                     method: 'POST',
                 });
 
@@ -977,33 +1178,76 @@
         function updateStats() {
             document.getElementById('totalVideos').textContent = timelineData.length;
             document.getElementById('totalDuration').textContent = formatDuration(totalDurationSeconds);
-            document.getElementById('startTime').textContent = '00:00';
-            document.getElementById('endTime').textContent = formatTime(totalDurationSeconds);
+            
+            const avgSeconds = timelineData.length > 0 ? Math.round(totalDurationSeconds / timelineData.length) : 0;
+            document.getElementById('avgDuration').textContent = formatDuration(avgSeconds);
         }
 
-        // Zoom controls
+        // Zoom controls with exponential scaling
         function zoomIn() {
-            zoomScale = Math.min(200, zoomScale + 20);
-            document.getElementById('zoomLevel').textContent = `${Math.round((zoomScale / 100) * 100)}%`;
+            // Exponential zoom for smoother transitions
+            if (zoomScale < 10) {
+                zoomScale = Math.min(MAX_ZOOM, zoomScale * 1.5);
+            } else if (zoomScale < 100) {
+                zoomScale = Math.min(MAX_ZOOM, zoomScale * 1.4);
+            } else if (zoomScale < 500) {
+                zoomScale = Math.min(MAX_ZOOM, zoomScale * 1.3);
+            } else {
+                zoomScale = Math.min(MAX_ZOOM, zoomScale * 1.2);
+            }
+            
+            updateZoomDisplay();
             renderTimeline();
         }
 
         function zoomOut() {
-            zoomScale = Math.max(40, zoomScale - 20);
-            document.getElementById('zoomLevel').textContent = `${Math.round((zoomScale / 100) * 100)}%`;
+            const MIN_ZOOM = getMinZoom();
+            
+            // Exponential zoom for smoother transitions
+            if (zoomScale > 500) {
+                zoomScale = Math.max(MIN_ZOOM, zoomScale / 1.2);
+            } else if (zoomScale > 100) {
+                zoomScale = Math.max(MIN_ZOOM, zoomScale / 1.3);
+            } else if (zoomScale > 10) {
+                zoomScale = Math.max(MIN_ZOOM, zoomScale / 1.4);
+            } else {
+                zoomScale = Math.max(MIN_ZOOM, zoomScale / 1.5);
+            }
+            
+            updateZoomDisplay();
             renderTimeline();
+        }
+        
+        function updateZoomDisplay() {
+            const pixelsPerSecond = zoomScale / 60;
+            const MIN_ZOOM = getMinZoom();
+            let zoomText;
+            
+            // Show "24h" when at minimum zoom
+            if (zoomScale <= MIN_ZOOM * 1.01) {
+                zoomText = '24h';
+            } else if (pixelsPerSecond >= 10) {
+                zoomText = `${Math.round(pixelsPerSecond)}px/s`;
+            } else if (pixelsPerSecond >= 1) {
+                zoomText = `${pixelsPerSecond.toFixed(1)}px/s`;
+            } else if (pixelsPerSecond >= 0.1) {
+                const secondsPerPixel = 1 / pixelsPerSecond;
+                zoomText = `${secondsPerPixel.toFixed(1)}s/px`;
+            } else {
+                // Show hours visible for very zoomed out views
+                const container = document.getElementById('timelineVisualization');
+                const containerWidth = container ? container.clientWidth - 40 : 1920;
+                const hoursVisible = (containerWidth / pixelsPerSecond) / 3600;
+                zoomText = `${hoursVisible.toFixed(1)}h view`;
+            }
+            
+            document.getElementById('zoomLevel').textContent = zoomText;
         }
 
         // Toggle between timeline and list view
         function toggleGridView() {
             // Placeholder for list view toggle
             Toast.info('List view coming soon');
-        }
-
-        // Update current time indicator
-        function updateCurrentTimeIndicator() {
-            // This would show current playback position if schedule is active
-            // For now, it's a placeholder
         }
 
         // Video search filter

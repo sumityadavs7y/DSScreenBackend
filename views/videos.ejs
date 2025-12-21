@@ -7,8 +7,8 @@
     <style>
         /* Video Thumbnail */
         .video-thumbnail {
-            width: 60px;
-            height: 45px;
+            width: 80px;
+            height: 60px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 8px;
             display: flex;
@@ -18,6 +18,8 @@
             cursor: pointer;
             transition: all 0.3s;
             box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+            overflow: hidden;
+            position: relative;
         }
         .video-thumbnail:hover {
             transform: scale(1.05);
@@ -25,6 +27,32 @@
         }
         .video-thumbnail i {
             font-size: 1.5rem;
+        }
+        .video-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .video-thumbnail .play-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .video-thumbnail:hover .play-overlay {
+            opacity: 1;
+        }
+        .video-thumbnail .play-overlay i {
+            font-size: 2rem;
+            color: white;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
         }
         
         /* Video Name */
@@ -156,7 +184,14 @@
                                             <td>
                                                 <div class="d-flex align-items-center">
                                                     <div class="video-thumbnail me-3" onclick='playVideo("<%= video.id %>", "<%= video.fileName.replace(/"/g, "&quot;") %>")'>
-                                                        <i class="bi bi-play-fill"></i>
+                                                        <% if (video.thumbnailPath) { %>
+                                                            <img src="/<%= video.thumbnailPath %>" alt="<%= video.fileName %>" loading="lazy">
+                                                            <div class="play-overlay">
+                                                                <i class="bi bi-play-fill"></i>
+                                                            </div>
+                                                        <% } else { %>
+                                                            <i class="bi bi-play-fill"></i>
+                                                        <% } %>
                                                     </div>
                                                     <div class="flex-grow-1">
                                                         <div class="video-name-clickable mb-1" onclick='playVideo("<%= video.id %>", "<%= video.fileName.replace(/"/g, "&quot;") %>")'>

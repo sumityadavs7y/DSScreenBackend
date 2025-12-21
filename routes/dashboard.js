@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const { Video, User, Company, UserCompany, ScheduleItem, Schedule } = require('../models');
+const { Video, User, Company, UserCompany } = require('../models');
 const { webRequireAuth, webRequireCompany } = require('../middleware/sessionAuth');
 const { ensureCompanyDir, deleteFile, isValidVideoMimeType } = require('../utils/fileStorage');
 const { storageConfig } = require('../config');
-const { generateUniqueCode } = require('../utils/scheduleCode');
+const { extractVideoMetadata, generateThumbnailAtPercentage } = require('../utils/videoMetadata');
 
 /**
  * Configure multer for video uploads
@@ -82,6 +82,7 @@ router.get('/videos', webRequireAuth, webRequireCompany, async (req, res) => {
       mimeType: video.mimeType,
       duration: video.duration,
       resolution: video.resolution,
+      thumbnailPath: video.thumbnailPath,
       uploadedAt: video.createdAt,
       uploader: {
         id: video.uploader.id,
@@ -103,94 +104,71 @@ router.get('/videos', webRequireAuth, webRequireCompany, async (req, res) => {
 });
 
 /**
- * GET /dashboard/schedules
- * Schedules page
+ * GET /dashboard/playlists
+ * Playlists page - lists all playlists for the company
  */
-router.get('/schedules', webRequireAuth, webRequireCompany, async (req, res) => {
+router.get('/playlists', webRequireAuth, webRequireCompany, async (req, res) => {
   try {
-    // Fetch all schedules for the company
-    const schedules = await Schedule.findAll({
+    const { Playlist, User } = require('../models');
+    
+    const playlists = await Playlist.findAll({
       where: {
         companyId: req.company.id,
+        isActive: true,
       },
-      include: [
-        {
-          model: User,
-          as: 'creator',
-          attributes: ['id', 'firstName', 'lastName', 'email'],
-        },
-        {
-          model: ScheduleItem,
-          as: 'items',
-          attributes: ['id'],
-        },
-      ],
+      include: [{
+        model: User,
+        as: 'creator',
+        attributes: ['id', 'email', 'firstName', 'lastName'],
+      }],
       order: [['createdAt', 'DESC']],
     });
 
-    res.render('schedules', {
+    res.render('playlists', {
       user: req.user,
       company: req.company,
       userCompany: req.userCompany,
-      schedules: schedules,
+      playlists: playlists,
     });
   } catch (error) {
-    console.error('Schedules error:', error);
-    res.status(500).send('Error loading schedules');
+    console.error('Playlists error:', error);
+    res.status(500).send('Error loading playlists');
   }
 });
 
 /**
- * GET /dashboard/schedules/:scheduleId/timeline
- * Timeline management page for a schedule
+ * GET /dashboard/playlists/:playlistId/timeline
+ * Timeline management page for a playlist
  */
-router.get('/schedules/:scheduleId/timeline', webRequireAuth, webRequireCompany, async (req, res) => {
+router.get('/playlists/:playlistId/timeline', webRequireAuth, webRequireCompany, async (req, res) => {
   try {
-    const { scheduleId } = req.params;
+    const { Playlist, PlaylistItem, Video } = require('../models');
+    const { playlistId } = req.params;
 
-    // Find the schedule with its items
-    const schedule = await Schedule.findOne({
+    // Find the playlist
+    const playlist = await Playlist.findOne({
       where: {
-        id: scheduleId,
+        id: playlistId,
         companyId: req.company.id,
+        isActive: true,
       },
-      include: [
-        {
-          model: User,
-          as: 'creator',
-          attributes: ['id', 'firstName', 'lastName', 'email'],
-        },
-        {
-          model: ScheduleItem,
-          as: 'items',
-          where: { isActive: true },
-          required: false,
-          include: [
-            {
-              model: Video,
-              as: 'video',
-              attributes: ['id', 'fileName', 'originalFileName', 'duration', 'fileSize'],
-            }
-          ],
-        },
-      ],
-      order: [[{ model: ScheduleItem, as: 'items' }, 'order', 'ASC']],
+      include: [{
+        model: PlaylistItem,
+        as: 'items',
+        include: [{
+          model: Video,
+          as: 'video',
+        }],
+        order: [['order', 'ASC']],
+      }],
     });
 
-    if (!schedule) {
-      return res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Schedule not found'));
+    if (!playlist) {
+      return res.redirect('/dashboard/playlists?error=' + encodeURIComponent('Playlist not found'));
     }
 
-    // Check permissions - only creator, owner, admin, or manager can edit
-    const isCreator = schedule.createdBy === req.user.id;
-    const canEdit = isCreator || ['owner', 'admin', 'manager'].includes(req.userCompany.role);
-
-    if (!canEdit) {
-      return res.redirect('/dashboard/schedules?error=' + encodeURIComponent('You do not have permission to edit this schedule'));
-    }
-
-    // Get all available videos for the company
-    const availableVideos = await Video.findAll({
+    // Load all videos for the company (for adding to playlist)
+    const allVideos = await Video.findAll({
       where: {
         companyId: req.company.id,
         isActive: true,
@@ -198,90 +176,88 @@ router.get('/schedules/:scheduleId/timeline', webRequireAuth, webRequireCompany,
       order: [['fileName', 'ASC']],
     });
 
-    res.render('schedule-timeline', {
+    res.render('playlist-timeline', {
       user: req.user,
       company: req.company,
       userCompany: req.userCompany,
-      schedule: schedule,
-      availableVideos: availableVideos,
+      playlist: playlist,
+      videos: allVideos,
+      availableVideos: allVideos,
     });
   } catch (error) {
-    console.error('Schedule timeline page error:', error);
-    res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Error loading timeline: ' + error.message));
+    console.error('Playlist timeline error:', error);
+    res.redirect('/dashboard/playlists?error=' + encodeURIComponent('Error loading playlist timeline'));
   }
 });
 
 /**
- * POST /dashboard/schedules/create
- * Create a new schedule
+ * POST /dashboard/playlists/create
+ * Create a new playlist
  */
-router.post('/schedules/create', webRequireAuth, webRequireCompany, async (req, res) => {
+router.post('/playlists/create', webRequireAuth, webRequireCompany, async (req, res) => {
   try {
-    const { name, description, timezone, loop, autoStart } = req.body;
+    const { Playlist } = require('../models');
+    const { generateUniqueCode } = require('../utils/playlistCode');
+    const { name, description } = req.body;
 
-    // Validate required fields
-    if (!name || !name.trim()) {
-      return res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Schedule name is required'));
+    // Validate input
+    if (!name || name.trim().length === 0) {
+      return res.redirect('/dashboard/playlists?error=' + encodeURIComponent('Playlist name is required'));
     }
 
-    // Build settings object
-    const settings = {
-      loop: loop === 'on' || loop === true,
-      autoStart: autoStart === 'on' || autoStart === true
-    };
-
     // Generate unique code
-    const code = await generateUniqueCode(Schedule);
+    const code = await generateUniqueCode(Playlist);
 
-    // Create schedule in database
-    const schedule = await Schedule.create({
+    // Create playlist
+    const playlist = await Playlist.create({
       companyId: req.company.id,
-      createdBy: req.user.id,
       name: name.trim(),
-      description: description ? description.trim() : null,
+      description: description?.trim() || null,
       code: code,
-      timezone: timezone || 'Asia/Kolkata',
-      settings: settings,
-      isActive: true
+      isActive: true,
+      createdBy: req.user.id,
     });
 
-    res.redirect('/dashboard/schedules?success=' + encodeURIComponent(`Schedule "${schedule.name}" created successfully! Code: ${schedule.code}`));
+    res.redirect(`/dashboard/playlists/${playlist.id}/timeline?success=` + encodeURIComponent('Playlist created successfully!'));
   } catch (error) {
-    console.error('Error creating schedule:', error);
-    res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Failed to create schedule: ' + error.message));
+    console.error('Playlist creation error:', error);
+    res.redirect('/dashboard/playlists?error=' + encodeURIComponent('Error creating playlist'));
   }
 });
 
 /**
- * POST /dashboard/schedules/:scheduleId/timeline/add
- * Add a video to schedule timeline
+ * POST /dashboard/playlists/:playlistId/timeline/add
+ * Add a video to playlist timeline
  */
-router.post('/schedules/:scheduleId/timeline/add', webRequireAuth, webRequireCompany, async (req, res) => {
+router.post('/playlists/:playlistId/timeline/add', webRequireAuth, webRequireCompany, async (req, res) => {
   try {
-    const { scheduleId } = req.params;
-    const { videoId } = req.body;
+    const { Playlist, PlaylistItem, Video } = require('../models');
+    const { playlistId } = req.params;
+    const { videoId, duration } = req.body;
 
-    // Verify schedule exists and belongs to company
-    const schedule = await Schedule.findOne({
+    // Validate input
+    if (!videoId) {
+      return res.status(400).json({ success: false, error: 'Video is required' });
+    }
+
+    if (!duration || duration <= 0) {
+      return res.status(400).json({ success: false, error: 'Duration must be greater than 0' });
+    }
+
+    // Verify playlist belongs to company
+    const playlist = await Playlist.findOne({
       where: {
-        id: scheduleId,
+        id: playlistId,
         companyId: req.company.id,
+        isActive: true,
       },
     });
 
-    if (!schedule) {
-      return res.status(404).json({ success: false, error: 'Schedule not found' });
+    if (!playlist) {
+      return res.status(404).json({ success: false, error: 'Playlist not found' });
     }
 
-    // Check permissions
-    const isCreator = schedule.createdBy === req.user.id;
-    const canEdit = isCreator || ['owner', 'admin', 'manager'].includes(req.userCompany.role);
-
-    if (!canEdit) {
-      return res.status(403).json({ success: false, error: 'Permission denied' });
-    }
-
-    // Verify video exists and belongs to company
+    // Verify video belongs to company
     const video = await Video.findOne({
       where: {
         id: videoId,
@@ -294,227 +270,248 @@ router.post('/schedules/:scheduleId/timeline/add', webRequireAuth, webRequireCom
       return res.status(404).json({ success: false, error: 'Video not found' });
     }
 
-    // Get the highest order index
-    const maxOrder = await ScheduleItem.max('order', {
-      where: {
-        scheduleId: scheduleId,
-        isActive: true,
-      },
+    // Get the current max order for this playlist
+    const maxOrderItem = await PlaylistItem.findOne({
+      where: { playlistId },
+      order: [['order', 'DESC']],
+      attributes: ['order'],
     });
 
-    const nextOrder = (maxOrder || 0) + 1;
+    const nextOrder = maxOrderItem ? maxOrderItem.order + 1 : 0;
 
-    // Create schedule item
-    await ScheduleItem.create({
-      scheduleId: scheduleId,
+    // Add video to playlist
+    const item = await PlaylistItem.create({
+      playlistId: playlistId,
       videoId: videoId,
       order: nextOrder,
-      duration: video.duration || null,
-      startTime: '00:00:00', // Default start time
-      isActive: true,
+      duration: parseInt(duration),
     });
 
-    res.json({ success: true });
+    // Load the item with video details
+    const itemWithVideo = await PlaylistItem.findOne({
+      where: { id: item.id },
+      include: [{
+        model: Video,
+        as: 'video',
+      }],
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Video added to playlist',
+      item: itemWithVideo,
+    });
   } catch (error) {
-    console.error('Error adding video to timeline:', error);
-    res.status(500).json({ success: false, error: 'Failed to add video' });
+    console.error('Add video to playlist error:', error);
+    res.status(500).json({ success: false, error: 'Error adding video' });
   }
 });
 
 /**
- * POST /dashboard/schedules/:scheduleId/timeline/:itemId/remove
- * Remove a video from schedule timeline
+ * POST /dashboard/playlists/:playlistId/timeline/:itemId/update
+ * Update a playlist item (e.g., duration)
  */
-router.post('/schedules/:scheduleId/timeline/:itemId/remove', webRequireAuth, webRequireCompany, async (req, res) => {
+router.post('/playlists/:playlistId/timeline/:itemId/update', webRequireAuth, webRequireCompany, async (req, res) => {
   try {
-    const { scheduleId, itemId } = req.params;
+    const { Playlist, PlaylistItem } = require('../models');
+    const { playlistId, itemId } = req.params;
+    const { duration } = req.body;
 
-    // Verify schedule exists and belongs to company
-    const schedule = await Schedule.findOne({
+    // Validate input
+    if (!duration || duration < 1) {
+      return res.status(400).json({ success: false, error: 'Duration must be at least 1 second' });
+    }
+
+    // Verify playlist belongs to company
+    const playlist = await Playlist.findOne({
       where: {
-        id: scheduleId,
+        id: playlistId,
         companyId: req.company.id,
-      },
-    });
-
-    if (!schedule) {
-      return res.status(404).json({ success: false, error: 'Schedule not found' });
-    }
-
-    // Check permissions
-    const isCreator = schedule.createdBy === req.user.id;
-    const canEdit = isCreator || ['owner', 'admin', 'manager'].includes(req.userCompany.role);
-
-    if (!canEdit) {
-      return res.status(403).json({ success: false, error: 'Permission denied' });
-    }
-
-    // Find and soft delete the schedule item
-    const scheduleItem = await ScheduleItem.findOne({
-      where: {
-        id: itemId,
-        scheduleId: scheduleId,
         isActive: true,
       },
     });
 
-    if (!scheduleItem) {
-      return res.status(404).json({ success: false, error: 'Schedule item not found' });
+    if (!playlist) {
+      return res.status(404).json({ success: false, error: 'Playlist not found' });
     }
 
-    await scheduleItem.update({ isActive: false });
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error removing video from timeline:', error);
-    res.status(500).json({ success: false, error: 'Failed to remove video' });
-  }
-});
-
-/**
- * POST /dashboard/schedules/:scheduleId/timeline/clear
- * Clear all videos from schedule timeline
- */
-router.post('/schedules/:scheduleId/timeline/clear', webRequireAuth, webRequireCompany, async (req, res) => {
-  try {
-    const { scheduleId } = req.params;
-
-    // Verify schedule exists and belongs to company
-    const schedule = await Schedule.findOne({
-      where: {
-        id: scheduleId,
-        companyId: req.company.id,
-      },
-    });
-
-    if (!schedule) {
-      return res.status(404).json({ success: false, error: 'Schedule not found' });
-    }
-
-    // Check permissions
-    const isCreator = schedule.createdBy === req.user.id;
-    const canEdit = isCreator || ['owner', 'admin', 'manager'].includes(req.userCompany.role);
-
-    if (!canEdit) {
-      return res.status(403).json({ success: false, error: 'Permission denied' });
-    }
-
-    // Soft delete all schedule items
-    await ScheduleItem.update(
-      { isActive: false },
+    // Update the item
+    const [updated] = await PlaylistItem.update(
+      { duration: parseInt(duration) },
       {
         where: {
-          scheduleId: scheduleId,
-          isActive: true,
+          id: itemId,
+          playlistId: playlistId,
         },
       }
     );
 
-    res.json({ success: true });
+    if (updated === 0) {
+      return res.status(404).json({ success: false, error: 'Item not found' });
+    }
+
+    res.json({ success: true, message: 'Video duration updated' });
   } catch (error) {
-    console.error('Error clearing timeline:', error);
-    res.status(500).json({ success: false, error: 'Failed to clear timeline' });
+    console.error('Update playlist item error:', error);
+    res.status(500).json({ success: false, error: 'Error updating video' });
   }
 });
 
 /**
- * POST /dashboard/schedules/:scheduleId/update
- * Update an existing schedule
+ * POST /dashboard/playlists/:playlistId/timeline/:itemId/remove
+ * Remove a video from playlist timeline
  */
-router.post('/schedules/:scheduleId/update', webRequireAuth, webRequireCompany, async (req, res) => {
+router.post('/playlists/:playlistId/timeline/:itemId/remove', webRequireAuth, webRequireCompany, async (req, res) => {
   try {
-    const { scheduleId } = req.params;
-    const { name, description, timezone, loop, autoStart, isActive } = req.body;
+    const { Playlist, PlaylistItem } = require('../models');
+    const { playlistId, itemId } = req.params;
 
-    // Find the schedule
-    const schedule = await Schedule.findOne({
+    // Verify playlist belongs to company
+    const playlist = await Playlist.findOne({
       where: {
-        id: scheduleId,
+        id: playlistId,
         companyId: req.company.id,
+        isActive: true,
       },
     });
 
-    if (!schedule) {
-      return res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Schedule not found'));
+    if (!playlist) {
+      return res.status(404).json({ success: false, error: 'Playlist not found' });
     }
 
-    // Check permissions
-    const isCreator = schedule.createdBy === req.user.id;
-    const canEdit = isCreator || ['owner', 'admin', 'manager'].includes(req.userCompany.role);
-
-    if (!canEdit) {
-      return res.redirect('/dashboard/schedules?error=' + encodeURIComponent('You do not have permission to edit this schedule'));
-    }
-
-    // Validate required fields
-    if (!name || !name.trim()) {
-      return res.redirect(`/dashboard/schedules/${scheduleId}/edit?error=` + encodeURIComponent('Schedule name is required'));
-    }
-
-    // Build settings object
-    const settings = {
-      loop: loop === 'on' || loop === true,
-      autoStart: autoStart === 'on' || autoStart === true
-    };
-
-    // Update schedule
-    await schedule.update({
-      name: name.trim(),
-      description: description ? description.trim() : null,
-      timezone: timezone || 'Asia/Kolkata',
-      settings: settings,
-      isActive: isActive === 'on' || isActive === true
+    // Remove the item
+    const deleted = await PlaylistItem.destroy({
+      where: {
+        id: itemId,
+        playlistId: playlistId,
+      },
     });
 
-    res.redirect('/dashboard/schedules?success=' + encodeURIComponent(`Schedule "${schedule.name}" updated successfully!`));
+    if (deleted === 0) {
+      return res.status(404).json({ success: false, error: 'Item not found' });
+    }
+
+    res.json({ success: true, message: 'Video removed from playlist' });
   } catch (error) {
-    console.error('Error updating schedule:', error);
-    res.redirect(`/dashboard/schedules/${req.params.scheduleId}/edit?error=` + encodeURIComponent('Failed to update schedule: ' + error.message));
+    console.error('Remove video from playlist error:', error);
+    res.status(500).json({ success: false, error: 'Error removing video' });
   }
 });
 
 /**
- * POST /dashboard/schedules/:scheduleId/delete
- * Delete a schedule
+ * POST /dashboard/playlists/:playlistId/timeline/clear
+ * Clear all videos from playlist timeline
  */
-router.post('/schedules/:scheduleId/delete', webRequireAuth, webRequireCompany, async (req, res) => {
+router.post('/playlists/:playlistId/timeline/clear', webRequireAuth, webRequireCompany, async (req, res) => {
   try {
-    const { scheduleId } = req.params;
+    const { Playlist, PlaylistItem } = require('../models');
+    const { playlistId } = req.params;
 
-    // Find the schedule
-    const schedule = await Schedule.findOne({
+    // Verify playlist belongs to company
+    const playlist = await Playlist.findOne({
       where: {
-        id: scheduleId,
-        companyId: req.company.id
+        id: playlistId,
+        companyId: req.company.id,
+        isActive: true,
       },
-      include: [{
-        model: ScheduleItem,
-        as: 'items'
-      }]
     });
 
-    if (!schedule) {
-      return res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Schedule not found'));
+    if (!playlist) {
+      return res.status(404).json({ success: false, error: 'Playlist not found' });
     }
 
-    // Check permissions - only creator, owner, admin, or manager can delete
-    const isCreator = schedule.createdBy === req.user.id;
-    const canDelete = isCreator || ['owner', 'admin', 'manager'].includes(req.userCompany.role);
+    // Clear all items from playlist
+    const deleted = await PlaylistItem.destroy({
+      where: {
+        playlistId: playlistId,
+      },
+    });
 
-    if (!canDelete) {
-      return res.redirect('/dashboard/schedules?error=' + encodeURIComponent('You do not have permission to delete this schedule'));
-    }
-
-    const scheduleName = schedule.name;
-    const itemCount = schedule.items ? schedule.items.length : 0;
-
-    // Delete the schedule (cascade will delete schedule items)
-    await schedule.destroy();
-
-    res.redirect('/dashboard/schedules?success=' + encodeURIComponent(`Schedule "${scheduleName}" and its ${itemCount} video item(s) deleted successfully`));
+    res.json({ 
+      success: true, 
+      message: 'Playlist cleared',
+      deletedCount: deleted,
+    });
   } catch (error) {
-    console.error('Error deleting schedule:', error);
-    res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Failed to delete schedule: ' + error.message));
+    console.error('Clear playlist error:', error);
+    res.status(500).json({ success: false, error: 'Error clearing playlist' });
+  }
+});
+
+/**
+ * POST /dashboard/playlists/:playlistId/update
+ * Update an existing playlist
+ */
+router.post('/playlists/:playlistId/update', webRequireAuth, webRequireCompany, async (req, res) => {
+  try {
+    const { Playlist } = require('../models');
+    const { playlistId } = req.params;
+    const { name, description } = req.body;
+
+    // Validate input
+    if (!name || name.trim().length === 0) {
+      return res.redirect(`/dashboard/playlists/${playlistId}/timeline?error=` + encodeURIComponent('Playlist name is required'));
+    }
+
+    // Find and update playlist
+    const playlist = await Playlist.findOne({
+      where: {
+        id: playlistId,
+        companyId: req.company.id,
+        isActive: true,
+      },
+    });
+
+    if (!playlist) {
+      return res.redirect('/dashboard/playlists?error=' + encodeURIComponent('Playlist not found'));
+    }
+
+    await playlist.update({
+      name: name.trim(),
+      description: description?.trim() || null,
+    });
+
+    res.redirect(`/dashboard/playlists/${playlistId}/timeline?success=` + encodeURIComponent('Playlist updated successfully'));
+  } catch (error) {
+    console.error('Playlist update error:', error);
+    res.redirect(`/dashboard/playlists/${req.params.playlistId}/timeline?error=` + encodeURIComponent('Error updating playlist'));
+  }
+});
+
+/**
+ * POST /dashboard/playlists/:playlistId/delete
+ * Delete a playlist
+ */
+router.post('/playlists/:playlistId/delete', webRequireAuth, webRequireCompany, async (req, res) => {
+  try {
+    const { Playlist, PlaylistItem } = require('../models');
+    const { playlistId } = req.params;
+
+    // Find playlist
+    const playlist = await Playlist.findOne({
+      where: {
+        id: playlistId,
+        companyId: req.company.id,
+        isActive: true,
+      },
+    });
+
+    if (!playlist) {
+      return res.redirect('/dashboard/playlists?error=' + encodeURIComponent('Playlist not found'));
+    }
+
+    // Delete all playlist items first
+    await PlaylistItem.destroy({
+      where: { playlistId: playlistId },
+    });
+
+    // Delete playlist
+    await playlist.update({ isActive: false });
+
+    res.redirect('/dashboard/playlists?success=' + encodeURIComponent('Playlist deleted successfully'));
+  } catch (error) {
+    console.error('Playlist deletion error:', error);
+    res.redirect('/dashboard/playlists?error=' + encodeURIComponent('Error deleting playlist'));
   }
 });
 
@@ -569,6 +566,45 @@ router.post('/upload', webRequireAuth, webRequireCompany, (req, res, next) => {
         }
       }
 
+      // Extract video metadata (duration, resolution, etc.)
+      let videoMetadata = {};
+      let duration = null;
+      let resolution = null;
+      let thumbnailPath = null;
+
+      try {
+        const fullPath = path.join(process.cwd(), 'videos', req.company.id, req.file.filename);
+        const extractedMetadata = await extractVideoMetadata(fullPath);
+        
+        duration = extractedMetadata.duration;
+        resolution = extractedMetadata.resolution;
+        videoMetadata = {
+          codec: extractedMetadata.codec,
+          bitrate: extractedMetadata.bitrate,
+          fps: extractedMetadata.fps,
+          format: extractedMetadata.format,
+        };
+
+        console.log('✅ Video metadata extracted:', { duration, resolution });
+
+        // Generate thumbnail (at 10% of video duration)
+        try {
+          const thumbnailFilename = `${path.basename(req.file.filename, path.extname(req.file.filename))}_thumb.jpg`;
+          const thumbnailFullPath = path.join(process.cwd(), 'videos', req.company.id, 'thumbnails', thumbnailFilename);
+          
+          await generateThumbnailAtPercentage(fullPath, thumbnailFullPath, 10);
+          thumbnailPath = path.join('videos', req.company.id, 'thumbnails', thumbnailFilename);
+          
+          console.log('✅ Thumbnail generated:', thumbnailPath);
+        } catch (thumbError) {
+          console.error('⚠️  Failed to generate thumbnail:', thumbError.message);
+          // Continue without thumbnail
+        }
+      } catch (metadataError) {
+        console.error('⚠️  Failed to extract video metadata:', metadataError.message);
+        // Continue with upload even if metadata extraction fails
+      }
+
       // Create video record
       await Video.create({
         companyId: req.company.id,
@@ -578,7 +614,10 @@ router.post('/upload', webRequireAuth, webRequireCompany, (req, res, next) => {
         filePath: path.join('videos', req.company.id, req.file.filename),
         fileSize: req.file.size,
         mimeType: req.file.mimetype,
-        metadata: {},
+        duration: duration,
+        resolution: resolution,
+        thumbnailPath: thumbnailPath,
+        metadata: videoMetadata,
         isActive: true,
       });
 
@@ -667,47 +706,13 @@ router.post('/videos/:videoId/delete', webRequireAuth, webRequireCompany, async 
       return res.redirect(`/dashboard/videos?error=${encodeURIComponent('You do not have permission to delete this video')}`);
     }
 
-    // Check if video is used in any schedules
-    const scheduleItems = await ScheduleItem.findAll({
-      where: {
-        videoId: videoId,
-        isActive: true,
-      },
-      include: [{
-        model: Schedule,
-        as: 'schedule',
-        where: {
-          companyId: req.company.id,
-          isActive: true,
-        },
-        attributes: ['id', 'name'],
-      }],
-    });
-
-    // If video is in schedules, remove it from all schedules
-    if (scheduleItems.length > 0) {
-      await ScheduleItem.update(
-        { isActive: false },
-        {
-          where: {
-            videoId: videoId,
-            isActive: true,
-          },
-        }
-      );
-    }
-
     // Delete file from filesystem
     await deleteFile(video.filePath);
 
     // Soft delete in database
     await video.update({ isActive: false });
 
-    const message = scheduleItems.length > 0 
-      ? `Video deleted successfully! (Removed from ${scheduleItems.length} schedule(s))`
-      : 'Video deleted successfully!';
-
-    res.redirect(`/dashboard/videos?success=${encodeURIComponent(message)}`);
+    res.redirect(`/dashboard/videos?success=${encodeURIComponent('Video deleted successfully!')}`);
   } catch (error) {
     console.error('Video delete error:', error);
     res.redirect(`/dashboard/videos?error=${encodeURIComponent('Delete failed: ' + error.message)}`);
@@ -738,7 +743,6 @@ router.post('/videos/bulk-delete', webRequireAuth, webRequireCompany, async (req
 
     let deleted = 0;
     let failed = 0;
-    let removedFromSchedules = 0;
 
     for (const video of videos) {
       try {
@@ -750,27 +754,6 @@ router.post('/videos/bulk-delete', webRequireAuth, webRequireCompany, async (req
         if (!canDelete) {
           failed++;
           continue;
-        }
-
-        // Check and remove from schedules
-        const scheduleItems = await ScheduleItem.findAll({
-          where: {
-            videoId: video.id,
-            isActive: true,
-          },
-        });
-
-        if (scheduleItems.length > 0) {
-          await ScheduleItem.update(
-            { isActive: false },
-            {
-              where: {
-                videoId: video.id,
-                isActive: true,
-              },
-            }
-          );
-          removedFromSchedules += scheduleItems.length;
         }
 
         // Delete file from filesystem
@@ -787,7 +770,6 @@ router.post('/videos/bulk-delete', webRequireAuth, webRequireCompany, async (req
     }
 
     const message = `Successfully deleted ${deleted} video(s)` + 
-                   (removedFromSchedules > 0 ? ` (Removed from ${removedFromSchedules} schedule(s))` : '') +
                    (failed > 0 ? `. ${failed} video(s) could not be deleted.` : '');
 
     res.redirect(`/dashboard/videos?success=${encodeURIComponent(message)}`);

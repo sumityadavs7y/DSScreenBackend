@@ -8,11 +8,9 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult, param } = require('express-validator');
-const { Schedule, ScheduleItem, Video, User, Company, Device, sequelize, Sequelize } = require('../models');
+const { Video, User, Company, sequelize, Sequelize } = require('../models');
 const { protect, requireRole } = require('../middleware/sessionAuth');
 const verifyToken = protect; // Alias for compatibility
-const { generateUniqueCode, isValidCode } = require('../utils/scheduleCode');
-const { generateDeviceName } = require('../utils/deviceName');
 
 /**
  * Helper function to validate UUID format

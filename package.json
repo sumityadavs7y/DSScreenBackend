@@ -15,7 +15,9 @@
     "migrate:rollback": "node -e \"require('./utils/migrate').rollbackMigration().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); })\"",
     "migrate:check": "node -e \"require('./utils/migrate').checkMigrationStatus().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); })\"",
     "cleanup:videos": "node scripts/cleanup-orphaned-videos.js",
-    "cleanup:videos:dry-run": "node scripts/cleanup-orphaned-videos.js --dry-run"
+    "cleanup:videos:dry-run": "node scripts/cleanup-orphaned-videos.js --dry-run",
+    "backfill:metadata": "node scripts/backfill-video-metadata.js",
+    "backfill:thumbnails": "node scripts/backfill-video-thumbnails.js"
   },
   "keywords": [
     "backend",
@@ -26,12 +28,15 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "bcrypt": "^6.0.0",
     "dotenv": "^16.3.1",
     "ejs": "^3.1.9",
     "express": "^4.18.2",
     "express-session": "^1.18.2",
     "express-validator": "^7.0.1",
+    "fluent-ffmpeg": "^2.1.3",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
     "pg": "^8.16.3",

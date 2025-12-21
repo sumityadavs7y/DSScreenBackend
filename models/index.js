@@ -5,9 +5,8 @@ const User = require('./User');
 const Company = require('./Company');
 const UserCompany = require('./UserCompany');
 const Video = require('./Video');
-const Schedule = require('./Schedule');
-const ScheduleItem = require('./ScheduleItem');
-const Device = require('./Device');
+const Playlist = require('./Playlist');
+const PlaylistItem = require('./PlaylistItem');
 
 // Define relationships
 // User <-> Company (Many-to-Many through UserCompany)
@@ -67,57 +66,46 @@ User.hasMany(Video, {
   as: 'uploadedVideos'
 });
 
-// Schedule associations
-Schedule.belongsTo(Company, {
+// Playlist associations
+Playlist.belongsTo(Company, {
   foreignKey: 'companyId',
   as: 'company'
 });
 
-Schedule.belongsTo(User, {
+Playlist.belongsTo(User, {
   foreignKey: 'createdBy',
   as: 'creator'
 });
 
-Company.hasMany(Schedule, {
+Company.hasMany(Playlist, {
   foreignKey: 'companyId',
-  as: 'schedules'
+  as: 'playlists'
 });
 
-User.hasMany(Schedule, {
+User.hasMany(Playlist, {
   foreignKey: 'createdBy',
-  as: 'createdSchedules'
+  as: 'createdPlaylists'
 });
 
-// ScheduleItem associations
-ScheduleItem.belongsTo(Schedule, {
-  foreignKey: 'scheduleId',
-  as: 'schedule'
+// PlaylistItem associations
+PlaylistItem.belongsTo(Playlist, {
+  foreignKey: 'playlistId',
+  as: 'playlist'
 });
 
-ScheduleItem.belongsTo(Video, {
+PlaylistItem.belongsTo(Video, {
   foreignKey: 'videoId',
   as: 'video'
 });
 
-Schedule.hasMany(ScheduleItem, {
-  foreignKey: 'scheduleId',
+Playlist.hasMany(PlaylistItem, {
+  foreignKey: 'playlistId',
   as: 'items'
 });
 
-Video.hasMany(ScheduleItem, {
+Video.hasMany(PlaylistItem, {
   foreignKey: 'videoId',
-  as: 'scheduleItems'
-});
-
-// Device associations
-Device.belongsTo(Schedule, {
-  foreignKey: 'scheduleId',
-  as: 'schedule'
-});
-
-Schedule.hasMany(Device, {
-  foreignKey: 'scheduleId',
-  as: 'devices'
+  as: 'playlistItems'
 });
 
 module.exports = {
@@ -128,8 +116,7 @@ module.exports = {
   Company,
   UserCompany,
   Video,
-  Schedule,
-  ScheduleItem,
-  Device,
+  Playlist,
+  PlaylistItem,
 };
 

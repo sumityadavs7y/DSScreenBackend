@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include('partials/head') %>
+    <title>Timeline - <%= schedule.name %> - dsScreen</title>
+    <style>
+        .timeline-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+        }
+        
+        .schedule-code-display {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+            display: inline-block;
+        }
+        
+        .timeline-container {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow-x: hidden;
+        }
+        
+        .timeline-item {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: all 0.2s;
+        }
+        
+        .timeline-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+        
+        .timeline-item-number {
+            background: #667eea;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        .timeline-item-content {
+            flex: 1;
+        }
+        
+        .timeline-item-title {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.25rem;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+        
+        .timeline-item-meta {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        
+        .timeline-empty {
+            text-align: center;
+            padding: 3rem;
+            color: #6c757d;
+        }
+        
+        .timeline-empty i {
+            font-size: 4rem;
+            color: #dee2e6;
+            margin-bottom: 1rem;
+        }
+        
+        .video-card {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .video-card:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .video-card.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+        
+        .video-card-title {
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+        
+        #videoLibrary {
+            overflow-x: hidden !important;
+        }
+        
+        .drag-handle {
+            cursor: move;
+            color: #6c757d;
+            font-size: 1.2rem;
+        }
+        
+        .drag-handle:hover {
+            color: #495057;
+        }
+        
+        .btn-back {
+            color: white;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0.9;
+        }
+        
+        .btn-back:hover {
+            color: white;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/navbar', { user, company, userCompany }) %>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="content-wrapper">
+        <div class="container">
+            <!-- Timeline Header -->
+            <div class="timeline-header">
+                <a href="/dashboard/schedules" class="btn-back mb-3">
+                    <i class="bi bi-arrow-left"></i> Back to Schedules
+                </a>
+                <h2 class="mb-2">
+                    <i class="bi bi-film"></i> <%= schedule.name %>
+                </h2>
+                <p class="mb-2 opacity-75"><%= schedule.description || 'Manage video timeline and playback order' %></p>
+                <div class="d-flex align-items-center gap-3">
+                    <span>Schedule Code:</span>
+                    <span class="schedule-code-display"><%= schedule.code %></span>
+                    <span class="badge bg-light text-dark"><%= schedule.items ? schedule.items.length : 0 %> videos</span>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Timeline Section -->
+                <div class="col-lg-8 mb-4 mb-lg-0">
+                    <div class="timeline-container">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="mb-0">
+                                <i class="bi bi-play-circle"></i> Video Timeline
+                            </h4>
+                            <button class="btn btn-sm btn-outline-danger" onclick="clearTimeline()" <%= (!schedule.items || schedule.items.length === 0) ? 'disabled' : '' %>>
+                                <i class="bi bi-trash"></i> Clear All
+                            </button>
+                        </div>
+                        
+                        <div id="timelineItems">
+                            <% if (!schedule.items || schedule.items.length === 0) { %>
+                                <div class="timeline-empty">
+                                    <i class="bi bi-collection-play"></i>
+                                    <h5>No Videos in Timeline</h5>
+                                    <p class="text-muted">Add videos from the library on the right to build your schedule</p>
+                                </div>
+                            <% } else { %>
+                                <% schedule.items.forEach((item, index) => { %>
+                                    <div class="timeline-item" data-item-id="<%= item.id %>">
+                                        <div class="drag-handle">
+                                            <i class="bi bi-grip-vertical"></i>
+                                        </div>
+                                        <div class="timeline-item-number"><%= index + 1 %></div>
+                                        <div class="timeline-item-content">
+                                            <div class="timeline-item-title">
+                                                <%= item.video ? item.video.fileName : 'Unknown Video' %>
+                                            </div>
+                                            <div class="timeline-item-meta">
+                                                <% if (item.video && item.video.duration) { %>
+                                                    Duration: <%= item.video.duration %>s
+                                                <% } else { %>
+                                                    Duration: <%= item.duration || 10 %>s
+                                                <% } %>
+                                                <% if (item.startTime && item.endTime) { %>
+                                                    | Time: <%= item.startTime %> - <%= item.endTime %>
+                                                <% } %>
+                                            </div>
+                                        </div>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-secondary" 
+                                                    onclick="editTimelineItem('<%= item.id %>')"
+                                                    title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" 
+                                                    onclick="removeTimelineItem('<%= item.id %>')"
+                                                    title="Remove">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                <% }) %>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Video Library Section -->
+                <div class="col-lg-4">
+                    <div class="timeline-container">
+                        <h4 class="mb-3">
+                            <i class="bi bi-collection"></i> Video Library
+                        </h4>
+                        
+                        <div class="mb-3">
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="videoSearch" 
+                                   placeholder="Search videos..."
+                                   onkeyup="filterVideos()">
+                        </div>
+                        
+                        <div id="videoLibrary" style="max-height: 600px; overflow-y: auto; overflow-x: hidden;">
+                            <% if (!availableVideos || availableVideos.length === 0) { %>
+                                <div class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                                    <p class="mt-2">No videos available</p>
+                                    <a href="/dashboard/videos" class="btn btn-sm btn-gradient">
+                                        Upload Videos
+                                    </a>
+                                </div>
+                            <% } else { %>
+                                <% availableVideos.forEach(video => { %>
+                                    <div class="video-card" data-video-id="<%= video.id %>" onclick="selectVideo('<%= video.id %>')">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <i class="bi bi-play-circle text-primary" style="font-size: 1.5rem;"></i>
+                                            <div class="flex-grow-1">
+                                                <div class="video-card-title fw-500">
+                                                    <%= video.fileName %>
+                                                </div>
+                                                <small class="text-muted">
+                                                    <% if (video.duration) { %>
+                                                        <%= video.duration %>s
+                                                    <% } %>
+                                                    <% if (video.fileSize) { %>
+                                                        | <%= (video.fileSize / (1024 * 1024)).toFixed(1) %> MB
+                                                    <% } %>
+                                                </small>
+                                            </div>
+                                            <button class="btn btn-sm btn-gradient" onclick="event.stopPropagation(); addVideoToTimeline('<%= video.id %>')">
+                                                <i class="bi bi-plus-lg"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                <% }) %>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <%- include('partials/scripts') %>
+    <script>
+        let selectedVideoId = null;
+
+        function selectVideo(videoId) {
+            selectedVideoId = videoId;
+            // Update UI
+            document.querySelectorAll('.video-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.querySelector(`[data-video-id="${videoId}"]`).classList.add('selected');
+        }
+
+        function filterVideos() {
+            const searchTerm = document.getElementById('videoSearch').value.toLowerCase();
+            document.querySelectorAll('.video-card').forEach(card => {
+                const title = card.querySelector('.video-card-title').textContent.toLowerCase();
+                if (title.includes(searchTerm)) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        async function addVideoToTimeline(videoId) {
+            try {
+                const response = await fetch('/dashboard/schedules/<%= schedule.id %>/timeline/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ videoId }),
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    Toast.success('Video added to timeline');
+                    // Reload page to show updated timeline
+                    window.location.reload();
+                } else {
+                    Toast.error(result.error || 'Failed to add video');
+                }
+            } catch (error) {
+                console.error('Error adding video:', error);
+                Toast.error('Failed to add video to timeline');
+            }
+        }
+
+        function editTimelineItem(itemId) {
+            Toast.info('Edit functionality coming soon');
+        }
+
+        async function removeTimelineItem(itemId) {
+            if (!confirm('Remove this video from the timeline?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/dashboard/schedules/<%= schedule.id %>/timeline/${itemId}/remove`, {
+                    method: 'POST',
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    Toast.success('Video removed from timeline');
+                    window.location.reload();
+                } else {
+                    Toast.error(result.error || 'Failed to remove video');
+                }
+            } catch (error) {
+                console.error('Error removing video:', error);
+                Toast.error('Failed to remove video');
+            }
+        }
+
+        async function clearTimeline() {
+            if (!confirm('Are you sure you want to remove all videos from this timeline?\n\nThis action cannot be undone!')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/dashboard/schedules/<%= schedule.id %>/timeline/clear', {
+                    method: 'POST',
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    Toast.success('Timeline cleared');
+                    window.location.reload();
+                } else {
+                    Toast.error(result.error || 'Failed to clear timeline');
+                }
+            } catch (error) {
+                console.error('Error clearing timeline:', error);
+                Toast.error('Failed to clear timeline');
+            }
+        }
+
+        // Show any query parameter messages
+        const urlParams = new URLSearchParams(window.location.search);
+        const error = urlParams.get('error');
+        const success = urlParams.get('success');
+        
+        if (error) {
+            Toast.error(error);
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        
+        if (success) {
+            Toast.success(success);
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    </script>
+</body>
+</html>
+

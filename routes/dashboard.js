@@ -141,6 +141,77 @@ router.get('/schedules', webRequireAuth, webRequireCompany, async (req, res) => 
 });
 
 /**
+ * GET /dashboard/schedules/:scheduleId/timeline
+ * Timeline management page for a schedule
+ */
+router.get('/schedules/:scheduleId/timeline', webRequireAuth, webRequireCompany, async (req, res) => {
+  try {
+    const { scheduleId } = req.params;
+
+    // Find the schedule with its items
+    const schedule = await Schedule.findOne({
+      where: {
+        id: scheduleId,
+        companyId: req.company.id,
+      },
+      include: [
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'firstName', 'lastName', 'email'],
+        },
+        {
+          model: ScheduleItem,
+          as: 'items',
+          where: { isActive: true },
+          required: false,
+          include: [
+            {
+              model: Video,
+              as: 'video',
+              attributes: ['id', 'fileName', 'originalFileName', 'duration', 'fileSize'],
+            }
+          ],
+        },
+      ],
+      order: [[{ model: ScheduleItem, as: 'items' }, 'order', 'ASC']],
+    });
+
+    if (!schedule) {
+      return res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Schedule not found'));
+    }
+
+    // Check permissions - only creator, owner, admin, or manager can edit
+    const isCreator = schedule.createdBy === req.user.id;
+    const canEdit = isCreator || ['owner', 'admin', 'manager'].includes(req.userCompany.role);
+
+    if (!canEdit) {
+      return res.redirect('/dashboard/schedules?error=' + encodeURIComponent('You do not have permission to edit this schedule'));
+    }
+
+    // Get all available videos for the company
+    const availableVideos = await Video.findAll({
+      where: {
+        companyId: req.company.id,
+        isActive: true,
+      },
+      order: [['fileName', 'ASC']],
+    });
+
+    res.render('schedule-timeline', {
+      user: req.user,
+      company: req.company,
+      userCompany: req.userCompany,
+      schedule: schedule,
+      availableVideos: availableVideos,
+    });
+  } catch (error) {
+    console.error('Schedule timeline page error:', error);
+    res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Error loading timeline: ' + error.message));
+  }
+});
+
+/**
  * POST /dashboard/schedules/create
  * Create a new schedule
  */
@@ -178,6 +249,227 @@ router.post('/schedules/create', webRequireAuth, webRequireCompany, async (req, 
   } catch (error) {
     console.error('Error creating schedule:', error);
     res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Failed to create schedule: ' + error.message));
+  }
+});
+
+/**
+ * POST /dashboard/schedules/:scheduleId/timeline/add
+ * Add a video to schedule timeline
+ */
+router.post('/schedules/:scheduleId/timeline/add', webRequireAuth, webRequireCompany, async (req, res) => {
+  try {
+    const { scheduleId } = req.params;
+    const { videoId } = req.body;
+
+    // Verify schedule exists and belongs to company
+    const schedule = await Schedule.findOne({
+      where: {
+        id: scheduleId,
+        companyId: req.company.id,
+      },
+    });
+
+    if (!schedule) {
+      return res.status(404).json({ success: false, error: 'Schedule not found' });
+    }
+
+    // Check permissions
+    const isCreator = schedule.createdBy === req.user.id;
+    const canEdit = isCreator || ['owner', 'admin', 'manager'].includes(req.userCompany.role);
+
+    if (!canEdit) {
+      return res.status(403).json({ success: false, error: 'Permission denied' });
+    }
+
+    // Verify video exists and belongs to company
+    const video = await Video.findOne({
+      where: {
+        id: videoId,
+        companyId: req.company.id,
+        isActive: true,
+      },
+    });
+
+    if (!video) {
+      return res.status(404).json({ success: false, error: 'Video not found' });
+    }
+
+    // Get the highest order index
+    const maxOrder = await ScheduleItem.max('order', {
+      where: {
+        scheduleId: scheduleId,
+        isActive: true,
+      },
+    });
+
+    const nextOrder = (maxOrder || 0) + 1;
+
+    // Create schedule item
+    await ScheduleItem.create({
+      scheduleId: scheduleId,
+      videoId: videoId,
+      order: nextOrder,
+      duration: video.duration || null,
+      startTime: '00:00:00', // Default start time
+      isActive: true,
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error adding video to timeline:', error);
+    res.status(500).json({ success: false, error: 'Failed to add video' });
+  }
+});
+
+/**
+ * POST /dashboard/schedules/:scheduleId/timeline/:itemId/remove
+ * Remove a video from schedule timeline
+ */
+router.post('/schedules/:scheduleId/timeline/:itemId/remove', webRequireAuth, webRequireCompany, async (req, res) => {
+  try {
+    const { scheduleId, itemId } = req.params;
+
+    // Verify schedule exists and belongs to company
+    const schedule = await Schedule.findOne({
+      where: {
+        id: scheduleId,
+        companyId: req.company.id,
+      },
+    });
+
+    if (!schedule) {
+      return res.status(404).json({ success: false, error: 'Schedule not found' });
+    }
+
+    // Check permissions
+    const isCreator = schedule.createdBy === req.user.id;
+    const canEdit = isCreator || ['owner', 'admin', 'manager'].includes(req.userCompany.role);
+
+    if (!canEdit) {
+      return res.status(403).json({ success: false, error: 'Permission denied' });
+    }
+
+    // Find and soft delete the schedule item
+    const scheduleItem = await ScheduleItem.findOne({
+      where: {
+        id: itemId,
+        scheduleId: scheduleId,
+        isActive: true,
+      },
+    });
+
+    if (!scheduleItem) {
+      return res.status(404).json({ success: false, error: 'Schedule item not found' });
+    }
+
+    await scheduleItem.update({ isActive: false });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error removing video from timeline:', error);
+    res.status(500).json({ success: false, error: 'Failed to remove video' });
+  }
+});
+
+/**
+ * POST /dashboard/schedules/:scheduleId/timeline/clear
+ * Clear all videos from schedule timeline
+ */
+router.post('/schedules/:scheduleId/timeline/clear', webRequireAuth, webRequireCompany, async (req, res) => {
+  try {
+    const { scheduleId } = req.params;
+
+    // Verify schedule exists and belongs to company
+    const schedule = await Schedule.findOne({
+      where: {
+        id: scheduleId,
+        companyId: req.company.id,
+      },
+    });
+
+    if (!schedule) {
+      return res.status(404).json({ success: false, error: 'Schedule not found' });
+    }
+
+    // Check permissions
+    const isCreator = schedule.createdBy === req.user.id;
+    const canEdit = isCreator || ['owner', 'admin', 'manager'].includes(req.userCompany.role);
+
+    if (!canEdit) {
+      return res.status(403).json({ success: false, error: 'Permission denied' });
+    }
+
+    // Soft delete all schedule items
+    await ScheduleItem.update(
+      { isActive: false },
+      {
+        where: {
+          scheduleId: scheduleId,
+          isActive: true,
+        },
+      }
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error clearing timeline:', error);
+    res.status(500).json({ success: false, error: 'Failed to clear timeline' });
+  }
+});
+
+/**
+ * POST /dashboard/schedules/:scheduleId/update
+ * Update an existing schedule
+ */
+router.post('/schedules/:scheduleId/update', webRequireAuth, webRequireCompany, async (req, res) => {
+  try {
+    const { scheduleId } = req.params;
+    const { name, description, timezone, loop, autoStart, isActive } = req.body;
+
+    // Find the schedule
+    const schedule = await Schedule.findOne({
+      where: {
+        id: scheduleId,
+        companyId: req.company.id,
+      },
+    });
+
+    if (!schedule) {
+      return res.redirect('/dashboard/schedules?error=' + encodeURIComponent('Schedule not found'));
+    }
+
+    // Check permissions
+    const isCreator = schedule.createdBy === req.user.id;
+    const canEdit = isCreator || ['owner', 'admin', 'manager'].includes(req.userCompany.role);
+
+    if (!canEdit) {
+      return res.redirect('/dashboard/schedules?error=' + encodeURIComponent('You do not have permission to edit this schedule'));
+    }
+
+    // Validate required fields
+    if (!name || !name.trim()) {
+      return res.redirect(`/dashboard/schedules/${scheduleId}/edit?error=` + encodeURIComponent('Schedule name is required'));
+    }
+
+    // Build settings object
+    const settings = {
+      loop: loop === 'on' || loop === true,
+      autoStart: autoStart === 'on' || autoStart === true
+    };
+
+    // Update schedule
+    await schedule.update({
+      name: name.trim(),
+      description: description ? description.trim() : null,
+      timezone: timezone || 'Asia/Kolkata',
+      settings: settings,
+      isActive: isActive === 'on' || isActive === true
+    });
+
+    res.redirect('/dashboard/schedules?success=' + encodeURIComponent(`Schedule "${schedule.name}" updated successfully!`));
+  } catch (error) {
+    console.error('Error updating schedule:', error);
+    res.redirect(`/dashboard/schedules/${req.params.scheduleId}/edit?error=` + encodeURIComponent('Failed to update schedule: ' + error.message));
   }
 });
 

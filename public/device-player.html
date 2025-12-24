@@ -3,197 +3,206 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Device Player - Playlist Data</title>
+    <title>Timeline Details</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+            background: #f8f9fa;
+            padding: 2rem;
+            font-family: 'Courier New', monospace;
         }
-        .player-container {
+        .container {
             max-width: 1200px;
             margin: 0 auto;
         }
-        .playlist-card {
-            background: white;
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
             border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
+            margin-bottom: 2rem;
+            text-align: center;
         }
-        .device-info {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        .json-viewer {
-            background: #1e1e1e;
-            color: #d4d4d4;
-            padding: 20px;
-            border-radius: 10px;
-            overflow-x: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.6;
-            max-height: 600px;
-            overflow-y: auto;
+        .card {
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         .video-item {
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 5px;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            background: white;
         }
-        .badge-custom {
-            font-size: 0.9em;
-            padding: 5px 10px;
+        .badge-order {
+            background: #667eea;
+            color: white;
+            padding: 10px;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 5px;
+            overflow-x: auto;
         }
     </style>
 </head>
 <body>
-    <div class="player-container">
-        <div class="playlist-card">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2><i class="bi bi-collection-play"></i> Device Player</h2>
-                <div>
-                    <button onclick="clearRegistration()" class="btn btn-outline-danger me-2">
-                        <i class="bi bi-trash"></i> Clear Registration
-                    </button>
-                    <button onclick="window.location.reload()" class="btn btn-outline-primary">
-                        <i class="bi bi-arrow-clockwise"></i> Refresh
-                    </button>
-                </div>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Timeline Details</h1>
+            <p class="mb-0">Device Registration & Playlist Information</p>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Device Information</h5>
             </div>
-
-            <!-- Device Info -->
-            <div class="device-info">
-                <h5><i class="bi bi-display"></i> Device Information</h5>
-                <div class="row">
-                    <div class="col-md-6">
-                        <p class="mb-1"><strong>Device UID:</strong> <span id="deviceUid"></span></p>
-                        <p class="mb-1"><strong>Resolution:</strong> <span id="deviceResolution"></span></p>
-                    </div>
-                    <div class="col-md-6">
-                        <p class="mb-1"><strong>Platform:</strong> <span id="devicePlatform"></span></p>
-                        <p class="mb-1"><strong>Last Seen:</strong> <span id="deviceLastSeen"></span></p>
-                    </div>
-                </div>
+            <div class="card-body">
+                <p><strong>Device UID:</strong> <span id="deviceUID">-</span></p>
+                <p class="mb-0"><strong>Registered:</strong> <span id="registered">-</span></p>
             </div>
+        </div>
 
-            <!-- Playlist Info -->
-            <div class="mb-4">
-                <h3 id="playlistName"></h3>
-                <p class="text-muted" id="playlistDescription"></p>
-                <div class="mb-3">
-                    <span class="badge bg-primary badge-custom">Code: <span id="playlistCode"></span></span>
-                    <span class="badge bg-success badge-custom"><span id="videoCount"></span> Videos</span>
-                    <span class="badge bg-info badge-custom">Total: <span id="totalDuration"></span></span>
-                </div>
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Playlist Information</h5>
             </div>
-
-            <!-- Video Items -->
-            <div id="videoItems" class="mb-4"></div>
-
-            <!-- Tabs -->
-            <ul class="nav nav-tabs mb-3" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="formatted-tab" data-bs-toggle="tab" data-bs-target="#formatted" type="button">
-                        <i class="bi bi-list-ul"></i> Formatted View
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="raw-tab" data-bs-toggle="tab" data-bs-target="#raw" type="button">
-                        <i class="bi bi-code-square"></i> Raw JSON
-                    </button>
-                </li>
-            </ul>
-
-            <!-- Tab Content -->
-            <div class="tab-content">
-                <div class="tab-pane fade show active" id="formatted" role="tabpanel">
-                    <p class="text-muted">See video items above for formatted view.</p>
-                </div>
-                <div class="tab-pane fade" id="raw" role="tabpanel">
-                    <pre class="json-viewer" id="rawJson"></pre>
-                </div>
+            <div class="card-body">
+                <p><strong>Playlist Name:</strong> <span id="playlistName">-</span></p>
+                <p><strong>Playlist ID:</strong> <span id="playlistID">-</span></p>
+                <p><strong>Playlist Code:</strong> <span id="playlistCode">-</span></p>
+                <p><strong>Total Videos:</strong> <span id="totalVideos">-</span></p>
+                <p class="mb-0"><strong>Total Duration:</strong> <span id="totalDuration">-</span></p>
             </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">Timeline Items (Playback Order)</h5>
+            </div>
+            <div class="card-body" id="timelineItems">
+                <p class="text-muted">Loading...</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Raw JSON Data</h5>
+            </div>
+            <div class="card-body">
+                <pre id="rawData">Loading...</pre>
+            </div>
+        </div>
+
+        <div class="text-center">
+            <button class="btn btn-primary" onclick="location.reload()">Refresh</button>
+            <button class="btn btn-secondary" onclick="goHome()">Back to Home</button>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Get registration data from localStorage
-        const registrationData = localStorage.getItem('devicePlaylistRegistration');
-        
-        if (!registrationData) {
-            window.location.href = '/';
+        document.addEventListener('DOMContentLoaded', loadTimelineDetails);
+
+        async function loadTimelineDetails() {
+            const registrationData = localStorage.getItem('devicePlaylistRegistration');
+            
+            if (!registrationData) {
+                document.getElementById('timelineItems').innerHTML = '<div class="alert alert-danger">No registration data found. Please register a device first.</div>';
+                return;
+            }
+
+            try {
+                const data = JSON.parse(registrationData);
+                const playlist = data.playlist;
+
+                // Device Info
+                document.getElementById('deviceUID').textContent = localStorage.getItem('deviceUID') || 'Unknown';
+                document.getElementById('registered').textContent = new Date().toLocaleString();
+
+                // Playlist Info
+                document.getElementById('playlistName').textContent = playlist.name || 'N/A';
+                document.getElementById('playlistID').textContent = playlist.id || 'N/A';
+                document.getElementById('playlistCode').textContent = playlist.code || 'N/A';
+                document.getElementById('totalVideos').textContent = playlist.items ? playlist.items.length : 0;
+
+                // Calculate total duration
+                let totalDuration = 0;
+                if (playlist.items) {
+                    totalDuration = playlist.items.reduce((sum, item) => sum + (item.duration || 0), 0);
+                }
+                document.getElementById('totalDuration').textContent = formatTime(totalDuration);
+
+                // Display timeline items
+                if (playlist.items && playlist.items.length > 0) {
+                    const sortedItems = [...playlist.items].sort((a, b) => a.order - b.order);
+                    
+                    let html = '';
+                    sortedItems.forEach((item, index) => {
+                        html += `
+                            <div class="video-item">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="badge-order">${index + 1}</div>
+                                    <div class="flex-grow-1">
+                                        <h5>${item.video.fileName || 'Unknown'}</h5>
+                                        <p class="mb-2">
+                                            <strong>Duration:</strong> ${formatTime(item.duration || 0)} (${item.duration}s)<br>
+                                            <strong>Order:</strong> ${item.order}<br>
+                                            <strong>Video ID:</strong> ${item.video.id}<br>
+                                            <strong>File Path:</strong> ${item.video.filePath || 'N/A'}<br>
+                                            <strong>MIME Type:</strong> ${item.video.mimeType || 'N/A'}<br>
+                                            <strong>Resolution:</strong> ${item.video.resolution || 'N/A'}<br>
+                                            <strong>File Size:</strong> ${formatFileSize(item.video.fileSize)}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    document.getElementById('timelineItems').innerHTML = html;
+                } else {
+                    document.getElementById('timelineItems').innerHTML = '<div class="alert alert-warning">No videos in timeline</div>';
+                }
+
+                // Raw JSON
+                document.getElementById('rawData').textContent = JSON.stringify(data, null, 2);
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('timelineItems').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+                document.getElementById('rawData').textContent = error.stack;
+            }
         }
 
-        const data = JSON.parse(registrationData);
-        const { device, playlist } = data;
-
-        // Populate device info
-        document.getElementById('deviceUid').textContent = device.uid;
-        document.getElementById('deviceLastSeen').textContent = new Date(device.lastSeen).toLocaleString();
-        
-        // Get device info from localStorage
-        const deviceInfo = data.deviceInfo || {};
-        document.getElementById('deviceResolution').textContent = deviceInfo.resolution || 'N/A';
-        document.getElementById('devicePlatform').textContent = deviceInfo.platform || 'N/A';
-
-        // Populate playlist info
-        document.getElementById('playlistName').textContent = playlist.name;
-        document.getElementById('playlistDescription').textContent = playlist.description || 'No description';
-        document.getElementById('playlistCode').textContent = playlist.code;
-        document.getElementById('videoCount').textContent = playlist.items.length;
-
-        // Calculate total duration
-        const totalSeconds = playlist.items.reduce((sum, item) => sum + (item.duration || 0), 0);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        document.getElementById('totalDuration').textContent = 
-            `${hours}h ${minutes}m ${seconds}s`;
-
-        // Render video items
-        const videoItemsContainer = document.getElementById('videoItems');
-        playlist.items.forEach((item, index) => {
-            const videoDiv = document.createElement('div');
-            videoDiv.className = 'video-item';
+        function formatTime(seconds) {
+            const s = Math.floor(seconds);
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
             
-            const duration = item.duration || 0;
-            const durationMin = Math.floor(duration / 60);
-            const durationSec = duration % 60;
-            
-            videoDiv.innerHTML = `
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h6 class="mb-2">
-                            <span class="badge bg-secondary me-2">#${index + 1}</span>
-                            ${item.video ? item.video.fileName : 'Unknown Video'}
-                        </h6>
-                        <small class="text-muted">
-                            <i class="bi bi-clock"></i> ${durationMin}m ${durationSec}s
-                            ${item.video ? `| <i class="bi bi-file-earmark"></i> ${(item.video.fileSize / 1024 / 1024).toFixed(2)} MB` : ''}
-                            ${item.video && item.video.resolution ? `| <i class="bi bi-aspect-ratio"></i> ${item.video.resolution}` : ''}
-                        </small>
-                    </div>
-                    <span class="badge bg-info">Order: ${item.order}</span>
-                </div>
-            `;
-            videoItemsContainer.appendChild(videoDiv);
-        });
+            if (h > 0) {
+                return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+            }
+            return `${m}:${String(sec).padStart(2, '0')}`;
+        }
 
-        // Display raw JSON
-        document.getElementById('rawJson').textContent = JSON.stringify(data, null, 2);
+        function formatFileSize(bytes) {
+            if (!bytes) return 'N/A';
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+        }
 
-        // Clear registration function
-        function clearRegistration() {
-            if (confirm('Are you sure you want to clear your device registration? You will need to enter the playlist code again.')) {
+        function goHome() {
+            if (confirm('Clear registration and go back to home?')) {
                 localStorage.removeItem('devicePlaylistRegistration');
                 localStorage.removeItem('deviceUID');
                 window.location.href = '/';
@@ -202,4 +211,3 @@
     </script>
 </body>
 </html>
-

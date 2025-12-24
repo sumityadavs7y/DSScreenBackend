@@ -131,18 +131,19 @@ router.post('/playlists/device/register', async (req, res) => {
         {
           model: PlaylistItem,
           as: 'items',
+          required: false,
           include: [
             {
               model: Video,
               as: 'video',
               where: { isActive: true },
               required: false,
-              attributes: ['id', 'fileName', 'fileSize', 'mimeType', 'duration', 'resolution'],
+              attributes: ['id', 'fileName', 'filePath', 'thumbnailPath', 'fileSize', 'mimeType', 'duration', 'resolution'],
             },
           ],
-          order: [['order', 'ASC']],
         },
       ],
+      order: [[{ model: PlaylistItem, as: 'items' }, 'order', 'ASC']],
     });
 
     console.log('✅ Playlist found:', playlist ? playlist.id : 'NOT FOUND');
@@ -209,6 +210,15 @@ router.post('/playlists/device/register', async (req, res) => {
     }
 
     console.log('✅ Sending success response');
+    console.log('📋 Playlist items count:', playlist.items?.length || 0);
+    if (playlist.items && playlist.items.length > 0) {
+      console.log('📹 First item video data:', {
+        fileName: playlist.items[0].video?.fileName,
+        filePath: playlist.items[0].video?.filePath,
+        hasVideo: !!playlist.items[0].video,
+      });
+    }
+    
     res.json({
       success: true,
       message: 'Device registered successfully',
@@ -233,6 +243,64 @@ router.post('/playlists/device/register', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error registering device',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/playlists/:playlistId/timeline
+ * Get playlist timeline with video details
+ * PUBLIC ENDPOINT - No authentication required
+ */
+router.get('/api/playlists/:playlistId/timeline', async (req, res) => {
+  try {
+    const { Playlist, PlaylistItem, Video } = require('../models');
+    const { playlistId } = req.params;
+
+    console.log('📋 Fetching timeline for playlist:', playlistId);
+
+    // Find the playlist with items
+    const playlist = await Playlist.findOne({
+      where: {
+        id: playlistId,
+        isActive: true,
+      },
+      include: [{
+        model: PlaylistItem,
+        as: 'items',
+        required: false,
+        include: [{
+          model: Video,
+          as: 'video',
+          where: { isActive: true },
+          required: false,
+          attributes: ['id', 'fileName', 'filePath', 'mimeType', 'duration', 'fileSize'],
+        }],
+      }],
+      order: [[{ model: PlaylistItem, as: 'items' }, 'order', 'ASC']],
+    });
+
+    if (!playlist) {
+      console.log('❌ Playlist not found');
+      return res.status(404).json({
+        success: false,
+        message: 'Playlist not found',
+      });
+    }
+
+    console.log('✅ Found playlist with', playlist.items?.length || 0, 'items');
+
+    res.json({
+      success: true,
+      data: playlist.items || [],
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching timeline:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching timeline',
       error: error.message,
     });
   }

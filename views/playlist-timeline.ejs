@@ -822,14 +822,27 @@
             });
 
             // Add drag over and drop handlers to the track
-            track.addEventListener('dragover', (e) => {
+            track.ondragover = function(e) {
                 e.preventDefault();
-                if (draggedBlock) {
+                if (draggedItemId) {
+                    e.dataTransfer.dropEffect = 'move';
                     updateDropIndicator(e.clientX);
                 }
-            });
+                return false;
+            };
             
-            track.addEventListener('drop', handleBlockDrop);
+            track.ondrop = function(e) {
+                e.preventDefault();
+                console.log('DROP on track - draggedItemId:', draggedItemId);
+                
+                if (!draggedItemId) {
+                    console.log('No draggedItemId, aborting drop');
+                    return false;
+                }
+                
+                handleBlockDrop(e);
+                return false;
+            };
 
             timelineTracks.appendChild(track);
         }
@@ -943,15 +956,36 @@
             
             // Make block draggable (but not when over resize handles)
             block.draggable = true;
-            block.addEventListener('dragstart', (e) => {
+            block.ondragstart = function(e) {
                 // Prevent drag if clicking on resize handle
                 if (e.target.classList.contains('timeline-video-block-resize-handle')) {
                     e.preventDefault();
                     return false;
                 }
-                handleBlockDragStart(e);
-            });
-            block.addEventListener('dragend', handleBlockDragEnd);
+                // IMPORTANT: Use 'this' to always get the block element, not child elements
+                draggedBlock = this;
+                draggedItemId = this.dataset.itemId;
+                
+                console.log('DRAG START - ItemID:', draggedItemId);
+                
+                if (!draggedItemId) {
+                    console.error('No itemId found on block!');
+                    return false;
+                }
+                
+                this.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', draggedItemId);
+            };
+            
+            block.ondragend = function(e) {
+                console.log('DRAG END');
+                this.classList.remove('dragging');
+                // Remove all drop indicators
+                document.querySelectorAll('.timeline-video-block').forEach(b => {
+                    b.classList.remove('drop-before', 'drop-after');
+                });
+            };
             
             // Click to edit
             block.addEventListener('click', (e) => {
@@ -1074,99 +1108,20 @@
             rightHandle.addEventListener('mousedown', (e) => startResize(e, 'right'));
         }
 
-        // Drag and drop for video blocks
+        // Drag and drop for video blocks - Store dragged item globally
         let draggedBlock = null;
         let draggedItemId = null;
-
-        function handleBlockDragStart(e) {
-            draggedBlock = e.target;
-            draggedItemId = draggedBlock.dataset.itemId;
-            draggedBlock.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('itemId', draggedItemId);
-        }
-
-        function handleBlockDragEnd(e) {
-            if (draggedBlock) {
-                draggedBlock.classList.remove('dragging');
-                
-                // Remove all drop indicators
-                document.querySelectorAll('.timeline-video-block').forEach(block => {
-                    block.classList.remove('drop-before', 'drop-after');
-                });
-                
-                draggedBlock = null;
-                draggedItemId = null;
-            }
-        }
-        
-        function handleBlockDragOver(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!draggedBlock) return;
-            
-            updateDropIndicator(e.clientX);
-        }
         
         function updateDropIndicator(mouseX) {
-            const track = document.querySelector('.timeline-track');
-            if (!track) return;
-            
             // Remove all previous indicators
             document.querySelectorAll('.timeline-video-block').forEach(block => {
                 block.classList.remove('drop-before', 'drop-after');
             });
             
             const blocks = [...document.querySelectorAll('.timeline-video-block:not(.dragging)')];
-            
             if (blocks.length === 0) return;
             
             // Find which block we're closest to
-            let closestBlock = null;
-            let closestDistance = Infinity;
-            let dropPosition = 'after'; // 'before' or 'after'
-            
-            blocks.forEach(block => {
-                const rect = block.getBoundingClientRect();
-                const blockCenter = rect.left + rect.width / 2;
-                const distance = Math.abs(mouseX - blockCenter);
-                
-                if (distance < closestDistance) {
-                    closestDistance = distance;
-                    closestBlock = block;
-                    // Determine if we should drop before or after this block
-                    dropPosition = mouseX < blockCenter ? 'before' : 'after';
-                }
-            });
-            
-            if (closestBlock) {
-                closestBlock.classList.add(`drop-${dropPosition}`);
-            }
-        }
-        
-        function handleBlockDrop(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            console.log('Drop event triggered', { draggedItemId });
-            
-            if (!draggedItemId) {
-                console.log('No dragged item ID');
-                return;
-            }
-            
-            const mouseX = e.clientX;
-            const blocks = [...document.querySelectorAll('.timeline-video-block:not(.dragging)')];
-            
-            console.log('Available blocks:', blocks.length);
-            
-            if (blocks.length === 0) {
-                console.log('No blocks to drop onto');
-                return;
-            }
-            
-            // Find drop position
-            let newOrder = 0;
             let closestBlock = null;
             let closestDistance = Infinity;
             let dropPosition = 'after';
@@ -1184,31 +1139,78 @@
             });
             
             if (closestBlock) {
-                const targetOrder = parseInt(closestBlock.dataset.order);
-                newOrder = dropPosition === 'before' ? targetOrder : targetOrder + 1;
-            } else {
-                newOrder = timelineData.length;
+                closestBlock.classList.add(`drop-${dropPosition}`);
+            }
+        }
+        
+        function handleBlockDrop(e) {
+            console.log('=== DROP HANDLER CALLED ===');
+            console.log('draggedItemId:', draggedItemId);
+            console.log('draggedBlock:', draggedBlock);
+            
+            if (!draggedItemId || !draggedBlock) {
+                console.error('Missing draggedItemId or draggedBlock!');
+                draggedBlock = null;
+                draggedItemId = null;
+                return;
             }
             
-            const draggedItem = timelineData.find(item => item.id === draggedItemId);
-            const draggedOrder = draggedItem ? (draggedItem.order || draggedItem._arrayIndex) : -1;
+            const mouseX = e.clientX;
+            const blocks = [...document.querySelectorAll('.timeline-video-block:not(.dragging)')];
             
-            console.log('Reorder calculation:', { 
-                draggedItemId, 
-                draggedOrder, 
-                newOrder, 
-                dropPosition,
-                targetBlockOrder: closestBlock ? parseInt(closestBlock.dataset.order) : null,
-                allItems: timelineData.map(i => ({ id: i.id, order: i.order }))
+            console.log('Available blocks for drop:', blocks.length);
+            
+            if (blocks.length === 0) {
+                console.log('No other blocks available');
+                draggedBlock = null;
+                draggedItemId = null;
+                return;
+            }
+            
+            // Find which block we're dropping near
+            let closestBlock = null;
+            let closestDistance = Infinity;
+            let dropPosition = 'after';
+            
+            blocks.forEach(block => {
+                const rect = block.getBoundingClientRect();
+                const blockCenter = rect.left + rect.width / 2;
+                const distance = Math.abs(mouseX - blockCenter);
+                
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestBlock = block;
+                    dropPosition = mouseX < blockCenter ? 'before' : 'after';
+                }
             });
             
-            // Only reorder if position actually changed
-            if (draggedOrder !== newOrder && draggedOrder !== (newOrder - 1)) {
-                console.log('Triggering reorder');
-                reorderVideo(draggedItemId, newOrder);
-            } else {
-                console.log('Position unchanged, not reordering');
+            if (!closestBlock) {
+                console.log('No closest block found');
+                draggedBlock = null;
+                draggedItemId = null;
+                return;
             }
+            
+            const targetOrder = parseInt(closestBlock.dataset.order);
+            const newOrder = dropPosition === 'before' ? targetOrder : targetOrder + 1;
+            
+            const draggedItem = timelineData.find(item => item.id === draggedItemId);
+            const currentOrder = draggedItem ? draggedItem.order : -1;
+            
+            console.log('Drop details:', {
+                draggedItemId,
+                currentOrder,
+                targetOrder,
+                dropPosition,
+                newOrder
+            });
+            
+            // Call the reorder API
+            reorderVideo(draggedItemId, newOrder);
+            
+            // Reset dragged state
+            draggedBlock = null;
+            draggedItemId = null;
         }
         
         async function reorderVideo(itemId, newOrder) {
@@ -1257,21 +1259,21 @@
         function setupDragAndDrop() {
             const timeline = document.getElementById('timelineVisualization');
             
-            timeline.addEventListener('dragover', (e) => {
+            timeline.ondragover = function(e) {
                 e.preventDefault();
                 
                 // Check if dragging from library or reordering
                 const videoId = e.dataTransfer.types.includes('videoid');
-                const itemId = e.dataTransfer.types.includes('itemid');
                 
                 if (videoId) {
                     e.dataTransfer.dropEffect = 'copy';
-                } else if (itemId) {
+                } else if (draggedItemId) {
                     e.dataTransfer.dropEffect = 'move';
                 }
-            });
+                return false;
+            };
 
-            timeline.addEventListener('drop', async (e) => {
+            timeline.ondrop = async function(e) {
                 e.preventDefault();
                 
                 // Check if this is a new video from library
@@ -1279,10 +1281,13 @@
                 const videoDuration = e.dataTransfer.getData('videoDuration');
                 
                 if (videoId) {
+                    console.log('Adding new video to timeline:', videoId);
                     await addVideoToTimeline(videoId, videoDuration);
                 }
-                // Reordering is handled by handleBlockDrop
-            });
+                // Reordering is handled by track's ondrop
+                
+                return false;
+            };
         }
 
         // Add video to timeline

@@ -91,5 +91,152 @@ router.get('/favicon.ico', (req, res) => {
     res.status(204).end();
 });
 
+/**
+ * POST /playlists/device/register
+ * Register a device to a playlist using the playlist code
+ * PUBLIC ENDPOINT - No authentication required
+ * Creates or updates device registration and returns playlist details
+ */
+router.post('/playlists/device/register', async (req, res) => {
+  console.log('🔥 Device registration endpoint hit!', req.body);
+  try {
+    const { Playlist, PlaylistItem, Video, Device, DevicePlaylist } = require('../models');
+    const { playlistCode, uid, deviceInfo } = req.body;
+
+    // Validate inputs
+    if (!playlistCode || playlistCode.length !== 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid playlist code. Code must be exactly 5 characters.',
+      });
+    }
+
+    if (!uid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Device UID is required',
+      });
+    }
+
+    // Use the code as-is (case-sensitive)
+    console.log(`🔍 Searching for playlist with code: "${playlistCode}"`);
+
+    // Find playlist by code
+    const playlist = await Playlist.findOne({
+      where: {
+        code: playlistCode,
+        isActive: true,
+      },
+      include: [
+        {
+          model: PlaylistItem,
+          as: 'items',
+          include: [
+            {
+              model: Video,
+              as: 'video',
+              where: { isActive: true },
+              required: false,
+              attributes: ['id', 'fileName', 'fileSize', 'mimeType', 'duration', 'resolution'],
+            },
+          ],
+          order: [['order', 'ASC']],
+        },
+      ],
+    });
+
+    console.log('✅ Playlist found:', playlist ? playlist.id : 'NOT FOUND');
+
+    if (!playlist) {
+      // Show all available playlist codes for debugging
+      const allPlaylists = await Playlist.findAll({ 
+        where: { isActive: true }, 
+        attributes: ['code', 'name', 'id'] 
+      });
+      console.log('❌ Playlist not found with code:', playlistCode);
+      console.log('📋 Available playlist codes:', allPlaylists.map(p => `${p.code} (${p.name})`).join(', ') || 'NONE');
+      
+      return res.status(404).json({
+        success: false,
+        message: 'Playlist not found or inactive',
+      });
+    }
+
+    // Find or create device
+    let device = await Device.findOne({
+      where: { uid },
+    });
+
+    if (device) {
+      // Update existing device
+      await device.update({
+        deviceInfo: deviceInfo || device.deviceInfo,
+        lastSeen: new Date(),
+        isActive: true,
+      });
+    } else {
+      // Create new device
+      device = await Device.create({
+        uid,
+        deviceInfo: deviceInfo || {},
+        lastSeen: new Date(),
+        isActive: true,
+      });
+    }
+
+    // Find or create device-playlist association
+    let devicePlaylist = await DevicePlaylist.findOne({
+      where: {
+        deviceId: device.id,
+        playlistId: playlist.id,
+      },
+    });
+
+    if (devicePlaylist) {
+      // Update existing association
+      await devicePlaylist.update({
+        registeredAt: new Date(),
+        isActive: true,
+      });
+    } else {
+      // Create new association
+      devicePlaylist = await DevicePlaylist.create({
+        deviceId: device.id,
+        playlistId: playlist.id,
+        registeredAt: new Date(),
+        isActive: true,
+      });
+    }
+
+    console.log('✅ Sending success response');
+    res.json({
+      success: true,
+      message: 'Device registered successfully',
+      data: {
+        device: {
+          id: device.id,
+          uid: device.uid,
+          lastSeen: device.lastSeen,
+        },
+        playlist: {
+          id: playlist.id,
+          name: playlist.name,
+          description: playlist.description,
+          code: playlist.code,
+          items: playlist.items,
+        },
+      },
+    });
+    console.log('✅ Response sent successfully');
+  } catch (error) {
+    console.error('❌ Device registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error registering device',
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;
 

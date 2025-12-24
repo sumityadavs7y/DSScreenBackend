@@ -1,5 +1,21 @@
 // Device Registration JavaScript
 
+// Check if device is already registered
+const existingRegistration = localStorage.getItem('devicePlaylistRegistration');
+if (existingRegistration) {
+    try {
+        const data = JSON.parse(existingRegistration);
+        // Verify the data is valid
+        if (data.device && data.playlist) {
+            console.log('Device already registered, redirecting to player...');
+            window.location.href = '/device-player.html';
+        }
+    } catch (e) {
+        // Invalid data, clear it
+        localStorage.removeItem('devicePlaylistRegistration');
+    }
+}
+
 // Get all code inputs
 const codeInputs = document.querySelectorAll('.code-input');
 const deviceForm = document.getElementById('deviceForm');
@@ -8,8 +24,7 @@ const alert = document.getElementById('alert');
 // Auto-focus and navigation between inputs
 codeInputs.forEach((input, index) => {
     input.addEventListener('input', (e) => {
-        const value = e.target.value.toUpperCase();
-        e.target.value = value;
+        const value = e.target.value;
         
         // Move to next input if value entered
         if (value && index < codeInputs.length - 1) {
@@ -36,7 +51,7 @@ codeInputs.forEach((input, index) => {
     
     input.addEventListener('paste', (e) => {
         e.preventDefault();
-        const pastedData = e.clipboardData.getData('text').toUpperCase().slice(0, 5);
+        const pastedData = e.clipboardData.getData('text').slice(0, 5);
         pastedData.split('').forEach((char, i) => {
             if (codeInputs[i]) {
                 codeInputs[i].value = char;
@@ -55,12 +70,12 @@ codeInputs[0].focus();
 deviceForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    // Get schedule code from inputs
-    const scheduleCode = Array.from(codeInputs).map(input => input.value).join('');
+    // Get playlist code from inputs
+    const playlistCode = Array.from(codeInputs).map(input => input.value).join('');
     
     // Validate code
-    if (scheduleCode.length !== 5) {
-        showAlert('Please enter a complete 5-character schedule code', 'error');
+    if (playlistCode.length !== 5) {
+        showAlert('Please enter a complete 5-character playlist code', 'error');
         return;
     }
     
@@ -72,19 +87,18 @@ deviceForm.addEventListener('submit', async (e) => {
     
     // Show loading
     const submitBtn = deviceForm.querySelector('button[type="submit"]');
-    const btnText = submitBtn.querySelector('.btn-text');
-    const originalText = btnText.textContent;
-    btnText.innerHTML = '<span class="spinner"></span> Registering...';
+    const originalText = submitBtn.textContent;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Registering...';
     submitBtn.disabled = true;
     
     try {
-        const response = await fetch('/api/schedules/device/register', {
+        const response = await fetch('/playlists/device/register', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                scheduleCode,
+                playlistCode,
                 uid,
                 deviceInfo
             })
@@ -93,22 +107,22 @@ deviceForm.addEventListener('submit', async (e) => {
         const data = await response.json();
         
         if (response.ok && data.success) {
-            showAlert(`Device registered successfully! Schedule: ${data.data.schedule.name}`, 'success');
+            showAlert(`Device registered successfully! Redirecting...`, 'success');
             
-            // Store device info
-            localStorage.setItem('deviceRegistration', JSON.stringify({
-                scheduleCode,
+            // Store device info with full data
+            localStorage.setItem('devicePlaylistRegistration', JSON.stringify({
+                playlistCode,
                 uid,
-                schedule: data.data.schedule,
+                device: data.data.device,
+                playlist: data.data.playlist,
+                deviceInfo: deviceInfo,
                 registeredAt: new Date().toISOString()
             }));
             
-            // Clear inputs
-            codeInputs.forEach(input => input.value = '');
-            codeInputs[0].focus();
-            
-            // Optional: Show schedule info or redirect
-            console.log('Schedule Details:', data.data.schedule);
+            // Redirect to player page
+            setTimeout(() => {
+                window.location.href = '/device-player.html';
+            }, 1000);
         } else {
             showAlert(data.message || 'Registration failed. Please check your code.', 'error');
         }
@@ -116,7 +130,7 @@ deviceForm.addEventListener('submit', async (e) => {
         console.error('Registration error:', error);
         showAlert('Network error. Please check your connection and try again.', 'error');
     } finally {
-        btnText.textContent = originalText;
+        submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
     }
 });

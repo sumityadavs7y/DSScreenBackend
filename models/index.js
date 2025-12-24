@@ -7,6 +7,8 @@ const UserCompany = require('./UserCompany');
 const Video = require('./Video');
 const Playlist = require('./Playlist');
 const PlaylistItem = require('./PlaylistItem');
+const Device = require('./Device');
+const DevicePlaylist = require('./DevicePlaylist');
 
 // Define relationships
 // User <-> Company (Many-to-Many through UserCompany)
@@ -108,6 +110,42 @@ Video.hasMany(PlaylistItem, {
   as: 'playlistItems'
 });
 
+// Device <-> Playlist (Many-to-Many through DevicePlaylist)
+Device.belongsToMany(Playlist, {
+  through: DevicePlaylist,
+  foreignKey: 'deviceId',
+  otherKey: 'playlistId',
+  as: 'playlists'
+});
+
+Playlist.belongsToMany(Device, {
+  through: DevicePlaylist,
+  foreignKey: 'playlistId',
+  otherKey: 'deviceId',
+  as: 'devices'
+});
+
+// Direct associations for easier queries
+Device.hasMany(DevicePlaylist, {
+  foreignKey: 'deviceId',
+  as: 'devicePlaylists'
+});
+
+Playlist.hasMany(DevicePlaylist, {
+  foreignKey: 'playlistId',
+  as: 'playlistDevices'
+});
+
+DevicePlaylist.belongsTo(Device, {
+  foreignKey: 'deviceId',
+  as: 'device'
+});
+
+DevicePlaylist.belongsTo(Playlist, {
+  foreignKey: 'playlistId',
+  as: 'playlist'
+});
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -118,5 +156,7 @@ module.exports = {
   Video,
   Playlist,
   PlaylistItem,
+  Device,
+  DevicePlaylist,
 };
 

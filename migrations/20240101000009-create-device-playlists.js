@@ -3,11 +3,21 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('playlist_items', {
+    await queryInterface.createTable('device_playlists', {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
         primaryKey: true,
+      },
+      device_id: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        references: {
+          model: 'devices',
+          key: 'id',
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'CASCADE',
       },
       playlist_id: {
         type: Sequelize.UUID,
@@ -19,26 +29,15 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE',
       },
-      video_id: {
-        type: Sequelize.UUID,
+      registered_at: {
+        type: Sequelize.DATE,
         allowNull: false,
-        references: {
-          model: 'videos',
-          key: 'id',
-        },
-        onUpdate: 'CASCADE',
-        onDelete: 'CASCADE',
+        defaultValue: Sequelize.NOW,
+        comment: 'When the device was registered to this playlist',
       },
-      order: {
-        type: Sequelize.INTEGER,
-        allowNull: false,
-        defaultValue: 0,
-        comment: 'Order of the video in the playlist',
-      },
-      duration: {
-        type: Sequelize.INTEGER,
-        allowNull: false,
-        comment: 'Duration in seconds for which this video will play in loop',
+      is_active: {
+        type: Sequelize.BOOLEAN,
+        defaultValue: true,
       },
       created_at: {
         type: Sequelize.DATE,
@@ -51,23 +50,24 @@ module.exports = {
     });
 
     // Create indexes
-    await queryInterface.addIndex('playlist_items', ['playlist_id'], {
-      name: 'playlist_items_playlist_id',
+    await queryInterface.addIndex('device_playlists', ['device_id'], {
+      name: 'device_playlists_device_id',
     });
     
-    await queryInterface.addIndex('playlist_items', ['video_id'], {
-      name: 'playlist_items_video_id',
+    await queryInterface.addIndex('device_playlists', ['playlist_id'], {
+      name: 'device_playlists_playlist_id',
     });
     
-    await queryInterface.addIndex('playlist_items', ['playlist_id', 'order'], {
-      name: 'playlist_items_playlist_id_order',
+    await queryInterface.addIndex('device_playlists', ['device_id', 'playlist_id'], {
+      name: 'device_playlists_device_playlist',
+      unique: true,
     });
 
-    console.log('✅ Created playlist_items table');
+    console.log('✅ Created device_playlists table');
   },
 
   async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('playlist_items');
+    await queryInterface.dropTable('device_playlists');
   }
 };
 

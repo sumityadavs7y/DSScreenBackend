@@ -66,3 +66,4 @@ const Playlist = sequelize.define('Playlist', {
 
 module.exports = Playlist;
 
+

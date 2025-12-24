@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Player - Playlist Data</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .player-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .playlist-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .device-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .json-viewer {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .video-item {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .badge-custom {
+            font-size: 0.9em;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="player-container">
+        <div class="playlist-card">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-collection-play"></i> Device Player</h2>
+                <div>
+                    <button onclick="clearRegistration()" class="btn btn-outline-danger me-2">
+                        <i class="bi bi-trash"></i> Clear Registration
+                    </button>
+                    <button onclick="window.location.reload()" class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Device Info -->
+            <div class="device-info">
+                <h5><i class="bi bi-display"></i> Device Information</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Device UID:</strong> <span id="deviceUid"></span></p>
+                        <p class="mb-1"><strong>Resolution:</strong> <span id="deviceResolution"></span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Platform:</strong> <span id="devicePlatform"></span></p>
+                        <p class="mb-1"><strong>Last Seen:</strong> <span id="deviceLastSeen"></span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Playlist Info -->
+            <div class="mb-4">
+                <h3 id="playlistName"></h3>
+                <p class="text-muted" id="playlistDescription"></p>
+                <div class="mb-3">
+                    <span class="badge bg-primary badge-custom">Code: <span id="playlistCode"></span></span>
+                    <span class="badge bg-success badge-custom"><span id="videoCount"></span> Videos</span>
+                    <span class="badge bg-info badge-custom">Total: <span id="totalDuration"></span></span>
+                </div>
+            </div>
+
+            <!-- Video Items -->
+            <div id="videoItems" class="mb-4"></div>
+
+            <!-- Tabs -->
+            <ul class="nav nav-tabs mb-3" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="formatted-tab" data-bs-toggle="tab" data-bs-target="#formatted" type="button">
+                        <i class="bi bi-list-ul"></i> Formatted View
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="raw-tab" data-bs-toggle="tab" data-bs-target="#raw" type="button">
+                        <i class="bi bi-code-square"></i> Raw JSON
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="formatted" role="tabpanel">
+                    <p class="text-muted">See video items above for formatted view.</p>
+                </div>
+                <div class="tab-pane fade" id="raw" role="tabpanel">
+                    <pre class="json-viewer" id="rawJson"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Get registration data from localStorage
+        const registrationData = localStorage.getItem('devicePlaylistRegistration');
+        
+        if (!registrationData) {
+            window.location.href = '/';
+        }
+
+        const data = JSON.parse(registrationData);
+        const { device, playlist } = data;
+
+        // Populate device info
+        document.getElementById('deviceUid').textContent = device.uid;
+        document.getElementById('deviceLastSeen').textContent = new Date(device.lastSeen).toLocaleString();
+        
+        // Get device info from localStorage
+        const deviceInfo = data.deviceInfo || {};
+        document.getElementById('deviceResolution').textContent = deviceInfo.resolution || 'N/A';
+        document.getElementById('devicePlatform').textContent = deviceInfo.platform || 'N/A';
+
+        // Populate playlist info
+        document.getElementById('playlistName').textContent = playlist.name;
+        document.getElementById('playlistDescription').textContent = playlist.description || 'No description';
+        document.getElementById('playlistCode').textContent = playlist.code;
+        document.getElementById('videoCount').textContent = playlist.items.length;
+
+        // Calculate total duration
+        const totalSeconds = playlist.items.reduce((sum, item) => sum + (item.duration || 0), 0);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        document.getElementById('totalDuration').textContent = 
+            `${hours}h ${minutes}m ${seconds}s`;
+
+        // Render video items
+        const videoItemsContainer = document.getElementById('videoItems');
+        playlist.items.forEach((item, index) => {
+            const videoDiv = document.createElement('div');
+            videoDiv.className = 'video-item';
+            
+            const duration = item.duration || 0;
+            const durationMin = Math.floor(duration / 60);
+            const durationSec = duration % 60;
+            
+            videoDiv.innerHTML = `
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-2">
+                            <span class="badge bg-secondary me-2">#${index + 1}</span>
+                            ${item.video ? item.video.fileName : 'Unknown Video'}
+                        </h6>
+                        <small class="text-muted">
+                            <i class="bi bi-clock"></i> ${durationMin}m ${durationSec}s
+                            ${item.video ? `| <i class="bi bi-file-earmark"></i> ${(item.video.fileSize / 1024 / 1024).toFixed(2)} MB` : ''}
+                            ${item.video && item.video.resolution ? `| <i class="bi bi-aspect-ratio"></i> ${item.video.resolution}` : ''}
+                        </small>
+                    </div>
+                    <span class="badge bg-info">Order: ${item.order}</span>
+                </div>
+            `;
+            videoItemsContainer.appendChild(videoDiv);
+        });
+
+        // Display raw JSON
+        document.getElementById('rawJson').textContent = JSON.stringify(data, null, 2);
+
+        // Clear registration function
+        function clearRegistration() {
+            if (confirm('Are you sure you want to clear your device registration? You will need to enter the playlist code again.')) {
+                localStorage.removeItem('devicePlaylistRegistration');
+                localStorage.removeItem('deviceUID');
+                window.location.href = '/';
+            }
+        }
+    </script>
+</body>
+</html>
+

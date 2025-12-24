@@ -464,8 +464,11 @@ router.get('/public/:code', async (req, res) => {
   try {
     const { code } = req.params;
 
+    // Normalize code to uppercase for case-insensitive matching
+    const normalizedCode = code.toUpperCase();
+
     // Validate code format
-    if (!isValidCode(code)) {
+    if (!isValidCode(normalizedCode)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid schedule code format',
@@ -474,7 +477,7 @@ router.get('/public/:code', async (req, res) => {
 
     const schedule = await Schedule.findOne({
       where: {
-        code: code,
+        code: normalizedCode,
         isActive: true,
       },
       include: [
@@ -591,18 +594,21 @@ router.post('/device/register',
 
       const { scheduleCode, uid, deviceInfo } = req.body;
 
+      // Normalize code to uppercase for case-insensitive matching
+      const normalizedCode = scheduleCode.toUpperCase();
+
       // Validate code format
-      if (!isValidCode(scheduleCode)) {
+      if (!isValidCode(normalizedCode)) {
         return res.status(400).json({
           success: false,
           message: 'Invalid schedule code format',
         });
       }
 
-      // Find schedule by code
+      // Find schedule by code (case-insensitive)
       const schedule = await Schedule.findOne({
         where: {
-          code: scheduleCode,
+          code: normalizedCode,
           isActive: true,
         },
         include: [

@@ -3,211 +3,866 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Timeline Details</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Device Player - dsScreen</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            background: #f8f9fa;
-            padding: 2rem;
-            font-family: 'Courier New', monospace;
+            background: #000;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
         }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 2rem;
-            border-radius: 15px;
-            margin-bottom: 2rem;
-            text-align: center;
-        }
-        .card {
-            margin-bottom: 1.5rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-        .video-item {
-            border: 2px solid #667eea;
-            border-radius: 10px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            background: white;
-        }
-        .badge-order {
-            background: #667eea;
-            color: white;
-            padding: 10px;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            display: inline-flex;
+        
+        /* Video Player Container */
+        #videoContainer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: bold;
-            font-size: 18px;
         }
-        pre {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-radius: 5px;
-            overflow-x: auto;
+        
+        #videoPlayer {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        /* Cache Progress Indicator (bottom-right corner) */
+        #cacheIndicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            max-width: 300px;
+        }
+        
+        #cacheIndicator.show {
+            opacity: 1;
+        }
+        
+        #cacheIndicator .progress-bar {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+        
+        #cacheIndicator .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #22c55e);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        /* Info Overlay (toggle with 'i' key) */
+        #infoOverlay {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 13px;
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+            font-family: monospace;
+        }
+        
+        #infoOverlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        #infoOverlay p {
+            margin: 3px 0;
+        }
+        
+        /* Loop Complete Badge */
+        #loopBadge {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(45deg, #22c55e, #16a34a);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 998;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s, visibility 0.5s;
+            box-shadow: 0 10px 30px rgba(34, 197, 94, 0.4);
+        }
+        
+        #loopBadge.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        /* Click to Play Overlay (only shows if autoplay blocked) */
+        #clickToPlayOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2001;
+            color: white;
+            cursor: pointer;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        
+        #clickToPlayOverlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        #clickToPlayOverlay i {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        
+        #clickToPlayOverlay p {
+            font-size: 24px;
+            margin: 0;
+        }
+        
+        /* Error Display */
+        #errorOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        
+        #errorOverlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .error-container {
+            background: #dc2626;
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 500px;
+        }
+        
+        .error-container h2 {
+            margin-bottom: 15px;
+        }
+        
+        .error-container button {
+            margin-top: 15px;
+            padding: 10px 30px;
+            background: white;
+            color: #dc2626;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>📋 Timeline Details</h1>
-            <p class="mb-0">Device Registration & Playlist Information</p>
+    <!-- Video Player -->
+    <div id="videoContainer">
+        <video id="videoPlayer" controls autoplay playsinline></video>
+    </div>
+    
+    <!-- Cache Progress Indicator -->
+    <div id="cacheIndicator">
+        <div id="cacheText">Caching videos... 0/0</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="cacheProgressBar"></div>
         </div>
-
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Device Information</h5>
-            </div>
-            <div class="card-body">
-                <p><strong>Device UID:</strong> <span id="deviceUID">-</span></p>
-                <p class="mb-0"><strong>Registered:</strong> <span id="registered">-</span></p>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0">Playlist Information</h5>
-            </div>
-            <div class="card-body">
-                <p><strong>Playlist Name:</strong> <span id="playlistName">-</span></p>
-                <p><strong>Playlist ID:</strong> <span id="playlistID">-</span></p>
-                <p><strong>Playlist Code:</strong> <span id="playlistCode">-</span></p>
-                <p><strong>Total Videos:</strong> <span id="totalVideos">-</span></p>
-                <p class="mb-0"><strong>Total Duration:</strong> <span id="totalDuration">-</span></p>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header bg-warning text-dark">
-                <h5 class="mb-0">Timeline Items (Playback Order)</h5>
-            </div>
-            <div class="card-body" id="timelineItems">
-                <p class="text-muted">Loading...</p>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0">Raw JSON Data</h5>
-            </div>
-            <div class="card-body">
-                <pre id="rawData">Loading...</pre>
-            </div>
-        </div>
-
-        <div class="text-center">
-            <button class="btn btn-primary" onclick="location.reload()">Refresh</button>
-            <button class="btn btn-secondary" onclick="goHome()">Back to Home</button>
+    </div>
+    
+    <!-- Info Overlay (toggle with 'i' key) -->
+    <div id="infoOverlay">
+        <p><strong>Device:</strong> <span id="infoDeviceUID">-</span></p>
+        <p><strong>Playlist:</strong> <span id="infoPlaylistName">-</span></p>
+        <p><strong>Video:</strong> <span id="infoCurrentVideo">-</span>/<span id="infoTotalVideos">-</span></p>
+        <p><strong>Loop:</strong> #<span id="infoLoopCount">0</span></p>
+        <p><strong>Video Time:</strong> <span id="infoVideoTime">00:00</span>/<span id="infoVideoDuration">00:00</span></p>
+        <p><strong>Item Duration:</strong> <span id="infoItemDuration">-</span>s</p>
+        <p><strong>Item Elapsed:</strong> <span id="infoItemElapsed">0</span>s</p>
+        <p><strong>Cache:</strong> <span id="infoCacheStatus">-</span></p>
+        <p><strong>Next Update:</strong> <span id="infoNextUpdate">-</span>s</p>
+        <hr style="border-color: rgba(255,255,255,0.3); margin: 8px 0;">
+        <p style="font-size: 11px; opacity: 0.7;">Press 'i' to hide | Press 'h' for home</p>
+    </div>
+    
+    <!-- Loop Complete Badge -->
+    <div id="loopBadge">🔄 Timeline Loop Complete!</div>
+    
+    <!-- Click to Play Overlay -->
+    <div id="clickToPlayOverlay" onclick="handleClickToPlay()">
+        <i class="bi bi-play-circle-fill"></i>
+        <p>Click to Play with Sound</p>
+    </div>
+    
+    <!-- Error Overlay -->
+    <div id="errorOverlay">
+        <div class="error-container">
+            <h2>⚠️ Error</h2>
+            <p id="errorMessage">An error occurred</p>
+            <button onclick="goHome()">Go Home</button>
         </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', loadTimelineDetails);
+        // ==================== INDEXEDDB SETUP ====================
+        const DB_NAME = 'dsScreenCache';
+        const DB_VERSION = 1;
+        const VIDEO_STORE = 'videos';
+        let db = null;
 
-        async function loadTimelineDetails() {
-            const registrationData = localStorage.getItem('devicePlaylistRegistration');
+        async function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve(db);
+                };
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(VIDEO_STORE)) {
+                        db.createObjectStore(VIDEO_STORE, { keyPath: 'id' });
+                    }
+                };
+            });
+        }
+
+        async function saveVideoToCache(videoId, videoBlob) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([VIDEO_STORE], 'readwrite');
+                const store = transaction.objectStore(VIDEO_STORE);
+                const request = store.put({ id: videoId, blob: videoBlob, cachedAt: Date.now() });
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function getVideoFromCache(videoId) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([VIDEO_STORE], 'readonly');
+                const store = transaction.objectStore(VIDEO_STORE);
+                const request = store.get(videoId);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function clearVideoCache() {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([VIDEO_STORE], 'readwrite');
+                const store = transaction.objectStore(VIDEO_STORE);
+                const request = store.clear();
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // ==================== GLOBAL STATE ====================
+        let registrationData = null;
+        let timelineItems = [];
+        let currentVideoIndex = 0;
+        let loopCount = 0;
+        let videoPlayer = null;
+        let infoVisible = false;
+        let cacheStatus = {};
+        let itemStartTime = 0;
+        let itemDuration = 0;
+        let checkIntervalId = null;
+        let updateIntervalId = null;
+        let timelineCheckIntervalId = null;
+        let lastTimelineCheck = Date.now();
+
+        // ==================== INITIALIZATION ====================
+        document.addEventListener('DOMContentLoaded', init);
+
+        async function init() {
+            console.log('🚀 Initializing Device Player...');
             
-            if (!registrationData) {
-                document.getElementById('timelineItems').innerHTML = '<div class="alert alert-danger">No registration data found. Please register a device first.</div>';
+            try {
+                // Initialize IndexedDB
+                await initDB();
+                console.log('✅ IndexedDB initialized');
+                
+                // Get registration data
+                const storedData = localStorage.getItem('devicePlaylistRegistration');
+                if (!storedData) {
+                    showError('No device registration found. Redirecting to home...');
+                    setTimeout(() => goHome(), 3000);
+                    return;
+                }
+                
+                registrationData = JSON.parse(storedData);
+                const playlist = registrationData.data?.playlist || registrationData.playlist;
+                
+                if (!playlist || !playlist.items || playlist.items.length === 0) {
+                    showError('Playlist is empty. Please add videos to your playlist.');
+                    return;
+                }
+                
+                // Sort timeline items by order
+                timelineItems = [...playlist.items].sort((a, b) => a.order - b.order);
+                console.log(`📋 Timeline loaded: ${timelineItems.length} videos`);
+                
+                // Update info overlay
+                const deviceUID = localStorage.getItem('deviceUID') || 'Unknown';
+                document.getElementById('infoDeviceUID').textContent = deviceUID;
+                document.getElementById('infoPlaylistName').textContent = playlist.name;
+                document.getElementById('infoTotalVideos').textContent = timelineItems.length;
+                
+                // Setup video player
+                videoPlayer = document.getElementById('videoPlayer');
+                videoPlayer.addEventListener('timeupdate', updateVideoInfo);
+                
+                // Initialize cache status
+                for (const item of timelineItems) {
+                    cacheStatus[item.video.id] = { cached: false, caching: false };
+                }
+                
+                // Start background caching
+                startBackgroundCaching();
+                
+                // Start playback immediately
+                currentVideoIndex = 0;
+                loopCount = 0;
+                const playSuccess = await playCurrentVideo();
+                
+                // Try to enter fullscreen if play was successful
+                if (playSuccess) {
+                    setTimeout(() => {
+                        enterFullscreen();
+                    }, 500);
+                }
+                
+                // Start update intervals
+                updateIntervalId = setInterval(updateInfo, 100);
+                
+                // Start timeline update checker (every 30 seconds)
+                timelineCheckIntervalId = setInterval(checkForTimelineUpdates, 30000);
+                
+            } catch (error) {
+                console.error('❌ Initialization error:', error);
+                showError(`Initialization failed: ${error.message}`);
+            }
+        }
+
+        // ==================== TIMELINE UPDATE CHECKER ====================
+        async function checkForTimelineUpdates() {
+            try {
+                lastTimelineCheck = Date.now();
+                console.log('🔍 Checking for timeline updates...');
+                
+                const playlist = registrationData.data?.playlist || registrationData.playlist;
+                const playlistId = playlist.id;
+                
+                // Fetch latest timeline from server
+                const response = await fetch(`/api/playlists/${playlistId}/timeline`);
+                
+                if (!response.ok) {
+                    console.error('Failed to fetch timeline updates:', response.status);
+                    return;
+                }
+                
+                const result = await response.json();
+                
+                if (!result.success || !result.data || result.data.length === 0) {
+                    console.log('No timeline data received');
+                    return;
+                }
+                
+                // Sort new timeline items
+                const newTimelineItems = [...result.data].sort((a, b) => a.order - b.order);
+                
+                // Check if timeline has changed
+                const hasChanged = detectTimelineChanges(timelineItems, newTimelineItems);
+                
+                if (hasChanged) {
+                    console.log('✅ Timeline has changed! Updating...');
+                    await handleTimelineUpdate(newTimelineItems);
+                } else {
+                    console.log('ℹ️  Timeline unchanged');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error checking timeline updates:', error);
+            }
+        }
+
+        function detectTimelineChanges(oldTimeline, newTimeline) {
+            // Check if length changed
+            if (oldTimeline.length !== newTimeline.length) {
+                console.log(`Timeline length changed: ${oldTimeline.length} → ${newTimeline.length}`);
+                return true;
+            }
+            
+            // Check each item for changes
+            for (let i = 0; i < oldTimeline.length; i++) {
+                const oldItem = oldTimeline[i];
+                const newItem = newTimeline[i];
+                
+                // Check if video ID changed
+                if (oldItem.video.id !== newItem.video.id) {
+                    console.log(`Video at position ${i} changed: ${oldItem.video.id} → ${newItem.video.id}`);
+                    return true;
+                }
+                
+                // Check if duration changed
+                if (oldItem.duration !== newItem.duration) {
+                    console.log(`Duration at position ${i} changed: ${oldItem.duration}s → ${newItem.duration}s`);
+                    return true;
+                }
+                
+                // Check if order changed
+                if (oldItem.order !== newItem.order) {
+                    console.log(`Order at position ${i} changed: ${oldItem.order} → ${newItem.order}`);
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        async function handleTimelineUpdate(newTimelineItems) {
+            console.log('🔄 Applying timeline updates...');
+            
+            // Update global timeline
+            timelineItems = newTimelineItems;
+            
+            // Update info overlay
+            document.getElementById('infoTotalVideos').textContent = timelineItems.length;
+            
+            // Check for new videos that need caching
+            const newVideosToCache = [];
+            
+            for (const item of timelineItems) {
+                const videoId = item.video.id;
+                
+                // If this video is not in cache status, it's new
+                if (!cacheStatus[videoId]) {
+                    cacheStatus[videoId] = { cached: false, caching: false };
+                    newVideosToCache.push(item);
+                }
+            }
+            
+            // Cache new videos in background
+            if (newVideosToCache.length > 0) {
+                console.log(`📥 Found ${newVideosToCache.length} new video(s) to cache`);
+                cacheNewVideos(newVideosToCache);
+            }
+            
+            // Update registration data
+            if (registrationData.data?.playlist) {
+                registrationData.data.playlist.items = timelineItems;
+            } else if (registrationData.playlist) {
+                registrationData.playlist.items = timelineItems;
+            }
+            localStorage.setItem('devicePlaylistRegistration', JSON.stringify(registrationData));
+            
+            console.log('✅ Timeline updated successfully');
+        }
+
+        async function cacheNewVideos(newVideos) {
+            const totalVideos = timelineItems.length;
+            const alreadyCached = Object.values(cacheStatus).filter(s => s.cached).length;
+            
+            // Show cache indicator
+            updateCacheIndicator(alreadyCached, totalVideos);
+            
+            for (const item of newVideos) {
+                try {
+                    cacheStatus[item.video.id].caching = true;
+                    await cacheVideo(item);
+                    cacheStatus[item.video.id].cached = true;
+                    
+                    const newCachedCount = Object.values(cacheStatus).filter(s => s.cached).length;
+                    updateCacheIndicator(newCachedCount, totalVideos);
+                } catch (error) {
+                    console.error(`❌ Failed to cache new video ${item.video.fileName}:`, error);
+                    cacheStatus[item.video.id].caching = false;
+                }
+            }
+            
+            const finalCachedCount = Object.values(cacheStatus).filter(s => s.cached).length;
+            if (finalCachedCount === totalVideos) {
+                setTimeout(() => hideCacheIndicator(), 3000);
+            }
+        }
+
+        // ==================== PLAYBACK CONTROL ====================
+        async function playCurrentVideo() {
+            if (currentVideoIndex >= timelineItems.length) {
+                return false;
+            }
+            
+            const item = timelineItems[currentVideoIndex];
+            const videoId = item.video.id;
+            const videoName = item.video.fileName;
+            
+            console.log(`▶️  Playing [${currentVideoIndex + 1}/${timelineItems.length}]: ${videoName}`);
+            
+            // Update info overlay
+            document.getElementById('infoCurrentVideo').textContent = currentVideoIndex + 1;
+            document.getElementById('infoLoopCount').textContent = loopCount;
+            document.getElementById('infoItemDuration').textContent = item.duration;
+            
+            // Set item duration and start time
+            itemDuration = item.duration;
+            itemStartTime = Date.now();
+            
+            try {
+                // Check if video is cached
+                const cachedVideo = await getVideoFromCache(videoId);
+                let videoURL;
+                
+                if (cachedVideo) {
+                    console.log(`✅ Playing from cache: ${videoName}`);
+                    videoURL = URL.createObjectURL(cachedVideo.blob);
+                } else {
+                    console.log(`🌐 Streaming: ${videoName}`);
+                    videoURL = getVideoURL(item.video.filePath);
+                }
+                
+                // Set video source
+                videoPlayer.src = videoURL;
+                videoPlayer.loop = true; // Loop the video
+                videoPlayer.muted = false; // Ensure unmuted
+                videoPlayer.volume = 1.0; // Full volume
+                videoPlayer.load();
+                
+                // Play video
+                try {
+                    await videoPlayer.play();
+                    hideClickToPlay();
+                    
+                    // Start checking item duration
+                    startItemDurationCheck();
+                    return true; // Success
+                } catch (playError) {
+                    console.log('⚠️ Autoplay blocked, showing click to play overlay:', playError);
+                    showClickToPlay();
+                    return false; // Blocked
+                }
+                
+            } catch (error) {
+                console.error(`❌ Playback error for ${videoName}:`, error);
+                // Skip to next video on error
+                advanceToNextVideo();
+                return false;
+            }
+        }
+        
+        function showClickToPlay() {
+            document.getElementById('clickToPlayOverlay').classList.add('show');
+        }
+        
+        function hideClickToPlay() {
+            document.getElementById('clickToPlayOverlay').classList.remove('show');
+        }
+        
+        async function handleClickToPlay() {
+            hideClickToPlay();
+            try {
+                await videoPlayer.play();
+                startItemDurationCheck();
+                
+                // Try to enter fullscreen after user interaction
+                setTimeout(() => {
+                    enterFullscreen();
+                }, 100);
+            } catch (error) {
+                console.error('Failed to play after click:', error);
+                showError('Failed to start playback. Please check your browser settings.');
+            }
+        }
+
+        function startItemDurationCheck() {
+            // Clear existing interval
+            if (checkIntervalId) {
+                clearInterval(checkIntervalId);
+            }
+            
+            // Check every 100ms if item duration has elapsed
+            checkIntervalId = setInterval(() => {
+                const elapsed = (Date.now() - itemStartTime) / 1000;
+                
+                if (elapsed >= itemDuration) {
+                    console.log(`⏱️  Item duration (${itemDuration}s) reached, advancing to next video`);
+                    clearInterval(checkIntervalId);
+                    advanceToNextVideo();
+                }
+            }, 100);
+        }
+
+        function advanceToNextVideo() {
+            // Clean up
+            if (checkIntervalId) {
+                clearInterval(checkIntervalId);
+            }
+            
+            // Revoke old object URL to free memory
+            if (videoPlayer.src && videoPlayer.src.startsWith('blob:')) {
+                URL.revokeObjectURL(videoPlayer.src);
+            }
+            
+            // Move to next video
+            currentVideoIndex++;
+            
+            // Check if we've reached the end of the timeline
+            if (currentVideoIndex >= timelineItems.length) {
+                console.log('🔄 Timeline complete, looping...');
+                currentVideoIndex = 0;
+                loopCount++;
+                showLoopBadge();
+            }
+            
+            // Play next video
+            playCurrentVideo();
+        }
+
+        function updateVideoInfo() {
+            if (!videoPlayer) return;
+            
+            const current = formatTime(videoPlayer.currentTime);
+            const duration = formatTime(videoPlayer.duration);
+            const elapsed = Math.floor((Date.now() - itemStartTime) / 1000);
+            
+            document.getElementById('infoVideoTime').textContent = current;
+            document.getElementById('infoVideoDuration').textContent = duration;
+            document.getElementById('infoItemElapsed').textContent = elapsed;
+        }
+
+        function updateInfo() {
+            updateVideoInfo();
+            
+            // Update countdown to next timeline check
+            const timeSinceLastCheck = Math.floor((Date.now() - lastTimelineCheck) / 1000);
+            const timeUntilNextCheck = Math.max(0, 30 - timeSinceLastCheck);
+            document.getElementById('infoNextUpdate').textContent = timeUntilNextCheck;
+        }
+
+        // ==================== BACKGROUND CACHING ====================
+        async function startBackgroundCaching() {
+            console.log('📦 Starting background caching...');
+            
+            let totalVideos = timelineItems.length;
+            let cachedCount = 0;
+            
+            // Check what's already cached
+            for (const item of timelineItems) {
+                const cached = await getVideoFromCache(item.video.id);
+                if (cached) {
+                    cacheStatus[item.video.id].cached = true;
+                    cachedCount++;
+                }
+            }
+            
+            updateCacheIndicator(cachedCount, totalVideos);
+            
+            if (cachedCount === totalVideos) {
+                console.log('✅ All videos already cached');
+                hideCacheIndicator();
                 return;
             }
-
-            try {
-                const data = JSON.parse(registrationData);
-                const playlist = data.playlist;
-
-                // Device Info
-                document.getElementById('deviceUID').textContent = localStorage.getItem('deviceUID') || 'Unknown';
-                document.getElementById('registered').textContent = new Date().toLocaleString();
-
-                // Playlist Info
-                document.getElementById('playlistName').textContent = playlist.name || 'N/A';
-                document.getElementById('playlistID').textContent = playlist.id || 'N/A';
-                document.getElementById('playlistCode').textContent = playlist.code || 'N/A';
-                document.getElementById('totalVideos').textContent = playlist.items ? playlist.items.length : 0;
-
-                // Calculate total duration
-                let totalDuration = 0;
-                if (playlist.items) {
-                    totalDuration = playlist.items.reduce((sum, item) => sum + (item.duration || 0), 0);
-                }
-                document.getElementById('totalDuration').textContent = formatTime(totalDuration);
-
-                // Display timeline items
-                if (playlist.items && playlist.items.length > 0) {
-                    const sortedItems = [...playlist.items].sort((a, b) => a.order - b.order);
-                    
-                    let html = '';
-                    sortedItems.forEach((item, index) => {
-                        html += `
-                            <div class="video-item">
-                                <div class="d-flex align-items-start gap-3">
-                                    <div class="badge-order">${index + 1}</div>
-                                    <div class="flex-grow-1">
-                                        <h5>${item.video.fileName || 'Unknown'}</h5>
-                                        <p class="mb-2">
-                                            <strong>Duration:</strong> ${formatTime(item.duration || 0)} (${item.duration}s)<br>
-                                            <strong>Order:</strong> ${item.order}<br>
-                                            <strong>Video ID:</strong> ${item.video.id}<br>
-                                            <strong>File Path:</strong> ${item.video.filePath || 'N/A'}<br>
-                                            <strong>MIME Type:</strong> ${item.video.mimeType || 'N/A'}<br>
-                                            <strong>Resolution:</strong> ${item.video.resolution || 'N/A'}<br>
-                                            <strong>File Size:</strong> ${formatFileSize(item.video.fileSize)}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    document.getElementById('timelineItems').innerHTML = html;
-                } else {
-                    document.getElementById('timelineItems').innerHTML = '<div class="alert alert-warning">No videos in timeline</div>';
-                }
-
-                // Raw JSON
-                document.getElementById('rawData').textContent = JSON.stringify(data, null, 2);
-
-            } catch (error) {
-                console.error('Error:', error);
-                document.getElementById('timelineItems').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
-                document.getElementById('rawData').textContent = error.stack;
-            }
-        }
-
-        function formatTime(seconds) {
-            const s = Math.floor(seconds);
-            const h = Math.floor(s / 3600);
-            const m = Math.floor((s % 3600) / 60);
-            const sec = s % 60;
             
-            if (h > 0) {
-                return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+            // Cache videos in background
+            for (const item of timelineItems) {
+                if (cacheStatus[item.video.id].cached) {
+                    continue;
+                }
+                
+                try {
+                    cacheStatus[item.video.id].caching = true;
+                    await cacheVideo(item);
+                    cacheStatus[item.video.id].cached = true;
+                    cachedCount++;
+                    updateCacheIndicator(cachedCount, totalVideos);
+                } catch (error) {
+                    console.error(`❌ Failed to cache ${item.video.fileName}:`, error);
+                    cacheStatus[item.video.id].caching = false;
+                }
             }
-            return `${m}:${String(sec).padStart(2, '0')}`;
+            
+            console.log('✅ Background caching complete');
+            setTimeout(() => hideCacheIndicator(), 3000);
         }
 
-        function formatFileSize(bytes) {
-            if (!bytes) return 'N/A';
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(1024));
-            return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+        async function cacheVideo(item) {
+            const videoId = item.video.id;
+            const videoPath = item.video.filePath;
+            const videoName = item.video.fileName;
+            
+            console.log(`📥 Caching in background: ${videoName}`);
+            
+            const videoURL = getVideoURL(videoPath);
+            const response = await fetch(videoURL);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const blob = await response.blob();
+            await saveVideoToCache(videoId, blob);
+            
+            console.log(`✅ Cached: ${videoName} (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
+        }
+
+        function getVideoURL(videoPath) {
+            if (!videoPath) {
+                throw new Error('Video file path is missing');
+            }
+            
+            if (videoPath.startsWith('videos/')) {
+                return `/${videoPath}`;
+            } else if (videoPath.startsWith('http') || videoPath.startsWith('/')) {
+                return videoPath;
+            } else {
+                return `/videos/${videoPath}`;
+            }
+        }
+
+        function updateCacheIndicator(cached, total) {
+            const percent = total > 0 ? Math.round((cached / total) * 100) : 0;
+            document.getElementById('cacheText').textContent = `Caching videos... ${cached}/${total} (${percent}%)`;
+            document.getElementById('cacheProgressBar').style.width = `${percent}%`;
+            document.getElementById('infoCacheStatus').textContent = `${cached}/${total} cached`;
+            
+            if (cached < total) {
+                document.getElementById('cacheIndicator').classList.add('show');
+            }
+        }
+
+        function hideCacheIndicator() {
+            document.getElementById('cacheIndicator').classList.remove('show');
+        }
+
+        // ==================== KEYBOARD CONTROLS ====================
+        document.addEventListener('keydown', (e) => {
+            switch (e.key.toLowerCase()) {
+                case 'i':
+                    toggleInfo();
+                    break;
+                case 'h':
+                    goHome();
+                    break;
+            }
+        });
+
+        function toggleInfo() {
+            infoVisible = !infoVisible;
+            const overlay = document.getElementById('infoOverlay');
+            if (infoVisible) {
+                overlay.classList.add('show');
+            } else {
+                overlay.classList.remove('show');
+            }
+        }
+
+        function enterFullscreen() {
+            if (videoPlayer && !document.fullscreenElement) {
+                videoPlayer.requestFullscreen().catch(err => {
+                    console.log('Fullscreen request denied:', err);
+                });
+            }
+        }
+
+        function showLoopBadge() {
+            const badge = document.getElementById('loopBadge');
+            badge.classList.add('show');
+            setTimeout(() => {
+                badge.classList.remove('show');
+            }, 2000);
+        }
+
+        // ==================== UTILITY FUNCTIONS ====================
+        function formatTime(seconds) {
+            if (isNaN(seconds) || seconds < 0) return '00:00';
+            const s = Math.floor(seconds % 60);
+            const m = Math.floor((seconds / 60) % 60);
+            const h = Math.floor(seconds / 3600);
+            if (h > 0) return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         }
 
         function goHome() {
             if (confirm('Clear registration and go back to home?')) {
-                localStorage.removeItem('devicePlaylistRegistration');
-                localStorage.removeItem('deviceUID');
-                window.location.href = '/';
+                if (checkIntervalId) clearInterval(checkIntervalId);
+                if (updateIntervalId) clearInterval(updateIntervalId);
+                if (timelineCheckIntervalId) clearInterval(timelineCheckIntervalId);
+                
+                clearVideoCache().then(() => {
+                    localStorage.removeItem('devicePlaylistRegistration');
+                    localStorage.removeItem('deviceUID');
+                    window.location.href = '/';
+                }).catch(err => {
+                    console.error('Error clearing cache:', err);
+                    localStorage.removeItem('devicePlaylistRegistration');
+                    localStorage.removeItem('deviceUID');
+                    window.location.href = '/';
+                });
             }
         }
+
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorOverlay').classList.add('show');
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (checkIntervalId) clearInterval(checkIntervalId);
+            if (updateIntervalId) clearInterval(updateIntervalId);
+            if (timelineCheckIntervalId) clearInterval(timelineCheckIntervalId);
+            if (videoPlayer && videoPlayer.src && videoPlayer.src.startsWith('blob:')) {
+                URL.revokeObjectURL(videoPlayer.src);
+            }
+        });
     </script>
 </body>
 </html>

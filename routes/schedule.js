@@ -499,9 +499,9 @@ router.get('/public/:code', async (req, res) => {
               attributes: ['id', 'fileName', 'fileSize', 'mimeType', 'duration', 'resolution'],
             },
           ],
-          order: [['startTime', 'ASC']],
         },
       ],
+      order: [[{ model: ScheduleItem, as: 'items' }, 'startTime', 'ASC']],
     });
 
     if (!schedule) {
@@ -630,9 +630,9 @@ router.post('/device/register',
                 attributes: ['id', 'fileName', 'fileSize', 'mimeType', 'duration', 'resolution'],
               },
             ],
-            order: [['startTime', 'ASC']],
           },
         ],
+        order: [[{ model: ScheduleItem, as: 'items' }, 'startTime', 'ASC']],
       });
 
       if (!schedule) {

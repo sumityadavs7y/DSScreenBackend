@@ -109,26 +109,42 @@ router.get('/videos', webRequireAuth, webRequireCompany, async (req, res) => {
  */
 router.get('/playlists', webRequireAuth, webRequireCompany, async (req, res) => {
   try {
-    const { Playlist, User } = require('../models');
+    const { Playlist, PlaylistItem, User } = require('../models');
     
     const playlists = await Playlist.findAll({
       where: {
         companyId: req.company.id,
         isActive: true,
       },
-      include: [{
-        model: User,
-        as: 'creator',
-        attributes: ['id', 'email', 'firstName', 'lastName'],
-      }],
+      include: [
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'email', 'firstName', 'lastName'],
+        },
+        {
+          model: PlaylistItem,
+          as: 'items',
+          attributes: ['id'],
+          required: false,
+        }
+      ],
       order: [['createdAt', 'DESC']],
+    });
+
+    // Convert to plain objects and debug logging
+    const playlistsData = playlists.map(p => p.toJSON());
+    
+    console.log('📋 Found', playlistsData.length, 'playlists');
+    playlistsData.forEach(playlist => {
+      console.log(`  - ${playlist.name}: ${playlist.items?.length || 0} items`);
     });
 
     res.render('playlists', {
       user: req.user,
       company: req.company,
       userCompany: req.userCompany,
-      playlists: playlists,
+      playlists: playlistsData,
     });
   } catch (error) {
     console.error('Playlists error:', error);
@@ -159,8 +175,8 @@ router.get('/playlists/:playlistId/timeline', webRequireAuth, webRequireCompany,
           model: Video,
           as: 'video',
         }],
-        order: [['order', 'ASC']],
       }],
+      order: [[{ model: PlaylistItem, as: 'items' }, 'order', 'ASC']],
     });
 
     if (!playlist) {

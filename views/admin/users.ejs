@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include('../partials/head') %>
+    <title><%= title %> - dsScreen</title>
+    <style>
+        body { background: #f8f9fa; min-height: 100vh; padding-bottom: 50px; }
+        .page-title { color: #2d3748; }
+        .breadcrumb-custom { background: rgba(102, 126, 234, 0.1); padding: 10px 15px; border-radius: 8px; }
+        .breadcrumb-custom .breadcrumb-item a { color: #667eea; text-decoration: none; }
+        .breadcrumb-custom .breadcrumb-item.active { color: #2d3748; }
+        .content-card { background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); }
+        .super-admin-badge { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <%- include('../partials/navbar', { user }) %>
+
+    <div class="content-wrapper">
+        <div class="container">
+            <div class="mb-4">
+                <h1 class="page-title"><i class="bi bi-people-fill"></i> <%= title %></h1>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb breadcrumb-custom">
+                        <li class="breadcrumb-item"><a href="/admin">Dashboard</a></li>
+                        <li class="breadcrumb-item active">Users</li>
+                    </ol>
+                </nav>
+            </div>
+
+        <div class="content-card">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h4 class="mb-0"><i class="bi bi-people-fill"></i> All Users (<%= users.length %>)</h4>
+                </div>
+                <div class="col-md-6 text-end">
+                    <input type="text" id="searchInput" class="form-control form-control-sm d-inline-block w-auto" placeholder="Search users...">
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Companies</th>
+                            <th>Status</th>
+                            <th>Registered</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTable">
+                        <% users.forEach(u => { %>
+                            <tr data-user-email="<%= u.email.toLowerCase() %>">
+                                <td>
+                                    <strong><%= u.firstName %> <%= u.lastName %></strong>
+                                    <% if (u.isSuperAdmin) { %>
+                                        <span class="super-admin-badge ms-2"><i class="bi bi-shield-fill-check"></i> Super Admin</span>
+                                    <% } %>
+                                    <br><small class="text-muted"><%= u.email %></small>
+                                </td>
+                                <td>
+                                    <% if (u.userCompanies && u.userCompanies.length > 0) { %>
+                                        <% u.userCompanies.forEach(uc => { %>
+                                            <span class="badge bg-primary"><%= uc.company.name %> (<%= uc.role %>)</span><br>
+                                        <% }) %>
+                                    <% } else { %>
+                                        <span class="text-muted">No companies</span>
+                                    <% } %>
+                                </td>
+                                <td>
+                                    <% if (u.isActive) { %>
+                                        <span class="badge bg-success">Active</span>
+                                    <% } else { %>
+                                        <span class="badge bg-danger">Inactive</span>
+                                    <% } %>
+                                </td>
+                                <td><%= new Date(u.createdAt).toLocaleDateString() %></td>
+                                <td>
+                                    <% if (String(u.id) === String(user.id) && u.isSuperAdmin) { %>
+                                        <button class="btn btn-sm btn-secondary" disabled title="You cannot revoke your own super admin privileges">
+                                            <i class="bi bi-shield-fill-check"></i> Revoke Super Admin (Self)
+                                        </button>
+                                    <% } else { %>
+                                        <button 
+                                            class="btn btn-sm <%= u.isSuperAdmin ? 'btn-warning' : 'btn-outline-warning' %>" 
+                                            onclick="toggleSuperAdmin('<%= u.id %>', '<%= user.id %>', this)"
+                                            data-user-id="<%= u.id %>">
+                                            <i class="bi bi-shield-fill-check"></i> <%= u.isSuperAdmin ? 'Revoke' : 'Grant' %> Super Admin
+                                        </button>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <%- include('../partials/scripts') %>
+    <script>
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('#usersTable tr');
+            rows.forEach(row => {
+                const email = row.getAttribute('data-user-email');
+                row.style.display = email.includes(searchTerm) ? '' : 'none';
+            });
+        });
+
+        function toggleSuperAdmin(userId, currentUserId, button) {
+            // Client-side check to prevent self-revocation
+            if (userId === currentUserId) {
+                alert('⚠️ You cannot revoke your own super admin privileges!');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to toggle super admin status?')) return;
+            
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+            
+            fetch(`/admin/users/${userId}/toggle-super-admin`, { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Error updating user');
+                        button.disabled = false;
+                        button.innerHTML = '<i class="bi bi-shield-fill-check"></i> Grant/Revoke Super Admin';
+                    }
+                })
+                .catch(err => {
+                    alert('Error updating user: ' + err.message);
+                    button.disabled = false;
+                    button.innerHTML = '<i class="bi bi-shield-fill-check"></i> Grant/Revoke Super Admin';
+                });
+        }
+    </script>
+</body>
+</html>
+
+

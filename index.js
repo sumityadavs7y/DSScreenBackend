@@ -31,6 +31,7 @@ const indexRoutes = require('./routes/index');
 const webRoutes = require('./routes/web');
 const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
+const adminRoutes = require('./routes/admin');
 const companyRoutes = require('./routes/company');
 const userRoutes = require('./routes/user');
 const videoRoutes = require('./routes/video');
@@ -38,6 +39,7 @@ const scheduleRoutes = require('./routes/schedule');
 
 app.use('/', webRoutes);  // Web routes (login, register, logout)
 app.use('/dashboard', dashboardRoutes); // Dashboard routes BEFORE static files
+app.use('/admin', adminRoutes); // Super Admin panel routes
 app.use('/api/auth', authRoutes);
 app.use('/api/company', companyRoutes);
 app.use('/api/users', userRoutes);

@@ -52,6 +52,14 @@ router.post('/login',
         return res.redirect(`/login?error=${encodeURIComponent('Invalid email or password')}`);
       }
 
+      // Check if user is super admin
+      if (user.isSuperAdmin) {
+        // Super admins don't need a company, redirect to admin panel
+        req.session.userId = user.id;
+        req.session.isSuperAdmin = true;
+        return res.redirect('/admin');
+      }
+
       // Get user's companies
       const userCompanies = await UserCompany.findAll({
         where: {

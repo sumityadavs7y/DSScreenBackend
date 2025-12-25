@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include('../partials/head') %>
+    <title><%= title %> - dsScreen</title>
+    <style>
+        body {
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        .page-title {
+            color: #2d3748;
+        }
+        .breadcrumb-custom {
+            background: rgba(102, 126, 234, 0.1);
+            padding: 10px 15px;
+            border-radius: 8px;
+        }
+        .breadcrumb-custom .breadcrumb-item a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .breadcrumb-custom .breadcrumb-item.active {
+            color: #2d3748;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+        .stat-icon.companies { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .stat-icon.users { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
+        .stat-icon.videos { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; }
+        .stat-icon.playlists { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; }
+        .stat-icon.devices { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; }
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #718096;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .content-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        .nav-pills .nav-link {
+            border-radius: 10px;
+            padding: 10px 20px;
+            margin-right: 10px;
+            color: #667eea;
+            font-weight: 500;
+        }
+        .nav-pills .nav-link.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .table th {
+            border-top: none;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        .btn-admin {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 10px 25px;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+        .btn-admin:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <%- include('../partials/navbar', { user }) %>
+
+    <div class="content-wrapper">
+        <div class="container">
+            <div class="mb-4">
+                <h1 class="page-title"><i class="bi bi-shield-lock-fill"></i> Super Admin Panel</h1>
+                <p class="text-muted">Manage all companies, users, videos, and playlists</p>
+            </div>
+
+        <!-- Statistics Cards -->
+        <div class="row">
+            <div class="col-md-2-4 col-sm-6 mb-4">
+                <div class="stat-card">
+                    <div class="stat-icon companies">
+                        <i class="bi bi-building"></i>
+                    </div>
+                    <div class="stat-value"><%= stats.totalCompanies %></div>
+                    <div class="stat-label">Total Companies</div>
+                    <a href="/admin/companies" class="btn btn-sm btn-admin mt-3">
+                        Manage <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-2-4 col-sm-6 mb-4">
+                <div class="stat-card">
+                    <div class="stat-icon users">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+                    <div class="stat-value"><%= stats.totalUsers %></div>
+                    <div class="stat-label">Total Users</div>
+                    <a href="/admin/users" class="btn btn-sm btn-admin mt-3">
+                        Manage <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-2-4 col-sm-6 mb-4">
+                <div class="stat-card">
+                    <div class="stat-icon videos">
+                        <i class="bi bi-film"></i>
+                    </div>
+                    <div class="stat-value"><%= stats.totalVideos %></div>
+                    <div class="stat-label">Total Videos</div>
+                    <a href="/admin/videos" class="btn btn-sm btn-admin mt-3">
+                        Manage <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-2-4 col-sm-6 mb-4">
+                <div class="stat-card">
+                    <div class="stat-icon playlists">
+                        <i class="bi bi-play-circle-fill"></i>
+                    </div>
+                    <div class="stat-value"><%= stats.totalPlaylists %></div>
+                    <div class="stat-label">Total Playlists</div>
+                    <a href="/admin/playlists" class="btn btn-sm btn-admin mt-3">
+                        Manage <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-2-4 col-sm-6 mb-4">
+                <div class="stat-card">
+                    <div class="stat-icon devices">
+                        <i class="bi bi-display"></i>
+                    </div>
+                    <div class="stat-value"><%= stats.totalDevices %></div>
+                    <div class="stat-label">Total Devices</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="content-card">
+                    <h4 class="mb-4"><i class="bi bi-building"></i> Recent Companies</h4>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Company</th>
+                                    <th>Created</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (recentCompanies.length === 0) { %>
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted">No companies yet</td>
+                                    </tr>
+                                <% } else { %>
+                                    <% recentCompanies.forEach(company => { %>
+                                        <tr>
+                                            <td>
+                                                <strong><%= company.name %></strong><br>
+                                                <small class="text-muted"><%= company.slug %></small>
+                                            </td>
+                                            <td><%= new Date(company.createdAt).toLocaleDateString() %></td>
+                                            <td>
+                                                <a href="/admin/companies/<%= company.id %>" class="btn btn-sm btn-outline-primary">
+                                                    View
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    <% }) %>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="content-card">
+                    <h4 class="mb-4"><i class="bi bi-people-fill"></i> Recent Users</h4>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Registered</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (recentUsers.length === 0) { %>
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted">No users yet</td>
+                                    </tr>
+                                <% } else { %>
+                                    <% recentUsers.forEach(u => { %>
+                                        <tr>
+                                            <td>
+                                                <strong><%= u.firstName %> <%= u.lastName %></strong><br>
+                                                <small class="text-muted"><%= u.email %></small>
+                                            </td>
+                                            <td><%= new Date(u.createdAt).toLocaleDateString() %></td>
+                                            <td>
+                                                <a href="/admin/users" class="btn btn-sm btn-outline-primary">
+                                                    View
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    <% }) %>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <%- include('../partials/scripts') %>
+</body>
+</html>
+
+

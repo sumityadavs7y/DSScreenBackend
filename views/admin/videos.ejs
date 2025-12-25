@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include('../partials/head') %>
+    <title><%= title %> - dsScreen</title>
+    <style>
+        body { background: #f8f9fa; min-height: 100vh; padding-bottom: 50px; }
+        .page-title { color: #2d3748; }
+        .breadcrumb-custom { background: rgba(102, 126, 234, 0.1); padding: 10px 15px; border-radius: 8px; }
+        .breadcrumb-custom .breadcrumb-item a { color: #667eea; text-decoration: none; }
+        .breadcrumb-custom .breadcrumb-item.active { color: #2d3748; }
+        .content-card { background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); }
+    </style>
+</head>
+<body>
+    <%- include('../partials/navbar', { user }) %>
+
+    <div class="content-wrapper">
+        <div class="container">
+            <div class="mb-4">
+                <h1 class="page-title"><i class="bi bi-film"></i> <%= title %></h1>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb breadcrumb-custom">
+                        <li class="breadcrumb-item"><a href="/admin">Dashboard</a></li>
+                        <li class="breadcrumb-item active">Videos</li>
+                    </ol>
+                </nav>
+            </div>
+
+        <div class="content-card">
+            <h4 class="mb-4"><i class="bi bi-film"></i> All Videos (<%= videos.length %>)</h4>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Video</th>
+                            <th>Company</th>
+                            <th>Uploader</th>
+                            <th>Size</th>
+                            <th>Duration</th>
+                            <th>Uploaded</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% videos.forEach(v => { %>
+                            <tr>
+                                <td><strong><%= v.fileName %></strong></td>
+                                <td><%= v.company.name %></td>
+                                <td><%= v.uploader ? `${v.uploader.firstName} ${v.uploader.lastName}` : 'N/A' %></td>
+                                <td><%= (v.fileSize / 1024 / 1024).toFixed(2) %> MB</td>
+                                <td><%= v.duration ? `${Math.floor(v.duration / 60)}:${(v.duration % 60).toString().padStart(2, '0')}` : 'N/A' %></td>
+                                <td><%= new Date(v.createdAt).toLocaleDateString() %></td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteVideo('<%= v.id %>')">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <%- include('../partials/scripts') %>
+    <script>
+        function deleteVideo(videoId) {
+            if (!confirm('Are you sure you want to delete this video?')) return;
+            fetch(`/admin/videos/${videoId}`, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(data => data.success ? location.reload() : alert(data.message || 'Error'))
+                .catch(err => alert('Error deleting video'));
+        }
+    </script>
+</body>
+</html>
+
+

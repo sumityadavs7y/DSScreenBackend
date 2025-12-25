@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include('../partials/head') %>
+    <title><%= title %> - dsScreen</title>
+    <style>
+        body { background: #f8f9fa; min-height: 100vh; padding-bottom: 50px; }
+        .page-title { color: #2d3748; }
+        .breadcrumb-custom { background: rgba(102, 126, 234, 0.1); padding: 10px 15px; border-radius: 8px; }
+        .breadcrumb-custom .breadcrumb-item a { color: #667eea; text-decoration: none; }
+        .breadcrumb-custom .breadcrumb-item.active { color: #2d3748; }
+        .content-card { background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); margin-bottom: 20px; }
+        .stat-box { text-align: center; padding: 20px; border: 2px solid #e2e8f0; border-radius: 10px; }
+        .stat-box h2 { color: #667eea; margin: 0; }
+        .stat-box p { color: #718096; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <%- include('../partials/navbar', { user }) %>
+
+    <div class="content-wrapper">
+        <div class="container">
+            <div class="mb-4">
+                <h1 class="page-title"><i class="bi bi-building"></i> <%= company.name %></h1>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb breadcrumb-custom">
+                        <li class="breadcrumb-item"><a href="/admin">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="/admin/companies">Companies</a></li>
+                        <li class="breadcrumb-item active"><%= company.name %></li>
+                    </ol>
+                </nav>
+            </div>
+
+        <div class="content-card">
+            <h4 class="mb-3">Company Information</h4>
+            <p><strong>Name:</strong> <%= company.name %></p>
+            <p><strong>Slug:</strong> <%= company.slug %></p>
+            <% if (company.description) { %><p><strong>Description:</strong> <%= company.description %></p><% } %>
+            <p><strong>Created:</strong> <%= new Date(company.createdAt).toLocaleDateString() %></p>
+            <p><strong>Status:</strong> <span class="badge <%= company.isActive ? 'bg-success' : 'bg-danger' %>"><%= company.isActive ? 'Active' : 'Inactive' %></span></p>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="stat-box">
+                    <h2><%= company.companyUsers ? company.companyUsers.length : 0 %></h2>
+                    <p><i class="bi bi-people-fill"></i> Users</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-box">
+                    <h2><%= company.videos ? company.videos.length : 0 %></h2>
+                    <p><i class="bi bi-film"></i> Videos</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-box">
+                    <h2><%= company.playlists ? company.playlists.length : 0 %></h2>
+                    <p><i class="bi bi-play-circle-fill"></i> Playlists</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-card">
+            <h4 class="mb-3">Company Users</h4>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (company.companyUsers && company.companyUsers.length > 0) { %>
+                            <% company.companyUsers.forEach(cu => { %>
+                                <tr>
+                                    <td><%= cu.user.firstName %> <%= cu.user.lastName %></td>
+                                    <td><%= cu.user.email %></td>
+                                    <td><span class="badge bg-primary"><%= cu.role %></span></td>
+                                    <td><%= new Date(cu.joinedAt || cu.createdAt).toLocaleDateString() %></td>
+                                </tr>
+                            <% }) %>
+                        <% } else { %>
+                            <tr><td colspan="4" class="text-center text-muted">No users</td></tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <%- include('../partials/scripts') %>
+</body>
+</html>
+
+

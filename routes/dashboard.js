@@ -49,8 +49,45 @@ const upload = multer({
  * GET /dashboard
  * Redirect to video library by default
  */
-router.get('/', webRequireAuth, webRequireCompany, (req, res) => {
-  res.redirect('/dashboard/videos');
+router.get('/', webRequireAuth, async (req, res) => {
+  // If user is super admin and not impersonating, redirect to admin panel
+  if (req.user && req.user.isSuperAdmin && !req.session.impersonating) {
+    return res.redirect('/admin');
+  }
+  
+  // Check if user has company context
+  if (!req.session.companyId) {
+    return res.redirect('/company-selection');
+  }
+  
+  // Load company context
+  try {
+    const company = await Company.findByPk(req.session.companyId);
+    if (!company || !company.isActive) {
+      delete req.session.companyId;
+      delete req.session.role;
+      return res.redirect('/company-selection');
+    }
+
+    const userCompany = await UserCompany.findOne({
+      where: {
+        userId: req.session.userId,
+        companyId: req.session.companyId,
+        isActive: true,
+      },
+    });
+
+    if (!userCompany) {
+      delete req.session.companyId;
+      delete req.session.role;
+      return res.redirect('/company-selection');
+    }
+
+    res.redirect('/dashboard/videos');
+  } catch (error) {
+    console.error('Dashboard redirect error:', error);
+    res.redirect('/company-selection');
+  }
 });
 
 /**
@@ -95,6 +132,7 @@ router.get('/videos', webRequireAuth, webRequireCompany, async (req, res) => {
       user: req.user,
       company: req.company,
       userCompany: req.userCompany,
+      session: req.session,
       videos: formattedVideos,
     });
   } catch (error) {
@@ -144,6 +182,7 @@ router.get('/playlists', webRequireAuth, webRequireCompany, async (req, res) => 
       user: req.user,
       company: req.company,
       userCompany: req.userCompany,
+      session: req.session,
       playlists: playlistsData,
     });
   } catch (error) {
@@ -196,6 +235,7 @@ router.get('/playlists/:playlistId/timeline', webRequireAuth, webRequireCompany,
       user: req.user,
       company: req.company,
       userCompany: req.userCompany,
+      session: req.session,
       playlist: playlist,
       videos: allVideos,
       availableVideos: allVideos,

@@ -179,7 +179,7 @@ async function generateDeviceUID() {
     uid = 'FP-' + fingerprint;
     
     // Cache it (but fingerprint will be same even if this is cleared)
-    localStorage.setItem('deviceUID', uid);
+        localStorage.setItem('deviceUID', uid);
     
     return uid;
 }

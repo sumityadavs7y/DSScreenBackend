@@ -1,3 +1,9 @@
+<%
+// Set default for session if not provided
+if (typeof session === 'undefined') {
+    session = null;
+}
+%>
 <!-- Main Navigation Bar -->
 <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container">
@@ -9,8 +15,18 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
-                <% if (user && user.isSuperAdmin) { %>
-                    <li class="nav-item">
+                <% 
+                const isImpersonating = typeof session !== 'undefined' && session && session.impersonating;
+                const isSuperAdmin = user && user.isSuperAdmin;
+                %>
+                <% if (isImpersonating) { %>
+                    <li class="nav-item me-3">
+                        <button class="btn btn-sm btn-warning" onclick="exitImpersonation()" style="font-weight: 600;">
+                            <i class="bi bi-arrow-left-circle"></i> Back to Admin Panel
+                        </button>
+                    </li>
+                <% } else if (isSuperAdmin) { %>
+                    <li class="nav-item me-3">
                         <a class="nav-link" href="/admin" style="background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); border-radius: 8px; padding: 8px 16px; font-weight: 600;">
                             <i class="bi bi-shield-fill-check"></i> Super Admin Panel
                         </a>
@@ -47,4 +63,24 @@
         </div>
     </div>
 </nav>
+
+<script>
+function exitImpersonation() {
+    if (!confirm('Return to Super Admin Panel?')) return;
+    
+    fetch('/admin/exit-impersonation', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = '/admin';
+            } else {
+                alert(data.message || 'Error exiting impersonation');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error exiting impersonation');
+        });
+}
+</script>
 

@@ -9,11 +9,39 @@ const { User, Company, UserCompany } = require('../models');
 const { body, validationResult } = require('express-validator');
 
 /**
+ * GET /
+ * Root route - redirect based on authentication status
+ */
+router.get('/', async (req, res) => {
+  // If not authenticated, show device registration page
+  if (!req.session || !req.session.userId) {
+    return res.sendFile(require('path').join(__dirname, '../public/index.html'));
+  }
+  
+  // If authenticated, check if super admin
+  try {
+    const user = await User.findByPk(req.session.userId);
+    if (user && user.isSuperAdmin && !req.session.impersonating) {
+      return res.redirect('/admin');
+    }
+    return res.redirect('/dashboard');
+  } catch (error) {
+    console.error('Root route error:', error);
+    return res.redirect('/login');
+  }
+});
+
+/**
  * GET /login
  * Show login page
  */
-router.get('/login', (req, res) => {
+router.get('/login', async (req, res) => {
   if (req.session && req.session.userId) {
+    // Check if user is super admin
+    const user = await User.findByPk(req.session.userId);
+    if (user && user.isSuperAdmin) {
+      return res.redirect('/admin');
+    }
     return res.redirect('/dashboard');
   }
   res.render('login', {

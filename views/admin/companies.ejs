@@ -45,7 +45,7 @@
     </style>
 </head>
 <body>
-    <%- include('../partials/navbar', { user }) %>
+    <%- include('../partials/navbar', { user, session }) %>
 
     <div class="content-wrapper">
         <div class="container">
@@ -61,11 +61,14 @@
 
         <div class="content-card">
             <div class="row mb-4">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <h4 class="mb-0"><i class="bi bi-building"></i> All Companies (<%= companies.length %>)</h4>
                 </div>
-                <div class="col-md-6 text-end">
-                    <input type="text" id="searchInput" class="form-control form-control-sm d-inline-block w-auto" placeholder="Search companies...">
+                <div class="col-md-8 text-end">
+                    <input type="text" id="searchInput" class="form-control form-control-sm d-inline-block w-auto me-2" placeholder="Search companies...">
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addCompanyModal">
+                        <i class="bi bi-plus-circle"></i> Add Company
+                    </button>
                 </div>
             </div>
 
@@ -122,10 +125,13 @@
                                     </td>
                                     <td><%= new Date(company.createdAt).toLocaleDateString() %></td>
                                     <td>
-                                        <a href="/admin/companies/<%= company.id %>" class="btn btn-sm btn-primary me-1">
-                                            <i class="bi bi-eye"></i> View
+                                        <a href="/admin/companies/<%= company.id %>" class="btn btn-sm btn-primary me-1" title="View Details">
+                                            <i class="bi bi-eye"></i>
                                         </a>
-                                        <button class="btn btn-sm <%= company.isActive ? 'btn-danger' : 'btn-success' %>" onclick="toggleCompanyActive('<%= company.id %>', this)">
+                                        <button class="btn btn-sm btn-info me-1" onclick="loginAsCompany('<%= company.id %>')" title="Login as Company">
+                                            <i class="bi bi-box-arrow-in-right"></i>
+                                        </button>
+                                        <button class="btn btn-sm <%= company.isActive ? 'btn-danger' : 'btn-success' %>" onclick="toggleCompanyActive('<%= company.id %>', this)" title="<%= company.isActive ? 'Deactivate' : 'Activate' %>">
                                             <i class="bi <%= company.isActive ? 'bi-x-circle' : 'bi-check-circle' %>"></i>
                                         </button>
                                     </td>
@@ -136,6 +142,64 @@
                 </table>
             </div>
         </div>
+        </div>
+    </div>
+
+    <!-- Add Company Modal -->
+    <div class="modal fade" id="addCompanyModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-building"></i> Add New Company</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addCompanyForm">
+                        <div class="mb-3">
+                            <label class="form-label">Company Name *</label>
+                            <input type="text" class="form-control" name="name" id="companyName" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="description" id="companyDescription" rows="2"></textarea>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" name="email" id="companyEmail">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" name="phoneNumber" id="companyPhone">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Website</label>
+                                <input type="url" class="form-control" name="website" id="companyWebsite" placeholder="https://example.com">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Address</label>
+                                <input type="text" class="form-control" name="address" id="companyAddress">
+                            </div>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" name="isActive" id="companyActive" checked>
+                            <label class="form-check-label" for="companyActive">Active Company</label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveNewCompany()">
+                        <i class="bi bi-save"></i> Create Company
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -151,6 +215,70 @@
                 row.style.display = companyName.includes(searchTerm) ? '' : 'none';
             });
         });
+
+        // Save new company
+        function saveNewCompany() {
+            const form = document.getElementById('addCompanyForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const formData = new FormData(form);
+            const data = {
+                name: formData.get('name'),
+                description: formData.get('description'),
+                email: formData.get('email'),
+                phoneNumber: formData.get('phoneNumber'),
+                website: formData.get('website'),
+                address: formData.get('address'),
+                isActive: formData.get('isActive') === 'on'
+            };
+
+            fetch('/admin/companies/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message || 'Error creating company');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Error creating company: ' + err.message);
+            });
+        }
+
+        // Login as company
+        function loginAsCompany(companyId) {
+            if (!confirm('Login as this company? You will be redirected to the company dashboard as an owner.')) {
+                return;
+            }
+
+            fetch(`/admin/companies/${companyId}/login-as`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/dashboard';
+                } else {
+                    alert(data.message || 'Error logging in as company');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Error logging in as company');
+            });
+        }
 
         // Toggle company active status
         function toggleCompanyActive(companyId, button) {

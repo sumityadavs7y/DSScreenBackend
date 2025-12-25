@@ -14,7 +14,7 @@
     </style>
 </head>
 <body>
-    <%- include('../partials/navbar', { user }) %>
+    <%- include('../partials/navbar', { user, session }) %>
 
     <div class="content-wrapper">
         <div class="container">
@@ -34,6 +34,9 @@
                     <h4 class="mb-0"><i class="bi bi-people-fill"></i> All Users (<%= users.length %>)</h4>
                 </div>
                 <div class="col-md-6 text-end">
+                    <button class="btn btn-sm btn-primary me-2" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                        <i class="bi bi-plus-lg"></i> Add New User
+                    </button>
                     <input type="text" id="searchInput" class="form-control form-control-sm d-inline-block w-auto" placeholder="Search users...">
                 </div>
             </div>
@@ -77,16 +80,23 @@
                                 </td>
                                 <td><%= new Date(u.createdAt).toLocaleDateString() %></td>
                                 <td>
+                                    <button class="btn btn-sm btn-primary me-1" onclick="editUser('<%= u.id %>')" title="Edit User">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm <%= u.isActive ? 'btn-danger' : 'btn-success' %> me-1" onclick="toggleUserActive('<%= u.id %>', this)" title="<%= u.isActive ? 'Deactivate' : 'Activate' %> User">
+                                        <i class="bi <%= u.isActive ? 'bi-x-circle' : 'bi-check-circle' %>"></i>
+                                    </button>
                                     <% if (String(u.id) === String(user.id) && u.isSuperAdmin) { %>
                                         <button class="btn btn-sm btn-secondary" disabled title="You cannot revoke your own super admin privileges">
-                                            <i class="bi bi-shield-fill-check"></i> Revoke Super Admin (Self)
+                                            <i class="bi bi-shield-fill-check"></i>
                                         </button>
                                     <% } else { %>
                                         <button 
                                             class="btn btn-sm <%= u.isSuperAdmin ? 'btn-warning' : 'btn-outline-warning' %>" 
                                             onclick="toggleSuperAdmin('<%= u.id %>', '<%= user.id %>', this)"
-                                            data-user-id="<%= u.id %>">
-                                            <i class="bi bi-shield-fill-check"></i> <%= u.isSuperAdmin ? 'Revoke' : 'Grant' %> Super Admin
+                                            data-user-id="<%= u.id %>"
+                                            title="<%= u.isSuperAdmin ? 'Revoke' : 'Grant' %> Super Admin">
+                                            <i class="bi bi-shield-fill-check"></i>
                                         </button>
                                     <% } %>
                                 </td>
@@ -96,6 +106,146 @@
                 </table>
             </div>
         </div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div class="modal fade" id="addUserModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-plus"></i> Add New User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addUserForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">First Name *</label>
+                                <input type="text" class="form-control" name="firstName" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Last Name *</label>
+                                <input type="text" class="form-control" name="lastName" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Email *</label>
+                                <input type="email" class="form-control" name="email" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" name="phoneNumber">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Password *</label>
+                            <input type="password" class="form-control" name="password" required minlength="8">
+                            <small class="text-muted">Minimum 8 characters</small>
+                        </div>
+                        
+                        <hr class="my-4">
+                        <h6 class="mb-3"><i class="bi bi-shield-check"></i> User Type & Access</h6>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" name="isSuperAdmin" id="addUserSuperAdmin" onchange="toggleCompanyFields(this)">
+                            <label class="form-check-label" for="addUserSuperAdmin">
+                                <strong>Super Admin</strong> <span class="text-muted">(System-wide access, no company required)</span>
+                            </label>
+                        </div>
+
+                        <div id="companyAccessFields">
+                            <div class="card border-info mb-3">
+                                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-building"></i> Company Access</span>
+                                    <button type="button" class="btn btn-sm btn-light" onclick="addCompanyAccess()">
+                                        <i class="bi bi-plus-circle"></i> Add Company
+                                    </button>
+                                </div>
+                                <div class="card-body">
+                                    <div id="companyAccessList">
+                                        <p class="text-muted text-center mb-0">No companies assigned yet. Click "Add Company" to assign access.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" name="isActive" id="addUserActive" checked>
+                            <label class="form-check-label" for="addUserActive">Active Account</label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveNewUser()">
+                        <i class="bi bi-save"></i> Create User
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div class="modal fade" id="editUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil"></i> Edit User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editUserForm">
+                        <input type="hidden" name="userId" id="editUserId">
+                        <div class="mb-3">
+                            <label class="form-label">First Name *</label>
+                            <input type="text" class="form-control" name="firstName" id="editFirstName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Last Name *</label>
+                            <input type="text" class="form-control" name="lastName" id="editLastName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email *</label>
+                            <input type="email" class="form-control" name="email" id="editEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" name="phoneNumber" id="editPhoneNumber">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">New Password</label>
+                            <input type="password" class="form-control" name="password" id="editPassword" minlength="8">
+                            <small class="text-muted">Leave blank to keep current password</small>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <div class="card border-info mb-3">
+                            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-building"></i> Company Access</span>
+                                <button type="button" class="btn btn-sm btn-light" onclick="addEditCompanyAccess()">
+                                    <i class="bi bi-plus-circle"></i> Add Company
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div id="editCompanyAccessList">
+                                    <p class="text-muted text-center mb-0">Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveEditUser()">
+                        <i class="bi bi-save"></i> Save Changes
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -110,6 +260,408 @@
             });
         });
 
+        // Global variables
+        let allCompanies = [];
+        let companyAccessItems = [];
+        let editCompanyAccessItems = [];
+
+        // Load companies when modal is opened
+        document.getElementById('addUserModal').addEventListener('show.bs.modal', function() {
+            loadCompanies();
+            companyAccessItems = [];
+            document.getElementById('companyAccessList').innerHTML = '<p class="text-muted text-center mb-0">No companies assigned yet. Click "Add Company" to assign access.</p>';
+        });
+
+        // Load companies
+        function loadCompanies() {
+            fetch('/admin/companies/list')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        allCompanies = data.companies;
+                    }
+                })
+                .catch(err => console.error('Error loading companies:', err));
+        }
+
+        // Toggle company fields when super admin is checked
+        function toggleCompanyFields(checkbox) {
+            const companyFields = document.getElementById('companyAccessFields');
+            if (checkbox.checked) {
+                companyFields.style.display = 'none';
+            } else {
+                companyFields.style.display = 'block';
+            }
+        }
+
+        // Add company access for new user
+        function addCompanyAccess() {
+            const html = `
+                <div class="company-access-item border rounded p-3 mb-2" style="background: #f8f9fa;">
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label small"><strong>Company</strong></label>
+                            <select class="form-select form-select-sm company-select" required onchange="handleCompanySelect(this)">
+                                <option value="">Select company...</option>
+                                <option value="__new__">+ Create New Company</option>
+                                ${allCompanies.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label small"><strong>Role</strong></label>
+                            <div class="d-flex gap-2">
+                                <select class="form-select form-select-sm role-select" required>
+                                    <option value="">Select role...</option>
+                                    <option value="owner">Owner</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="manager">Manager</option>
+                                    <option value="member">Member</option>
+                                    <option value="viewer">Viewer</option>
+                                </select>
+                                <button type="button" class="btn btn-sm btn-danger" onclick="removeCompanyAccess(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="new-company-fields" style="display: none;">
+                        <hr class="my-2">
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small"><strong>New Company Name</strong></label>
+                                <input type="text" class="form-control form-control-sm new-company-name" placeholder="Company name">
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small"><strong>Description</strong></label>
+                                <input type="text" class="form-control form-control-sm new-company-desc" placeholder="Optional">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const container = document.getElementById('companyAccessList');
+            if (container.querySelector('.text-muted')) {
+                container.innerHTML = '';
+            }
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+        // Handle company select change
+        function handleCompanySelect(select) {
+            const item = select.closest('.company-access-item');
+            const newCompanyFields = item.querySelector('.new-company-fields');
+            const newCompanyName = item.querySelector('.new-company-name');
+            
+            if (select.value === '__new__') {
+                newCompanyFields.style.display = 'block';
+                newCompanyName.setAttribute('required', 'required');
+            } else {
+                newCompanyFields.style.display = 'none';
+                newCompanyName.removeAttribute('required');
+            }
+        }
+
+        // Remove company access
+        function removeCompanyAccess(button) {
+            const item = button.closest('.company-access-item');
+            item.remove();
+            
+            const container = document.getElementById('companyAccessList');
+            if (container.children.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center mb-0">No companies assigned yet. Click "Add Company" to assign access.</p>';
+            }
+        }
+
+        // Add company access for edit user
+        function addEditCompanyAccess() {
+            const html = `
+                <div class="company-access-item border rounded p-3 mb-2" style="background: #f8f9fa;">
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label small"><strong>Company</strong></label>
+                            <select class="form-select form-select-sm edit-company-select" required>
+                                <option value="">Select company...</option>
+                                ${allCompanies.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label small"><strong>Role</strong></label>
+                            <div class="d-flex gap-2">
+                                <select class="form-select form-select-sm edit-role-select" required>
+                                    <option value="">Select role...</option>
+                                    <option value="owner">Owner</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="manager">Manager</option>
+                                    <option value="member">Member</option>
+                                    <option value="viewer">Viewer</option>
+                                </select>
+                                <button type="button" class="btn btn-sm btn-danger" onclick="removeEditCompanyAccess(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const container = document.getElementById('editCompanyAccessList');
+            if (container.querySelector('.text-muted')) {
+                container.innerHTML = '';
+            }
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+        // Remove company access for edit user
+        function removeEditCompanyAccess(button) {
+            const item = button.closest('.company-access-item');
+            item.remove();
+            
+            const container = document.getElementById('editCompanyAccessList');
+            if (container.children.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center mb-0">No companies assigned yet.</p>';
+            }
+        }
+
+        // Add new user
+        function saveNewUser() {
+            const form = document.getElementById('addUserForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const formData = new FormData(form);
+            const data = {
+                firstName: formData.get('firstName'),
+                lastName: formData.get('lastName'),
+                email: formData.get('email'),
+                phoneNumber: formData.get('phoneNumber'),
+                password: formData.get('password'),
+                isActive: formData.get('isActive') === 'on',
+                isSuperAdmin: formData.get('isSuperAdmin') === 'on'
+            };
+
+            // Only add companies if not super admin
+            if (!data.isSuperAdmin) {
+                const companyItems = document.querySelectorAll('#companyAccessList .company-access-item');
+                if (companyItems.length === 0) {
+                    alert('Please add at least one company for the user');
+                    return;
+                }
+                
+                data.companies = [];
+                let hasError = false;
+                
+                companyItems.forEach(item => {
+                    const companySelect = item.querySelector('.company-select');
+                    const roleSelect = item.querySelector('.role-select');
+                    
+                    if (!companySelect.value || !roleSelect.value) {
+                        hasError = true;
+                        return;
+                    }
+                    
+                    if (companySelect.value === '__new__') {
+                        const newName = item.querySelector('.new-company-name').value;
+                        const newDesc = item.querySelector('.new-company-desc').value;
+                        
+                        if (!newName) {
+                            hasError = true;
+                            return;
+                        }
+                        
+                        data.companies.push({
+                            isNew: true,
+                            name: newName,
+                            description: newDesc,
+                            role: roleSelect.value
+                        });
+                    } else {
+                        data.companies.push({
+                            companyId: companySelect.value,
+                            role: roleSelect.value
+                        });
+                    }
+                });
+                
+                if (hasError) {
+                    alert('Please fill in all required fields for each company');
+                    return;
+                }
+            }
+
+            fetch('/admin/users/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message || 'Error creating user');
+                }
+            })
+            .catch(err => alert('Error creating user: ' + err.message));
+        }
+
+        // Edit user
+        function editUser(userId) {
+            // Load companies first
+            loadCompanies();
+            
+            fetch(`/admin/users/${userId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const u = data.user;
+                        document.getElementById('editUserId').value = u.id;
+                        document.getElementById('editFirstName').value = u.firstName;
+                        document.getElementById('editLastName').value = u.lastName;
+                        document.getElementById('editEmail').value = u.email;
+                        document.getElementById('editPhoneNumber').value = u.phoneNumber || '';
+                        document.getElementById('editPassword').value = '';
+                        
+                        // Load user's companies
+                        const container = document.getElementById('editCompanyAccessList');
+                        container.innerHTML = '';
+                        
+                        if (data.companies && data.companies.length > 0) {
+                            data.companies.forEach(uc => {
+                                const html = `
+                                    <div class="company-access-item border rounded p-3 mb-2" style="background: #f8f9fa;">
+                                        <div class="row">
+                                            <div class="col-md-6 mb-2">
+                                                <label class="form-label small"><strong>Company</strong></label>
+                                                <select class="form-select form-select-sm edit-company-select" required>
+                                                    <option value="">Select company...</option>
+                                                    ${allCompanies.map(c => `<option value="${c.id}" ${c.id === uc.companyId ? 'selected' : ''}>${c.name}</option>`).join('')}
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6 mb-2">
+                                                <label class="form-label small"><strong>Role</strong></label>
+                                                <div class="d-flex gap-2">
+                                                    <select class="form-select form-select-sm edit-role-select" required>
+                                                        <option value="owner" ${uc.role === 'owner' ? 'selected' : ''}>Owner</option>
+                                                        <option value="admin" ${uc.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                                        <option value="manager" ${uc.role === 'manager' ? 'selected' : ''}>Manager</option>
+                                                        <option value="member" ${uc.role === 'member' ? 'selected' : ''}>Member</option>
+                                                        <option value="viewer" ${uc.role === 'viewer' ? 'selected' : ''}>Viewer</option>
+                                                    </select>
+                                                    <button type="button" class="btn btn-sm btn-danger" onclick="removeEditCompanyAccess(this)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                                container.insertAdjacentHTML('beforeend', html);
+                            });
+                        } else {
+                            container.innerHTML = '<p class="text-muted text-center mb-0">No companies assigned yet.</p>';
+                        }
+                        
+                        new bootstrap.Modal(document.getElementById('editUserModal')).show();
+                    } else {
+                        alert(data.message || 'Error loading user');
+                    }
+                })
+                .catch(err => alert('Error loading user: ' + err.message));
+        }
+
+        // Save edited user
+        function saveEditUser() {
+            const form = document.getElementById('editUserForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const formData = new FormData(form);
+            const userId = formData.get('userId');
+            const data = {
+                firstName: formData.get('firstName'),
+                lastName: formData.get('lastName'),
+                email: formData.get('email'),
+                phoneNumber: formData.get('phoneNumber')
+            };
+
+            const password = formData.get('password');
+            if (password) {
+                data.password = password;
+            }
+
+            // Get companies
+            const companyItems = document.querySelectorAll('#editCompanyAccessList .company-access-item');
+            data.companies = [];
+            let hasError = false;
+            
+            companyItems.forEach(item => {
+                const companySelect = item.querySelector('.edit-company-select');
+                const roleSelect = item.querySelector('.edit-role-select');
+                
+                if (!companySelect.value || !roleSelect.value) {
+                    hasError = true;
+                    return;
+                }
+                
+                data.companies.push({
+                    companyId: companySelect.value,
+                    role: roleSelect.value
+                });
+            });
+            
+            if (hasError) {
+                alert('Please fill in all required fields for each company');
+                return;
+            }
+
+            fetch(`/admin/users/${userId}/update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message || 'Error updating user');
+                }
+            })
+            .catch(err => alert('Error updating user: ' + err.message));
+        }
+
+        // Toggle user active status
+        function toggleUserActive(userId, button) {
+            if (!confirm('Are you sure you want to change the user status?')) {
+                return;
+            }
+
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            fetch(`/admin/users/${userId}/toggle-active`, {
+                method: 'POST'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message || 'Error updating user');
+                    button.disabled = false;
+                }
+            })
+            .catch(err => {
+                alert('Error updating user: ' + err.message);
+                button.disabled = false;
+            });
+        }
+
         function toggleSuperAdmin(userId, currentUserId, button) {
             // Client-side check to prevent self-revocation
             if (userId === currentUserId) {
@@ -120,7 +672,7 @@
             if (!confirm('Are you sure you want to toggle super admin status?')) return;
             
             button.disabled = true;
-            button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+            button.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
             
             fetch(`/admin/users/${userId}/toggle-super-admin`, { method: 'POST' })
                 .then(res => res.json())
@@ -130,13 +682,13 @@
                     } else {
                         alert(data.message || 'Error updating user');
                         button.disabled = false;
-                        button.innerHTML = '<i class="bi bi-shield-fill-check"></i> Grant/Revoke Super Admin';
+                        button.innerHTML = '<i class="bi bi-shield-fill-check"></i>';
                     }
                 })
                 .catch(err => {
                     alert('Error updating user: ' + err.message);
                     button.disabled = false;
-                    button.innerHTML = '<i class="bi bi-shield-fill-check"></i> Grant/Revoke Super Admin';
+                    button.innerHTML = '<i class="bi bi-shield-fill-check"></i>';
                 });
         }
     </script>

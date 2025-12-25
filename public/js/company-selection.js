@@ -28,7 +28,7 @@ async function checkAuthStatus() {
         
         if (!response.ok) {
             // Not authenticated, redirect to login
-            window.location.href = '/login.html';
+            window.location.href = '/login';
             return;
         }
         
@@ -46,7 +46,7 @@ async function checkAuthStatus() {
             // Load companies
             loadCompaniesFromServer();
         } else {
-            window.location.href = '/login.html';
+            window.location.href = '/login';
         }
     } catch (error) {
         console.error('Auth check error:', error);

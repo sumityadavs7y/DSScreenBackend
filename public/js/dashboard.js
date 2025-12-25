@@ -21,7 +21,7 @@ async function checkAuthStatus() {
         
         if (!response.ok) {
             // Not authenticated, redirect to login
-            window.location.href = '/login.html';
+            window.location.href = '/login';
             return;
         }
         
@@ -33,7 +33,7 @@ async function checkAuthStatus() {
             // Check if company is selected
             if (!data.data.company) {
                 // No company selected, redirect to company selection
-                window.location.href = '/company-selection.html';
+                window.location.href = '/company-selection';
                 return;
             }
             
@@ -45,7 +45,7 @@ async function checkAuthStatus() {
             // Display user info
             displayUserInfo();
         } else {
-            window.location.href = '/login.html';
+            window.location.href = '/login';
         }
     } catch (error) {
         console.error('Auth check error:', error);
@@ -133,7 +133,7 @@ async function apiCall(endpoint, options = {}) {
             showAlert('Session expired. Please login again.', 'error');
             setTimeout(() => {
                 localStorage.clear();
-                window.location.href = '/login.html';
+                window.location.href = '/login';
             }, 2000);
             return null;
         }

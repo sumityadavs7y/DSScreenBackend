@@ -17,7 +17,7 @@
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             overflow: hidden;
-            max-width: 900px;
+            max-width: 1200px;
             margin: 0 auto;
         }
         .selection-header {
@@ -27,40 +27,103 @@
             text-align: center;
         }
         .selection-body {
-            padding: 2rem;
+            padding: 2.5rem;
+        }
+        .col-md-6, .col-lg-4 {
+            animation: fadeInUp 0.5s ease forwards;
+            opacity: 0;
+        }
+        .col-md-6:nth-child(1), .col-lg-4:nth-child(1) { animation-delay: 0.1s; }
+        .col-md-6:nth-child(2), .col-lg-4:nth-child(2) { animation-delay: 0.2s; }
+        .col-md-6:nth-child(3), .col-lg-4:nth-child(3) { animation-delay: 0.3s; }
+        .col-md-6:nth-child(4), .col-lg-4:nth-child(4) { animation-delay: 0.4s; }
+        .col-md-6:nth-child(5), .col-lg-4:nth-child(5) { animation-delay: 0.5s; }
+        .col-md-6:nth-child(6), .col-lg-4:nth-child(6) { animation-delay: 0.6s; }
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         .company-card {
             border: 2px solid #e9ecef;
             border-radius: 15px;
-            padding: 1.5rem;
-            transition: all 0.3s;
+            padding: 2rem 1.5rem;
+            transition: all 0.3s ease;
             cursor: pointer;
             background: white;
+            position: relative;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         .company-card:hover {
             border-color: #667eea;
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
-            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.25);
+            transform: translateY(-8px);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+        }
+        .company-card:active {
+            transform: translateY(-4px);
         }
         .company-logo {
-            width: 80px;
-            height: 80px;
+            width: 90px;
+            height: 90px;
             border-radius: 50%;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2rem;
+            font-size: 2.5rem;
             font-weight: bold;
             color: white;
-            margin: 0 auto 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
         }
-        .company-card button {
-            border: none;
-            background: none;
+        .company-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 0.75rem;
+            text-align: center;
+        }
+        .company-role-badge {
+            font-size: 0.875rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 500;
+            margin-bottom: 1.25rem;
+        }
+        .select-btn {
             width: 100%;
-            text-align: left;
-            padding: 0;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.2s;
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+            margin-top: auto;
+        }
+        .select-btn:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
+            box-shadow: 0 6px 15px rgba(102, 126, 234, 0.4);
+            transform: translateY(-2px);
+        }
+        .select-btn:active {
+            transform: translateY(0);
+        }
+        .company-card-wrapper {
+            height: 100%;
         }
     </style>
 </head>
@@ -81,29 +144,34 @@
 
                 <div class="row g-4">
                     <% companies.forEach(company => { %>
-                        <div class="col-md-6">
-                            <form action="/company-selection" method="POST">
-                                <input type="hidden" name="companyId" value="<%= company.id %>">
-                                <button type="submit" class="company-card">
+                        <div class="col-md-6 col-lg-4">
+                            <div class="company-card-wrapper">
+                                <div class="company-card">
                                     <div class="company-logo">
-                                        <%= company.name.charAt(0).toUpperCase() %>
+                                        <%= company.name.substring(0, 2).toUpperCase() %>
                                     </div>
-                                    <h4 class="text-center mb-2"><%= company.name %></h4>
-                                    <p class="text-center mb-0">
-                                        <span class="badge bg-primary"><%= company.role %></span>
-                                    </p>
-                                </button>
-                            </form>
+                                    <h4 class="company-name"><%= company.name %></h4>
+                                    <div class="company-role-badge">
+                                        <i class="bi bi-person-badge"></i> <%= company.role.charAt(0).toUpperCase() + company.role.slice(1) %>
+                                    </div>
+                                    <form action="/company-selection" method="POST" style="width: 100%;">
+                                        <input type="hidden" name="companyId" value="<%= company.id %>">
+                                        <button type="submit" class="select-btn">
+                                            <i class="bi bi-arrow-right-circle-fill me-2"></i>Select & Continue
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
                         </div>
                     <% }) %>
                 </div>
 
-                <hr class="my-4">
+                <hr class="my-4" style="opacity: 0.1;">
 
                 <div class="text-center">
                     <form action="/logout" method="POST" class="d-inline">
-                        <button type="submit" class="btn btn-outline-secondary">
-                            <i class="bi bi-box-arrow-right"></i> Logout
+                        <button type="submit" class="btn btn-outline-danger btn-lg" style="border-radius: 10px; padding: 0.75rem 2rem;">
+                            <i class="bi bi-box-arrow-right me-2"></i>Logout
                         </button>
                     </form>
                 </div>

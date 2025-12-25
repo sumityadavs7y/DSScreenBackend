@@ -50,7 +50,7 @@ if (isLoginPage) {
                 
                 // Redirect to company selection
                 setTimeout(() => {
-                    window.location.href = '/company-selection.html';
+                    window.location.href = '/company-selection';
                 }, 1000);
             } else {
                 showAlert(data.message || 'Login failed. Please check your credentials.', 'error');
@@ -141,7 +141,7 @@ if (isRegisterPage) {
                 
                 // Redirect to company selection
                 setTimeout(() => {
-                    window.location.href = '/company-selection.html';
+                    window.location.href = '/company-selection';
                 }, 1000);
             } else {
                 showAlert(data.message || 'Registration failed. Please try again.', 'error');

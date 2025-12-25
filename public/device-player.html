@@ -13,19 +13,28 @@
         }
         
         body {
-            background: #000;
-            overflow: hidden;
+            background: #0a0a0a;
+            overflow-x: hidden;
+            overflow-y: auto;
             font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Main Container */
+        #mainContainer {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
         }
         
         /* Video Player Container */
         #videoContainer {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
             background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            height: 70vh;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -34,92 +43,121 @@
         #videoPlayer {
             width: 100%;
             height: 100%;
+            display: block;
             object-fit: contain;
         }
         
-        /* Cache Progress Indicator (bottom-right corner) */
+        /* When in fullscreen, make video fill screen */
+        #videoPlayer:fullscreen {
+            max-height: 100vh;
+            object-fit: contain;
+        }
+        
+        #videoPlayer:-webkit-full-screen {
+            max-height: 100vh;
+            object-fit: contain;
+        }
+        
+        #videoPlayer:-moz-full-screen {
+            max-height: 100vh;
+            object-fit: contain;
+        }
+        
+        /* Cache Progress Indicator */
         #cacheIndicator {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.8);
+            background: #10b981;
             color: white;
-            padding: 10px 15px;
+            padding: 12px 20px;
             border-radius: 8px;
-            font-size: 12px;
-            z-index: 1000;
+            font-size: 13px;
+            margin-bottom: 15px;
             opacity: 0;
             transition: opacity 0.3s;
-            max-width: 300px;
+            display: none;
         }
         
         #cacheIndicator.show {
             opacity: 1;
+            display: block;
         }
         
         #cacheIndicator .progress-bar {
-            height: 4px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 2px;
-            margin-top: 5px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            margin-top: 8px;
             overflow: hidden;
         }
         
         #cacheIndicator .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #4ade80, #22c55e);
+            background: white;
             width: 0%;
             transition: width 0.3s;
         }
         
-        /* Info Overlay (toggle with 'i' key) */
-        #infoOverlay {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.8);
+        /* Controls Section */
+        #controlsSection {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        /* Deregister Button */
+        #deregisterBtn {
+            background: #dc2626;
             color: white;
-            padding: 15px;
-            border-radius: 10px;
-            font-size: 13px;
-            z-index: 999;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s, visibility 0.3s;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            justify-content: center;
+        }
+        
+        #deregisterBtn:hover {
+            background: #b91c1c;
+            transform: translateY(-2px);
+        }
+        
+        #deregisterBtn:active {
+            transform: translateY(0);
+        }
+        
+        /* Debug Info Section */
+        #debugSection {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 20px;
+            color: #9ca3af;
+            font-size: 14px;
             font-family: monospace;
         }
         
-        #infoOverlay.show {
-            opacity: 1;
-            visibility: visible;
-        }
-        
-        #infoOverlay p {
-            margin: 3px 0;
-        }
-        
-        /* Loop Complete Badge */
-        #loopBadge {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(45deg, #22c55e, #16a34a);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 50px;
+        #debugSection h3 {
+            color: #fff;
+            margin: 0 0 15px 0;
             font-size: 16px;
-            font-weight: bold;
-            z-index: 998;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.5s, visibility 0.5s;
-            box-shadow: 0 10px 30px rgba(34, 197, 94, 0.4);
         }
         
-        #loopBadge.show {
-            opacity: 1;
-            visibility: visible;
+        #debugSection p {
+            margin: 8px 0;
+            color: #d1d5db;
         }
+        
+        #debugSection strong {
+            color: #10b981;
+            display: inline-block;
+            min-width: 150px;
+        }
+        
         
         /* Click to Play Overlay (only shows if autoplay blocked) */
         #clickToPlayOverlay {
@@ -133,7 +171,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            z-index: 2001;
+            z-index: 9999;
             color: white;
             cursor: pointer;
             opacity: 0;
@@ -149,6 +187,12 @@
         #clickToPlayOverlay i {
             font-size: 80px;
             margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
         }
         
         #clickToPlayOverlay p {
@@ -205,36 +249,43 @@
     </style>
 </head>
 <body>
-    <!-- Video Player -->
-    <div id="videoContainer">
-        <video id="videoPlayer" controls autoplay playsinline></video>
-    </div>
-    
-    <!-- Cache Progress Indicator -->
-    <div id="cacheIndicator">
-        <div id="cacheText">Caching videos... 0/0</div>
-        <div class="progress-bar">
-            <div class="progress-fill" id="cacheProgressBar"></div>
+    <div id="mainContainer">
+        <!-- Video Player -->
+        <div id="videoContainer">
+            <video id="videoPlayer" controls autoplay playsinline></video>
+        </div>
+        
+        <!-- Controls Section -->
+        <div id="controlsSection">
+            <!-- Cache Progress Indicator -->
+            <div id="cacheIndicator">
+                <div id="cacheText">Caching videos... 0/0</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="cacheProgressBar"></div>
+                </div>
+            </div>
+            
+            <!-- Deregister Button -->
+            <button id="deregisterBtn" onclick="goHome()">
+                <i class="bi bi-arrow-left-circle"></i>
+                Change Playlist / Deregister Device
+            </button>
+        </div>
+        
+        <!-- Debug Info Section -->
+        <div id="debugSection">
+            <h3>📊 Playback Information</h3>
+            <p><strong>Device UID:</strong> <span id="infoDeviceUID">-</span></p>
+            <p><strong>Playlist:</strong> <span id="infoPlaylistName">-</span></p>
+            <p><strong>Current Video:</strong> <span id="infoCurrentVideo">-</span> / <span id="infoTotalVideos">-</span></p>
+            <p><strong>Timeline Loop:</strong> #<span id="infoLoopCount">0</span></p>
+            <p><strong>Video Time:</strong> <span id="infoVideoTime">00:00</span> / <span id="infoVideoDuration">00:00</span></p>
+            <p><strong>Item Duration:</strong> <span id="infoItemDuration">-</span>s</p>
+            <p><strong>Item Elapsed:</strong> <span id="infoItemElapsed">0</span>s</p>
+            <p><strong>Cache Status:</strong> <span id="infoCacheStatus">-</span></p>
+            <p><strong>Next Timeline Check:</strong> <span id="infoNextUpdate">-</span>s</p>
         </div>
     </div>
-    
-    <!-- Info Overlay (toggle with 'i' key) -->
-    <div id="infoOverlay">
-        <p><strong>Device:</strong> <span id="infoDeviceUID">-</span></p>
-        <p><strong>Playlist:</strong> <span id="infoPlaylistName">-</span></p>
-        <p><strong>Video:</strong> <span id="infoCurrentVideo">-</span>/<span id="infoTotalVideos">-</span></p>
-        <p><strong>Loop:</strong> #<span id="infoLoopCount">0</span></p>
-        <p><strong>Video Time:</strong> <span id="infoVideoTime">00:00</span>/<span id="infoVideoDuration">00:00</span></p>
-        <p><strong>Item Duration:</strong> <span id="infoItemDuration">-</span>s</p>
-        <p><strong>Item Elapsed:</strong> <span id="infoItemElapsed">0</span>s</p>
-        <p><strong>Cache:</strong> <span id="infoCacheStatus">-</span></p>
-        <p><strong>Next Update:</strong> <span id="infoNextUpdate">-</span>s</p>
-        <hr style="border-color: rgba(255,255,255,0.3); margin: 8px 0;">
-        <p style="font-size: 11px; opacity: 0.7;">Press 'i' to hide | Press 'h' for home</p>
-    </div>
-    
-    <!-- Loop Complete Badge -->
-    <div id="loopBadge">🔄 Timeline Loop Complete!</div>
     
     <!-- Click to Play Overlay -->
     <div id="clickToPlayOverlay" onclick="handleClickToPlay()">
@@ -311,7 +362,6 @@
         let currentVideoIndex = 0;
         let loopCount = 0;
         let videoPlayer = null;
-        let infoVisible = false;
         let cacheStatus = {};
         let itemStartTime = 0;
         let itemDuration = 0;
@@ -319,6 +369,7 @@
         let updateIntervalId = null;
         let timelineCheckIntervalId = null;
         let lastTimelineCheck = Date.now();
+        let hasEnteredFullscreenOnce = false;
 
         // ==================== INITIALIZATION ====================
         document.addEventListener('DOMContentLoaded', init);
@@ -374,11 +425,11 @@
                 loopCount = 0;
                 const playSuccess = await playCurrentVideo();
                 
-                // Try to enter fullscreen if play was successful
-                if (playSuccess) {
+                // Try to enter fullscreen automatically on first load
+                if (playSuccess && !hasEnteredFullscreenOnce) {
                     setTimeout(() => {
                         enterFullscreen();
-                    }, 500);
+                    }, 1000); // Give browser time to start playback first
                 }
                 
                 // Start update intervals
@@ -659,7 +710,6 @@
                 console.log('🔄 Timeline complete, looping...');
                 currentVideoIndex = 0;
                 loopCount++;
-                showLoopBadge();
             }
             
             // Play next video
@@ -785,40 +835,39 @@
         // ==================== KEYBOARD CONTROLS ====================
         document.addEventListener('keydown', (e) => {
             switch (e.key.toLowerCase()) {
-                case 'i':
-                    toggleInfo();
-                    break;
                 case 'h':
                     goHome();
+                    break;
+                case 'f':
+                    // Allow user to toggle fullscreen manually with 'f' key
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                    } else {
+                        enterFullscreen();
+                    }
                     break;
             }
         });
 
-        function toggleInfo() {
-            infoVisible = !infoVisible;
-            const overlay = document.getElementById('infoOverlay');
-            if (infoVisible) {
-                overlay.classList.add('show');
-            } else {
-                overlay.classList.remove('show');
-            }
-        }
-
+        // ==================== FULLSCREEN HANDLING ====================
         function enterFullscreen() {
             if (videoPlayer && !document.fullscreenElement) {
+                hasEnteredFullscreenOnce = true;
                 videoPlayer.requestFullscreen().catch(err => {
-                    console.log('Fullscreen request denied:', err);
+                    console.log('⚠️ Fullscreen request denied:', err);
+                    console.log('You may need to interact with the page first or enable fullscreen in browser settings');
                 });
             }
         }
 
-        function showLoopBadge() {
-            const badge = document.getElementById('loopBadge');
-            badge.classList.add('show');
-            setTimeout(() => {
-                badge.classList.remove('show');
-            }, 2000);
-        }
+        // Listen for fullscreen changes
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) {
+                console.log('📺 Entered fullscreen mode');
+            } else {
+                console.log('🖥️  Exited fullscreen mode');
+            }
+        });
 
         // ==================== UTILITY FUNCTIONS ====================
         function formatTime(seconds) {

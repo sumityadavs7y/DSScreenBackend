@@ -9,6 +9,7 @@ const Playlist = require('./Playlist');
 const PlaylistItem = require('./PlaylistItem');
 const Device = require('./Device');
 const DevicePlaylist = require('./DevicePlaylist');
+const License = require('./License');
 
 // Define relationships
 // User <-> Company (Many-to-Many through UserCompany)
@@ -146,6 +147,27 @@ DevicePlaylist.belongsTo(Playlist, {
   as: 'playlist'
 });
 
+// License associations
+License.belongsTo(User, {
+  foreignKey: 'createdBy',
+  as: 'creator'
+});
+
+License.belongsTo(Company, {
+  foreignKey: 'companyId',
+  as: 'company'
+});
+
+Company.hasMany(License, {
+  foreignKey: 'companyId',
+  as: 'licenses'
+});
+
+User.hasMany(License, {
+  foreignKey: 'createdBy',
+  as: 'createdLicenses'
+});
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -158,5 +180,6 @@ module.exports = {
   PlaylistItem,
   Device,
   DevicePlaylist,
+  License,
 };
 

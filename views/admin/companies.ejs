@@ -54,23 +54,41 @@
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb breadcrumb-custom">
                         <li class="breadcrumb-item"><a href="/admin">Dashboard</a></li>
-                        <li class="breadcrumb-item active">Companies</li>
+                        <li class="breadcrumb-item active">Companies & Licenses</li>
                     </ol>
                 </nav>
             </div>
 
         <div class="content-card">
-            <div class="row mb-4">
-                <div class="col-md-4">
-                    <h4 class="mb-0"><i class="bi bi-building"></i> All Companies (<%= companies.length %>)</h4>
-                </div>
-                <div class="col-md-8 text-end">
-                    <input type="text" id="searchInput" class="form-control form-control-sm d-inline-block w-auto me-2" placeholder="Search companies...">
-                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addCompanyModal">
-                        <i class="bi bi-plus-circle"></i> Add Company
+            <!-- Tabs -->
+            <ul class="nav nav-tabs mb-4" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="companies-tab" data-bs-toggle="tab" data-bs-target="#companies-pane" type="button" role="tab" onclick="setTabHash('companies')">
+                        <i class="bi bi-building"></i> Companies (<%= companies.length %>)
                     </button>
-                </div>
-            </div>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="licenses-tab" data-bs-toggle="tab" data-bs-target="#licenses-pane" type="button" role="tab" onclick="setTabHash('licenses')">
+                        <i class="bi bi-key-fill"></i> Registration Licenses (<%= licenses.length %>)
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <!-- Companies Tab -->
+                <div class="tab-pane fade show active" id="companies-pane" role="tabpanel">
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <h4 class="mb-0"><i class="bi bi-building"></i> All Companies</h4>
+                        </div>
+                        <div class="col-md-8 text-end">
+                            <input type="text" id="searchInput" class="form-control form-control-sm d-inline-block w-auto me-2" placeholder="Search companies...">
+                            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addCompanyModal">
+                                <i class="bi bi-plus-circle"></i> Add Company
+                            </button>
+                        </div>
+                    </div>
 
             <div class="table-responsive">
                 <table class="table table-hover">
@@ -78,6 +96,7 @@
                         <tr>
                             <th>Company</th>
                             <th>Statistics</th>
+                            <th>License Expiry</th>
                             <th>Status</th>
                             <th>Created</th>
                             <th>Actions</th>
@@ -86,7 +105,7 @@
                     <tbody id="companiesTable">
                         <% if (companies.length === 0) { %>
                             <tr>
-                                <td colspan="5" class="text-center py-5">
+                                <td colspan="6" class="text-center py-5">
                                     <i class="bi bi-building" style="font-size: 64px; color: #e2e8f0;"></i>
                                     <h5 class="mt-3 text-muted">No companies found</h5>
                                 </td>
@@ -117,6 +136,32 @@
                                         </span>
                                     </td>
                                     <td>
+                                        <% if (company.activeLicense) { 
+                                            const expiryDate = new Date(company.activeLicense.expiresAt);
+                                            const isExpired = expiryDate < new Date();
+                                        %>
+                                            <div>
+                                                <% if (isExpired) { %>
+                                                    <span class="badge bg-danger">
+                                                        <i class="bi bi-exclamation-triangle"></i> Expired
+                                                    </span>
+                                                <% } else { %>
+                                                    <span class="badge bg-success">
+                                                        <i class="bi bi-check-circle"></i> Valid
+                                                    </span>
+                                                <% } %>
+                                                <br>
+                                                <small class="<%= isExpired ? 'text-danger' : 'text-muted' %>">
+                                                    <%= expiryDate.toLocaleDateString() %>
+                                                </small>
+                                            </div>
+                                        <% } else { %>
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="bi bi-dash-circle"></i> No License
+                                            </span>
+                                        <% } %>
+                                    </td>
+                                    <td>
                                         <% if (company.isActive) { %>
                                             <span class="badge bg-success">Active</span>
                                         <% } else { %>
@@ -141,6 +186,144 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+        <!-- End Companies Tab -->
+
+        <!-- Licenses Tab -->
+        <div class="tab-pane fade" id="licenses-pane" role="tabpanel">
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <h4 class="mb-0"><i class="bi bi-key-fill"></i> Registration Licenses</h4>
+                    <p class="text-muted mb-0 small">Generate secure registration links for new companies</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#generateLicenseModal">
+                        <i class="bi bi-plus-circle"></i> Generate License
+                    </button>
+                </div>
+            </div>
+
+            <!-- License Stats -->
+            <div class="row mb-4">
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="card text-center border-success">
+                        <div class="card-body">
+                            <h4 class="text-success mb-0"><%= licenses.filter(l => !l.isUsed && new Date(l.expiresAt) > new Date()).length %></h4>
+                            <small class="text-muted">Active</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="card text-center border-info">
+                        <div class="card-body">
+                            <h4 class="text-info mb-0"><%= licenses.filter(l => l.isUsed && l.companyId).length %></h4>
+                            <small class="text-muted">Assigned</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="card text-center border-secondary">
+                        <div class="card-body">
+                            <h4 class="text-secondary mb-0"><%= licenses.filter(l => l.isUsed && !l.companyId).length %></h4>
+                            <small class="text-muted">Used</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="card text-center border-danger">
+                        <div class="card-body">
+                            <h4 class="text-danger mb-0"><%= licenses.filter(l => !l.isUsed && new Date(l.expiresAt) <= new Date()).length %></h4>
+                            <small class="text-muted">Expired</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Licenses Table -->
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Company</th>
+                            <th>Created</th>
+                            <th>Expires</th>
+                            <th>Max Users</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (licenses.length === 0) { %>
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <i class="bi bi-key" style="font-size: 64px; color: #e2e8f0;"></i>
+                                    <h5 class="mt-3 text-muted">No licenses generated yet</h5>
+                                    <button class="btn btn-success mt-2" data-bs-toggle="modal" data-bs-target="#generateLicenseModal">
+                                        <i class="bi bi-plus-circle"></i> Generate First License
+                                    </button>
+                                </td>
+                            </tr>
+                        <% } else { %>
+                            <% licenses.forEach(license => { 
+                                const isExpired = new Date(license.expiresAt) <= new Date();
+                                const isActive = !license.isUsed && !isExpired;
+                            %>
+                                <tr>
+                                    <td>
+                                        <% if (license.isUsed && license.companyId) { %>
+                                            <span class="badge bg-info">Assigned</span>
+                                        <% } else if (license.isUsed) { %>
+                                            <span class="badge bg-secondary">Used</span>
+                                        <% } else if (isExpired) { %>
+                                            <span class="badge bg-danger">Expired</span>
+                                        <% } else { %>
+                                            <span class="badge bg-success">Active</span>
+                                        <% } %>
+                                    </td>
+                                    <td>
+                                        <% if (license.company) { %>
+                                            <a href="/admin/companies/<%= license.company.id %>" class="fw-bold">
+                                                <i class="bi bi-building"></i> <%= license.company.name %>
+                                            </a>
+                                            <% if (license.isUsed && license.companyId) { %>
+                                                <br><small class="text-info"><i class="bi bi-arrow-repeat"></i> Extended License</small>
+                                            <% } %>
+                                        <% } else if (license.companyName) { %>
+                                            <%= license.companyName %>
+                                            <br><small class="text-muted">Awaiting registration</small>
+                                        <% } else { %>
+                                            <span class="text-muted">Not specified</span>
+                                            <br><small class="text-muted">Awaiting registration</small>
+                                        <% } %>
+                                    </td>
+                                    <td><%= new Date(license.createdAt).toLocaleDateString() %></td>
+                                    <td>
+                                        <%= new Date(license.expiresAt).toLocaleDateString() %>
+                                        <% if (isExpired && !license.isUsed) { %>
+                                            <i class="bi bi-exclamation-triangle-fill text-danger ms-1"></i>
+                                        <% } %>
+                                    </td>
+                                    <td><%= license.maxUsers %></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-info" onclick="viewLicense('<%= license.id %>', '<%= license.token %>', '<%= license.companyName || '' %>', '<%= license.notes || '' %>', <%= isActive %>, <%= license.companyId ? true : false %>, '<%= license.company ? license.company.name : '' %>')">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <% if (!license.isUsed || (license.isUsed && license.companyId)) { %>
+                                            <button class="btn btn-sm btn-danger" onclick="deleteLicense('<%= license.id %>', <%= license.isUsed && license.companyId ? true : false %>)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        <% } %>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- End Licenses Tab -->
+    </div>
+    <!-- End Tab Content -->
         </div>
         </div>
     </div>
@@ -203,8 +386,133 @@
         </div>
     </div>
 
+    <!-- Generate License Modal -->
+    <div class="modal fade" id="generateLicenseModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-key-fill"></i> Generate Registration License</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="generateLicenseForm">
+                        <div class="mb-3">
+                            <label class="form-label">License Type <span class="text-danger">*</span></label>
+                            <select class="form-select" id="licenseType" onchange="toggleLicenseType()" required>
+                                <option value="new">New Company Registration</option>
+                                <option value="existing">Extend Existing Company</option>
+                            </select>
+                        </div>
+
+                        <!-- For New Company -->
+                        <div id="newCompanyFields">
+                            <div class="mb-3">
+                                <label class="form-label">Company Name (Optional)</label>
+                                <input type="text" class="form-control" name="companyName" id="newCompanyName" placeholder="Pre-fill company name">
+                                <small class="text-muted">If specified, this name will be pre-filled during registration</small>
+                            </div>
+                        </div>
+
+                        <!-- For Existing Company -->
+                        <div id="existingCompanyFields" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Select Company <span class="text-danger">*</span></label>
+                                <select class="form-select" name="existingCompanyId" id="existingCompanySelect">
+                                    <option value="">-- Select Company --</option>
+                                    <% companies.forEach(company => { %>
+                                        <option value="<%= company.id %>"><%= company.name %> (<%= company.slug %>)</option>
+                                    <% }) %>
+                                </select>
+                                <small class="text-muted">This will extend the selected company's license</small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">License Duration (Days) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="expiryDays" min="1" value="365" required>
+                            <small class="text-muted" id="expiryHint">Number of days until the license expires</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Max Users</label>
+                            <input type="number" class="form-control" name="maxUsers" min="1" value="5">
+                            <small class="text-muted">Maximum users allowed</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Storage Limit (MB)</label>
+                            <input type="number" class="form-control" name="maxStorageMB" min="1" value="500" step="1">
+                            <small class="text-muted">Maximum storage in megabytes (default: 500 MB)</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Notes (Optional)</label>
+                            <textarea class="form-control" name="notes" rows="2" placeholder="Internal notes about this license"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" onclick="generateLicense()">
+                        <i class="bi bi-key-fill"></i> Generate License
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View License Modal -->
+    <div class="modal fade" id="viewLicenseModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-key"></i> License Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="licenseDetails"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <%- include('../partials/scripts') %>
     <script>
+        // Tab state management with URL hash
+        function setTabHash(tabName) {
+            window.location.hash = tabName;
+        }
+
+        // Restore tab state from URL hash on page load
+        function restoreTabFromHash() {
+            const hash = window.location.hash.substring(1); // Remove the '#'
+            
+            if (hash === 'licenses') {
+                // Activate licenses tab
+                const licensesTab = document.getElementById('licenses-tab');
+                const companiesTab = document.getElementById('companies-tab');
+                const licensesPane = document.getElementById('licenses-pane');
+                const companiesPane = document.getElementById('companies-pane');
+                
+                companiesTab.classList.remove('active');
+                licensesTab.classList.add('active');
+                
+                companiesPane.classList.remove('show', 'active');
+                licensesPane.classList.add('show', 'active');
+            }
+            // If hash is 'companies' or empty, companies tab is already active by default
+        }
+
+        // Handle browser back/forward buttons
+        window.addEventListener('hashchange', function() {
+            restoreTabFromHash();
+        });
+
+        // Restore tab state when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            restoreTabFromHash();
+        });
+
         // Search functionality
         document.getElementById('searchInput').addEventListener('input', function(e) {
             const searchTerm = e.target.value.toLowerCase();
@@ -311,6 +619,227 @@
                 button.disabled = false;
                 button.innerHTML = '<i class="bi bi-x-circle"></i>';
             });
+        }
+
+        // Toggle license type fields
+        function toggleLicenseType() {
+            const licenseType = document.getElementById('licenseType').value;
+            const newFields = document.getElementById('newCompanyFields');
+            const existingFields = document.getElementById('existingCompanyFields');
+            const expiryHint = document.getElementById('expiryHint');
+            const existingSelect = document.getElementById('existingCompanySelect');
+            const newCompanyName = document.getElementById('newCompanyName');
+
+            if (licenseType === 'existing') {
+                newFields.style.display = 'none';
+                existingFields.style.display = 'block';
+                expiryHint.textContent = 'This will extend the company\'s license by this many days';
+                existingSelect.required = true;
+                newCompanyName.required = false;
+            } else {
+                newFields.style.display = 'block';
+                existingFields.style.display = 'none';
+                expiryHint.textContent = 'Number of days until the license expires';
+                existingSelect.required = false;
+                newCompanyName.required = false;
+            }
+        }
+
+        // Generate license
+        async function generateLicense() {
+            const form = document.getElementById('generateLicenseForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const formData = new FormData(form);
+            const licenseType = document.getElementById('licenseType').value;
+            
+            const data = {
+                expiryDays: formData.get('expiryDays'),
+                maxUsers: formData.get('maxUsers'),
+                maxStorageMB: formData.get('maxStorageMB'),
+                notes: formData.get('notes'),
+            };
+
+            if (licenseType === 'existing') {
+                data.existingCompanyId = formData.get('existingCompanyId');
+                if (!data.existingCompanyId) {
+                    alert('Please select a company');
+                    return;
+                }
+
+                // Check if company already has a license assigned
+                const hasExistingLicense = await checkCompanyHasLicense(data.existingCompanyId);
+                if (hasExistingLicense) {
+                    const confirmed = confirm(
+                        '⚠️ WARNING: This company already has an assigned license!\n\n' +
+                        'Assigning a new license will DELETE the old license and replace it with the new one.\n\n' +
+                        'Do you want to continue?'
+                    );
+                    if (!confirmed) {
+                        return;
+                    }
+                }
+            } else {
+                data.companyName = formData.get('companyName');
+            }
+
+            try {
+                const response = await fetch('/admin/licenses/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('generateLicenseModal'));
+                    modal.hide();
+
+                    // Show appropriate success message
+                    if (licenseType === 'existing') {
+                        alert(`License generated successfully!\n\nThis license will extend the selected company's access.\n\nRegistration URL:\n${result.registrationUrl}`);
+                    } else {
+                        alert(`License generated successfully!\n\nRegistration URL:\n${result.registrationUrl}\n\nShare this URL with the person who will register the company.`);
+                    }
+                    
+                    // Reload page to show new license
+                    window.location.reload();
+                } else {
+                    alert(result.message || 'Error creating license');
+                }
+            } catch (error) {
+                console.error('Create license error:', error);
+                alert('Error creating license');
+            }
+        }
+
+        // Check if company has an existing assigned license
+        async function checkCompanyHasLicense(companyId) {
+            try {
+                const response = await fetch(`/admin/companies/${companyId}/has-license`);
+                const result = await response.json();
+                return result.hasLicense;
+            } catch (error) {
+                console.error('Check license error:', error);
+                return false;
+            }
+        }
+
+        // View license details
+        function viewLicense(id, token, companyName, notes, isActive, isAssigned, assignedCompanyName) {
+            const baseUrl = window.location.origin;
+            const registrationUrl = `${baseUrl}/license-signup/${token}`;
+
+            let html = '';
+
+            // If assigned to existing company
+            if (isAssigned) {
+                html += `
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-building me-2"></i>
+                        <strong>Assigned License:</strong> This license extends the license for <strong>${assignedCompanyName}</strong>
+                    </div>
+                `;
+            }
+
+            html += `
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Registration URL:</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control font-monospace" value="${registrationUrl}" readonly id="licenseUrlInput">
+                        <button class="btn btn-outline-primary" onclick="copyToClipboard('${registrationUrl}', this)">
+                            <i class="bi bi-clipboard"></i> Copy
+                        </button>
+                    </div>
+                    ${isAssigned ? '<small class="text-muted">This URL can be used to add more users to the company</small>' : ''}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">License Token:</label>
+                    <input type="text" class="form-control font-monospace" value="${token}" readonly>
+                </div>
+            `;
+
+            if (companyName && !isAssigned) {
+                html += `
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Pre-filled Company Name:</label>
+                        <p class="mb-0">${companyName}</p>
+                    </div>
+                `;
+            }
+
+            if (notes) {
+                html += `
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Notes:</label>
+                        <p class="mb-0">${notes}</p>
+                    </div>
+                `;
+            }
+
+            if (!isActive && !isAssigned) {
+                html += `
+                    <div class="alert alert-warning mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        This license is no longer active (expired or already used)
+                    </div>
+                `;
+            }
+
+            document.getElementById('licenseDetails').innerHTML = html;
+            const modal = new bootstrap.Modal(document.getElementById('viewLicenseModal'));
+            modal.show();
+        }
+
+        // Copy to clipboard
+        function copyToClipboard(text, button) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalHtml = button.innerHTML;
+                button.innerHTML = '<i class="bi bi-check"></i> Copied!';
+                button.classList.remove('btn-outline-primary');
+                button.classList.add('btn-success');
+                setTimeout(() => {
+                    button.innerHTML = originalHtml;
+                    button.classList.remove('btn-success');
+                    button.classList.add('btn-outline-primary');
+                }, 2000);
+            }).catch(err => {
+                console.error('Copy failed:', err);
+                alert('Failed to copy to clipboard');
+            });
+        }
+
+        // Delete license
+        async function deleteLicense(id, isAssigned) {
+            const message = isAssigned 
+                ? 'Are you sure you want to revoke this license extension? This will NOT affect the company\'s current license expiry.'
+                : 'Are you sure you want to delete this license? This action cannot be undone.';
+            
+            if (!confirm(message)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/admin/licenses/${id}`, {
+                    method: 'DELETE',
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('License deleted successfully');
+                    window.location.reload();
+                } else {
+                    alert(result.message || 'Error deleting license');
+                }
+            } catch (error) {
+                console.error('Delete license error:', error);
+                alert('Error deleting license');
+            }
         }
     </script>
 </body>

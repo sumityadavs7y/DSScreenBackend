@@ -49,6 +49,12 @@ const Company = sequelize.define('Company', {
     defaultValue: true,
     field: 'is_active',
   },
+  storageUsedBytes: {
+    type: DataTypes.BIGINT,
+    defaultValue: 0,
+    field: 'storage_used_bytes',
+    comment: 'Current storage used in bytes (cached for performance)',
+  },
   settings: {
     type: DataTypes.JSONB,
     defaultValue: {},

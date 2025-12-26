@@ -10,6 +10,7 @@ const router = express.Router();
 const { body, validationResult, param } = require('express-validator');
 const { Video, User, Company, sequelize, Sequelize } = require('../models');
 const { protect, requireRole } = require('../middleware/sessionAuth');
+const { checkCompanyLicense } = require('../middleware/licenseCheck');
 const verifyToken = protect; // Alias for compatibility
 
 /**
@@ -206,6 +207,7 @@ const adjustOverlappingItems = async (scheduleId, startTime, duration, dayOfWeek
 router.post('/',
   verifyToken,
   requireRole('owner', 'admin', 'manager', 'member'),
+  checkCompanyLicense,
   [
     body('name')
       .trim()
@@ -1001,6 +1003,7 @@ router.delete('/:scheduleId',
 router.post('/:scheduleId/items',
   verifyToken,
   requireRole('owner', 'admin', 'manager', 'member'),
+  checkCompanyLicense,
   [
     body('videoId')
       .isUUID()

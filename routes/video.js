@@ -13,6 +13,7 @@ const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const { Video, User, ScheduleItem, Schedule } = require('../models');
 const { requireAuth, requireCompany, requireRole } = require('../middleware/sessionAuth');
+const { checkCompanyLicense } = require('../middleware/licenseCheck');
 const verifyToken = requireAuth; // Alias for compatibility
 const { storageConfig } = require('../config');
 const {
@@ -85,6 +86,7 @@ const isValidUUID = (str) => {
 router.post('/upload',
   verifyToken,
   requireRole('owner', 'admin', 'manager', 'member'),
+  checkCompanyLicense,
   (req, res, next) => {
     upload.single('video')(req, res, (err) => {
       if (err instanceof multer.MulterError) {
@@ -136,16 +138,20 @@ router.post('/upload',
         });
       }
 
-      // Check company storage limit
-      const companyStorageLimit = storageConfig.companyStorageLimitBytes;
-      
-      // Calculate current storage used by the company
-      const currentUsage = await Video.sum('fileSize', {
+      // Check company storage limit from license
+      const { License } = require('../models');
+      const activeLicense = await License.findOne({
         where: {
           companyId: req.company.id,
           isActive: true,
         }
-      }) || 0;
+      });
+      
+      // Use license storage limit if available, otherwise fall back to config
+      const companyStorageLimit = activeLicense?.maxStorageBytes || storageConfig.companyStorageLimitBytes;
+      
+      // Get current storage from company record (cached for performance)
+      const currentUsage = req.company.storageUsedBytes || 0;
 
       // Check if adding this file would exceed the limit
       const newTotalSize = currentUsage + req.file.size;
@@ -231,6 +237,13 @@ router.post('/upload',
         mimeType: req.file.mimetype,
         metadata: metadata,
         isActive: true,
+      });
+
+      // Update company storage usage
+      const { Company } = require('../models');
+      await Company.increment('storageUsedBytes', {
+        by: req.file.size,
+        where: { id: req.company.id }
       });
 
       // Check if name was auto-numbered
@@ -827,6 +840,13 @@ router.delete('/:videoId',
 
       // Soft delete in database
       await video.update({ isActive: false });
+
+      // Update company storage usage
+      const { Company } = require('../models');
+      await Company.decrement('storageUsedBytes', {
+        by: video.fileSize,
+        where: { id: req.company.id }
+      });
 
       res.json({
         success: true,

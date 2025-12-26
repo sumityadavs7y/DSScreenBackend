@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include('partials/head') %>
+    <title>License Details - dsScreen</title>
+    <style>
+        .license-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+        
+        .license-header {
+            padding: 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .license-header.expired {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        }
+        
+        .license-header.expiring-soon {
+            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+        }
+        
+        .license-header.no-license {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+        
+        .license-status-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            font-weight: 600;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .license-body {
+            padding: 2rem;
+        }
+        
+        .license-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+        
+        .license-info-item {
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .license-info-label {
+            font-size: 0.875rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        .license-info-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+        }
+        
+        .license-info-value.expired {
+            color: #dc3545;
+        }
+        
+        .license-info-value.warning {
+            color: #ffc107;
+        }
+        
+        .license-history {
+            margin-top: 3rem;
+        }
+        
+        .license-history h3 {
+            margin-bottom: 1.5rem;
+            color: #333;
+            font-weight: 700;
+        }
+        
+        .history-table {
+            width: 100%;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .history-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.875rem;
+            letter-spacing: 0.5px;
+        }
+        
+        .history-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .history-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .history-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-badge.active {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-badge.expired {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-badge.inactive {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .alert-box {
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .alert-box.danger {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .alert-box.warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .alert-box.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .alert-box i {
+            font-size: 1.5rem;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 3rem;
+            color: #6c757d;
+        }
+        
+        .no-data i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        
+        .usage-progress {
+            margin-top: 1rem;
+        }
+        
+        .progress {
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #e9ecef;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+        }
+        
+        .progress-bar.warning {
+            background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%);
+        }
+        
+        .progress-bar.danger {
+            background: linear-gradient(90deg, #dc3545 0%, #c82333 100%);
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/navbar') %>
+    
+    <div class="container mt-5 mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="mb-2"><i class="bi bi-file-text"></i> License Details</h1>
+                <p class="text-muted">View your company's license information and usage</p>
+            </div>
+            <a href="/dashboard/videos" class="btn btn-outline-primary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <% if (licenseStatus === 'expired') { %>
+            <div class="alert-box danger">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <div>
+                    <strong>License Expired</strong>
+                    <p class="mb-0">Your license has expired. Please contact your administrator to renew your license to continue using the platform.</p>
+                </div>
+            </div>
+        <% } else if (licenseStatus === 'expiring_soon') { %>
+            <div class="alert-box warning">
+                <i class="bi bi-exclamation-circle-fill"></i>
+                <div>
+                    <strong>License Expiring Soon</strong>
+                    <p class="mb-0">Your license will expire in <%= daysRemaining %> day(s). Please contact your administrator to renew your license.</p>
+                </div>
+            </div>
+        <% } else if (licenseStatus === 'no_license') { %>
+            <div class="alert-box info">
+                <i class="bi bi-info-circle-fill"></i>
+                <div>
+                    <strong>No License Assigned</strong>
+                    <p class="mb-0">Your company does not have an active license. Please contact your administrator to get a license assigned.</p>
+                </div>
+            </div>
+        <% } %>
+
+        <% if (activeLicense) { %>
+            <div class="license-card">
+                <div class="license-header <%= licenseStatus === 'expired' ? 'expired' : (licenseStatus === 'expiring_soon' ? 'expiring-soon' : '') %>">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="mb-2">Active License</h2>
+                            <p class="mb-0 opacity-75">License Token: <%= activeLicense.token %></p>
+                        </div>
+                        <span class="license-status-badge">
+                            <% if (isExpired) { %>
+                                <i class="bi bi-x-circle"></i> Expired
+                            <% } else if (daysRemaining <= 7) { %>
+                                <i class="bi bi-exclamation-triangle"></i> Expiring Soon
+                            <% } else { %>
+                                <i class="bi bi-check-circle"></i> Active
+                            <% } %>
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="license-body">
+                    <div class="license-info-grid">
+                        <div class="license-info-item">
+                            <div class="license-info-label"><i class="bi bi-calendar-event"></i> Expiry Date</div>
+                            <div class="license-info-value <%= isExpired ? 'expired' : '' %>">
+                                <%= new Date(activeLicense.expiresAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %>
+                            </div>
+                            <% if (!isExpired) { %>
+                                <small class="text-muted"><%= daysRemaining %> days remaining</small>
+                            <% } else { %>
+                                <small class="text-danger">Expired <%= Math.abs(daysRemaining) %> days ago</small>
+                            <% } %>
+                        </div>
+                        
+                        <div class="license-info-item">
+                            <div class="license-info-label"><i class="bi bi-people"></i> User Limit</div>
+                            <div class="license-info-value">
+                                <%= activeLicense.maxUsers %>
+                            </div>
+                            <small class="text-muted">Maximum users allowed</small>
+                        </div>
+                        
+                        <div class="license-info-item">
+                            <div class="license-info-label"><i class="bi bi-person-check"></i> Current Users</div>
+                            <div class="license-info-value <%= activeUsersCount > activeLicense.maxUsers ? 'expired' : (activeUsersCount === activeLicense.maxUsers ? 'warning' : '') %>">
+                                <%= activeUsersCount %>
+                            </div>
+                            <small class="text-muted">Active users in company</small>
+                            <% if (activeUsersCount > 0) { %>
+                                <div class="usage-progress">
+                                    <div class="progress">
+                                        <% 
+                                        const usagePercent = Math.min((activeUsersCount / activeLicense.maxUsers) * 100, 100);
+                                        const progressClass = usagePercent >= 100 ? 'danger' : (usagePercent >= 80 ? 'warning' : '');
+                                        %>
+                                        <div class="progress-bar <%= progressClass %>" style="width: <%= usagePercent %>%"></div>
+                                    </div>
+                                    <small class="text-muted"><%= usagePercent.toFixed(0) %>% of license capacity used</small>
+                                </div>
+                            <% } %>
+                        </div>
+                        
+                        <div class="license-info-item">
+                            <div class="license-info-label"><i class="bi bi-hdd"></i> Storage Limit</div>
+                            <div class="license-info-value">
+                                <%= (storageLimit / (1024 * 1024 * 1024)).toFixed(2) %> GB
+                            </div>
+                            <small class="text-muted">Maximum storage allowed</small>
+                        </div>
+                        
+                        <div class="license-info-item">
+                            <div class="license-info-label"><i class="bi bi-database"></i> Storage Used</div>
+                            <div class="license-info-value <%= storageUsed > storageLimit ? 'expired' : (storageUsed >= storageLimit * 0.9 ? 'warning' : '') %>">
+                                <%= (storageUsed / (1024 * 1024 * 1024)).toFixed(2) %> GB
+                            </div>
+                            <small class="text-muted">Current storage usage</small>
+                            <% if (storageLimit > 0) { %>
+                                <div class="usage-progress">
+                                    <div class="progress">
+                                        <% 
+                                        const storagePercent = Math.min((storageUsed / storageLimit) * 100, 100);
+                                        const storageProgressClass = storagePercent >= 100 ? 'danger' : (storagePercent >= 90 ? 'warning' : '');
+                                        %>
+                                        <div class="progress-bar <%= storageProgressClass %>" style="width: <%= storagePercent %>%"></div>
+                                    </div>
+                                    <small class="text-muted"><%= storagePercent.toFixed(1) %>% of storage capacity used</small>
+                                </div>
+                            <% } %>
+                        </div>
+                        
+                        <div class="license-info-item">
+                            <div class="license-info-label"><i class="bi bi-calendar-plus"></i> Activated On</div>
+                            <div class="license-info-value" style="font-size: 1.2rem;">
+                                <%= activeLicense.usedAt ? new Date(activeLicense.usedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Not recorded' %>
+                            </div>
+                            <small class="text-muted">License activation date</small>
+                        </div>
+                    </div>
+                    
+                    <% if (activeLicense.notes) { %>
+                        <div class="mt-4 p-3" style="background: #f8f9fa; border-radius: 12px;">
+                            <h6 class="text-muted mb-2"><i class="bi bi-file-text"></i> License Notes</h6>
+                            <p class="mb-0"><%= activeLicense.notes %></p>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        <% } else { %>
+            <div class="license-card">
+                <div class="license-header no-license">
+                    <h2 class="mb-0">No Active License</h2>
+                </div>
+                <div class="license-body">
+                    <div class="no-data">
+                        <i class="bi bi-file-earmark-x"></i>
+                        <h4>No License Assigned</h4>
+                        <p>Your company does not have an active license. Please contact your system administrator to get a license assigned to your company.</p>
+                    </div>
+                </div>
+            </div>
+        <% } %>
+
+        <% if (allLicenses && allLicenses.length > 0) { %>
+            <div class="license-history">
+                <h3><i class="bi bi-clock-history"></i> License History</h3>
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Token</th>
+                            <th>Status</th>
+                            <th>Max Users</th>
+                            <th>Storage Limit</th>
+                            <th>Expiry Date</th>
+                            <th>Activated On</th>
+                            <th>Created By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% allLicenses.forEach(license => { 
+                            const licenseExpired = new Date(license.expiresAt) < new Date();
+                            const statusClass = license.isActive ? 'active' : (licenseExpired ? 'expired' : 'inactive');
+                            const statusText = license.isActive ? 'Active' : (licenseExpired ? 'Expired' : 'Inactive');
+                        %>
+                            <tr>
+                                <td><code><%= license.token %></code></td>
+                                <td><span class="status-badge <%= statusClass %>"><%= statusText %></span></td>
+                                <td><%= license.maxUsers %></td>
+                                <td><%= ((license.maxStorageBytes || 10737418240) / (1024 * 1024 * 1024)).toFixed(2) %> GB</td>
+                                <td>
+                                    <%= new Date(license.expiresAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %>
+                                    <% if (licenseExpired) { %>
+                                        <small class="text-danger d-block">Expired</small>
+                                    <% } %>
+                                </td>
+                                <td>
+                                    <%= license.usedAt ? new Date(license.usedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-' %>
+                                </td>
+                                <td>
+                                    <% if (license.creator) { %>
+                                        <%= license.creator.firstName %> <%= license.creator.lastName %>
+                                        <small class="text-muted d-block"><%= license.creator.email %></small>
+                                    <% } else { %>
+                                        <span class="text-muted">-</span>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        <% } %>
+    </div>
+
+    <%- include('partials/scripts') %>
+    
+    <script>
+        // Display success/error messages from query params
+        const urlParams = new URLSearchParams(window.location.search);
+        const success = urlParams.get('success');
+        const error = urlParams.get('error');
+        
+        if (success) {
+            showToast('success', success);
+        }
+        if (error) {
+            showToast('error', error);
+        }
+        
+        function showToast(type, message) {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+            toast.style.position = 'fixed';
+            toast.style.top = '20px';
+            toast.style.right = '20px';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
+

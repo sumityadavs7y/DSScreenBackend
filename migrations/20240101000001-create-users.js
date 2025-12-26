@@ -37,6 +37,13 @@ module.exports = {
         defaultValue: true,
         field: 'is_active',
       },
+      isSuperAdmin: {
+        type: Sequelize.BOOLEAN,
+        defaultValue: false,
+        allowNull: false,
+        field: 'is_super_admin',
+        comment: 'Super admin flag for system-wide management access',
+      },
       lastLoginAt: {
         type: Sequelize.DATE,
         allowNull: true,
@@ -55,6 +62,9 @@ module.exports = {
     });
 
     await queryInterface.addIndex('users', ['email']);
+    await queryInterface.addIndex('users', ['is_super_admin'], {
+      name: 'users_is_super_admin_idx',
+    });
   },
 
   down: async (queryInterface, Sequelize) => {

@@ -406,7 +406,7 @@
             .timeline-video-block-title {
                 font-size: 0.75rem;
                 padding: 0 16px;
-            }
+        }
         
             .timeline-video-block-duration {
                 font-size: 0.6rem;
@@ -1084,11 +1084,11 @@
                     const result = await response.json();
                     
                     if (result.success) {
-                        // Recalculate timeline
-                        calculateTimelineMetrics();
-                        renderTimeline();
-                        updateStats();
-                        Toast.success(`Duration updated to ${formatDuration(newDurationSeconds)}`);
+                // Recalculate timeline
+                calculateTimelineMetrics();
+                renderTimeline();
+                updateStats();
+                Toast.success(`Duration updated to ${formatDuration(newDurationSeconds)}`);
                     } else {
                         Toast.error(result.error || 'Failed to update duration');
                         // Revert on failure
@@ -1142,7 +1142,7 @@
                 closestBlock.classList.add(`drop-${dropPosition}`);
             }
         }
-        
+
         function handleBlockDrop(e) {
             console.log('=== DROP HANDLER CALLED ===');
             console.log('draggedItemId:', draggedItemId);
@@ -1266,7 +1266,7 @@
                 const videoId = e.dataTransfer.types.includes('videoid');
                 
                 if (videoId) {
-                    e.dataTransfer.dropEffect = 'copy';
+                e.dataTransfer.dropEffect = 'copy';
                 } else if (draggedItemId) {
                     e.dataTransfer.dropEffect = 'move';
                 }
@@ -1355,18 +1355,18 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    const item = timelineData.find(i => i.id == itemId);
-                    if (item) {
-                        item.duration = newDuration;
-                        item._duration = newDuration;
-                        
-                        calculateTimelineMetrics();
-                        renderTimeline();
-                        updateStats();
+            const item = timelineData.find(i => i.id == itemId);
+            if (item) {
+                item.duration = newDuration;
+                item._duration = newDuration;
+                
+                calculateTimelineMetrics();
+                renderTimeline();
+                updateStats();
                     }
-                    
-                    bootstrap.Modal.getInstance(document.getElementById('editVideoModal')).hide();
-                    Toast.success('Video updated successfully');
+                
+                bootstrap.Modal.getInstance(document.getElementById('editVideoModal')).hide();
+                Toast.success('Video updated successfully');
                 } else {
                     Toast.error(result.error || 'Failed to update video');
                 }

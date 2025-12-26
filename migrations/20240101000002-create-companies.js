@@ -47,6 +47,13 @@ module.exports = {
         defaultValue: true,
         field: 'is_active',
       },
+      storageUsedBytes: {
+        type: Sequelize.BIGINT,
+        allowNull: false,
+        defaultValue: 0,
+        field: 'storage_used_bytes',
+        comment: 'Current storage used in bytes (cached for performance)',
+      },
       settings: {
         type: Sequelize.JSONB,
         defaultValue: {},

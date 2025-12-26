@@ -39,13 +39,29 @@ if (typeof session === 'undefined') {
                     <ul class="dropdown-menu dropdown-menu-end">
                         <% if (typeof company !== 'undefined' && company && typeof userCompany !== 'undefined' && userCompany) { %>
                             <li><h6 class="dropdown-header"><%= company.name %></h6></li>
-                            <li><span class="dropdown-item-text"><small class="text-muted">Role: <%= userCompany.role %></small></span></li>
+                            <li><span class="dropdown-item-text">
+                                <small class="text-muted">
+                                    <% if (userCompany.isSuperAdminAccess) { %>
+                                        <i class="bi bi-shield-check"></i> Accessing as <%= userCompany.role %>
+                                    <% } else { %>
+                                        Role: <%= userCompany.role %>
+                                    <% } %>
+                                </small>
+                            </span></li>
                             <li><hr class="dropdown-divider"></li>
                         <% } %>
                         <% if (user && user.isSuperAdmin) { %>
                             <li>
                                 <a class="dropdown-item" href="/admin">
                                     <i class="bi bi-shield-fill-check"></i> Super Admin Panel
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                        <% } %>
+                        <% if (typeof company !== 'undefined' && company) { %>
+                            <li>
+                                <a class="dropdown-item" href="/dashboard/license">
+                                    <i class="bi bi-file-text"></i> License Details
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider"></li>

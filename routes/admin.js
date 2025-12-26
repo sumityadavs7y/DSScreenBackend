@@ -5,9 +5,10 @@
 
 const express = require('express');
 const router = express.Router();
-const { User, Company, UserCompany, Video, Playlist, PlaylistItem, Device } = require('../models');
+const { User, Company, UserCompany, Video, Playlist, PlaylistItem, Device, License } = require('../models');
 const { webRequireAuth } = require('../middleware/sessionAuth');
 const { webRequireSuperAdmin } = require('../middleware/superAdminAuth');
+const crypto = require('crypto');
 
 // Apply authentication middleware to all admin routes (auth only, not super admin check yet)
 router.use(webRequireAuth);
@@ -28,17 +29,21 @@ router.post('/exit-impersonation', async (req, res) => {
     }
 
     const originalUserId = req.session.originalSuperAdminId;
+    const originalIsSuperAdmin = req.session.originalIsSuperAdmin !== undefined 
+      ? req.session.originalIsSuperAdmin 
+      : true;
 
     // Restore super admin session
     req.session.userId = originalUserId;
-    req.session.isSuperAdmin = true;
+    req.session.isSuperAdmin = originalIsSuperAdmin;
     delete req.session.companyId;
     delete req.session.role;
     delete req.session.companies;
     delete req.session.originalSuperAdminId;
+    delete req.session.originalIsSuperAdmin;
     delete req.session.impersonating;
 
-    console.log(`✅ Exited impersonation, returned to super admin: ${originalUserId}`);
+    console.log(`✅ Exited company access, returned to super admin: ${originalUserId}`);
 
     res.json({
       success: true,
@@ -149,18 +154,51 @@ router.get('/companies', async (req, res) => {
           as: 'playlists',
           attributes: ['id'],
           required: false,
+        },
+        {
+          model: License,
+          as: 'licenses',
+          where: { isActive: true },
+          attributes: ['id', 'expiresAt', 'maxUsers', 'createdAt'],
+          required: false,
         }
       ],
       order: [['createdAt', 'DESC']],
     });
 
-    const companiesData = companies.map(c => c.toJSON());
+    const companiesData = companies.map(c => {
+      const companyData = c.toJSON();
+      // Get the active license (should be only one)
+      companyData.activeLicense = companyData.licenses && companyData.licenses.length > 0 
+        ? companyData.licenses[0] 
+        : null;
+      return companyData;
+    });
+
+    // Also load licenses for the licenses tab
+    const licenses = await License.findAll({
+      include: [
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'email', 'firstName', 'lastName'],
+        },
+        {
+          model: Company,
+          as: 'company',
+          attributes: ['id', 'name', 'slug'],
+          required: false,
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
 
     res.render('admin/companies', {
       title: 'Manage Companies',
       user: req.user,
       session: req.session,
       companies: companiesData,
+      licenses: licenses.map(l => l.toJSON()),
     });
   } catch (error) {
     console.error('Admin companies error:', error);
@@ -223,6 +261,36 @@ router.post('/companies/create', async (req, res) => {
       success: false, 
       message: 'Error creating company: ' + error.message 
     });
+  }
+});
+
+/**
+ * GET /admin/companies/:companyId/has-license
+ * Check if company has an assigned license
+ */
+router.get('/companies/:companyId/has-license', async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    
+    const existingLicense = await License.findOne({
+      where: {
+        companyId: companyId,
+        isActive: true
+      }
+    });
+
+    res.json({
+      success: true,
+      hasLicense: !!existingLicense,
+      license: existingLicense ? {
+        id: existingLicense.id,
+        expiresAt: existingLicense.expiresAt,
+        createdAt: existingLicense.createdAt
+      } : null
+    });
+  } catch (error) {
+    console.error('Check license error:', error);
+    res.status(500).json({ success: false, message: 'Error checking license' });
   }
 });
 
@@ -754,7 +822,7 @@ router.post('/users/:userId/toggle-super-admin', async (req, res) => {
 
 /**
  * POST /admin/companies/:companyId/login-as
- * Login as a company (impersonate owner)
+ * Login as a company with owner role (not impersonating a specific user)
  */
 router.post('/companies/:companyId/login-as', async (req, res) => {
   try {
@@ -762,39 +830,20 @@ router.post('/companies/:companyId/login-as', async (req, res) => {
     
     // Verify company exists
     const company = await Company.findByPk(companyId);
-    if (!company) {
+    if (!company || !company.isActive) {
       return res.status(404).json({ success: false, message: 'Company not found' });
     }
 
-    // Find an owner or admin of this company
-    const userCompany = await UserCompany.findOne({
-      where: {
-        companyId: companyId,
-        role: 'owner',
-        isActive: true
-      },
-      include: [{
-        model: User,
-        as: 'user',
-        where: { isActive: true }
-      }]
-    });
-
-    if (!userCompany) {
-      return res.status(404).json({
-        success: false,
-        message: 'No active owner found for this company'
-      });
-    }
-
-    // Store original super admin session
+    // Store original super admin info
     req.session.originalSuperAdminId = req.session.userId;
+    req.session.originalIsSuperAdmin = req.session.isSuperAdmin;
     req.session.impersonating = true;
 
-    // Set session to company owner
-    req.session.userId = userCompany.user.id;
+    // Set session to access company with owner role
+    // Keep the super admin's user ID, just add company context
     req.session.companyId = companyId;
     req.session.role = 'owner';
+    req.session.isSuperAdmin = false; // Temporarily disable super admin flag to use company dashboard
     req.session.companies = [{
       id: company.id,
       name: company.name,
@@ -802,7 +851,7 @@ router.post('/companies/:companyId/login-as', async (req, res) => {
       role: 'owner'
     }];
 
-    console.log(`✅ Super admin (${req.session.originalSuperAdminId}) logged in as company: ${company.name}`);
+    console.log(`✅ Super admin (${req.session.originalSuperAdminId}) accessing company as owner: ${company.name}`);
 
     res.json({
       success: true,
@@ -894,6 +943,143 @@ router.delete('/playlists/:playlistId', async (req, res) => {
   } catch (error) {
     console.error('Delete playlist error:', error);
     res.status(500).json({ success: false, message: 'Error deleting playlist' });
+  }
+});
+
+/**
+ * POST /admin/licenses/create
+ * Generate a new license token (for new or existing company)
+ */
+router.post('/licenses/create', async (req, res) => {
+  try {
+    const { companyName, existingCompanyId, expiryDays, maxUsers, maxStorageMB, notes } = req.body;
+
+    // Validate inputs
+    if (!expiryDays || expiryDays < 1) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Expiry days must be at least 1' 
+      });
+    }
+
+    let company = null;
+    let licenseExpiresAt = new Date();
+    licenseExpiresAt.setDate(licenseExpiresAt.getDate() + parseInt(expiryDays));
+
+    // If assigning to existing company
+    if (existingCompanyId) {
+      company = await Company.findByPk(existingCompanyId);
+      if (!company) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Company not found' 
+        });
+      }
+
+      // Check if company already has an active license
+      const existingActiveLicense = await License.findOne({
+        where: {
+          companyId: existingCompanyId,
+          isActive: true
+        }
+      });
+
+      if (existingActiveLicense) {
+        // Extend the company's existing license
+        if (existingActiveLicense.expiresAt && existingActiveLicense.expiresAt > new Date()) {
+          // If license is still active, extend from current expiry
+          licenseExpiresAt = new Date(existingActiveLicense.expiresAt);
+          licenseExpiresAt.setDate(licenseExpiresAt.getDate() + parseInt(expiryDays));
+        }
+        // If expired or no license, start from today
+        
+        // Delete the old active license
+        await existingActiveLicense.destroy();
+        console.log(`✅ Old active license ${existingActiveLicense.id} deleted for company ${company.name}`);
+      }
+    }
+
+    // Generate unique token
+    const token = crypto.randomBytes(32).toString('hex');
+
+    // Convert storage from MB to bytes
+    const maxStorageBytes = maxStorageMB ? parseInt(maxStorageMB) * 1024 * 1024 : 524288000; // Default 500MB
+
+    // Create license
+    const license = await License.create({
+      token,
+      companyName: existingCompanyId ? company.name : (companyName || null),
+      expiresAt: licenseExpiresAt,
+      maxUsers: maxUsers || 1,
+      maxStorageBytes: maxStorageBytes,
+      notes: notes || null,
+      createdBy: req.user.id,
+      companyId: existingCompanyId || null,
+      isActive: existingCompanyId ? true : false, // Mark as active if assigned to existing company
+      isUsed: existingCompanyId ? true : false, // Mark as used if assigned to existing company
+      usedAt: existingCompanyId ? new Date() : null,
+    });
+
+    // Generate registration URL
+    const registrationUrl = `${req.protocol}://${req.get('host')}/license-signup/${token}`;
+
+    if (existingCompanyId) {
+      console.log(`✅ License created for existing company ${company.name}: ${license.id} by ${req.user.email}`);
+      console.log(`✅ Company ${company.name} license extended to ${licenseExpiresAt.toISOString()}`);
+    } else {
+      console.log(`✅ License created for new company: ${license.id} by ${req.user.email}`);
+    }
+
+    res.json({
+      success: true,
+      message: existingCompanyId 
+        ? `License extended for ${company.name} until ${licenseExpiresAt.toLocaleDateString()}`
+        : 'License created successfully',
+      license: license.toJSON(),
+      registrationUrl,
+    });
+  } catch (error) {
+    console.error('Create license error:', error);
+    res.status(500).json({ success: false, message: 'Error creating license' });
+  }
+});
+
+/**
+ * DELETE /admin/licenses/:licenseId
+ * Revoke/delete a license
+ */
+router.delete('/licenses/:licenseId', async (req, res) => {
+  try {
+    const { licenseId } = req.params;
+    
+    const license = await License.findByPk(licenseId);
+    
+    if (!license) {
+      return res.status(404).json({ success: false, message: 'License not found' });
+    }
+
+    // Allow deletion of:
+    // 1. Unused licenses
+    // 2. Assigned licenses (those created for existing companies)
+    // Prevent deletion of licenses used for registration (isUsed=true but companyId is null initially, then set)
+    if (license.isUsed && !license.companyId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Cannot delete a license that was used for registration' 
+      });
+    }
+
+    await license.destroy();
+
+    console.log(`✅ License ${license.id} deleted by ${req.user.email}`);
+
+    res.json({
+      success: true,
+      message: 'License deleted successfully',
+    });
+  } catch (error) {
+    console.error('Delete license error:', error);
+    res.status(500).json({ success: false, message: 'Error deleting license' });
   }
 });
 

@@ -68,6 +68,12 @@ module.exports = {
         defaultValue: true,
         field: 'is_active',
       },
+      thumbnailPath: {
+        type: Sequelize.STRING,
+        allowNull: true,
+        field: 'thumbnail_path',
+        comment: 'Path to video thumbnail image',
+      },
       metadata: {
         type: Sequelize.JSONB,
         defaultValue: {},

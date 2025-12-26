@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const { Video, User, Company, UserCompany } = require('../models');
+const { Video, User, Company, UserCompany, License } = require('../models');
 const { webRequireAuth, webRequireCompany } = require('../middleware/sessionAuth');
+const { webCheckCompanyLicense } = require('../middleware/licenseCheck');
 const { ensureCompanyDir, deleteFile, isValidVideoMimeType } = require('../utils/fileStorage');
 const { storageConfig } = require('../config');
 const { extractVideoMetadata, generateThumbnailAtPercentage } = require('../utils/videoMetadata');
@@ -69,21 +70,24 @@ router.get('/', webRequireAuth, async (req, res) => {
       return res.redirect('/company-selection');
     }
 
-    const userCompany = await UserCompany.findOne({
-      where: {
-        userId: req.session.userId,
-        companyId: req.session.companyId,
-        isActive: true,
-      },
-    });
+    // Skip UserCompany check if super admin is impersonating
+    if (!req.session.impersonating || !req.session.originalSuperAdminId) {
+      const userCompany = await UserCompany.findOne({
+        where: {
+          userId: req.session.userId,
+          companyId: req.session.companyId,
+          isActive: true,
+        },
+      });
 
-    if (!userCompany) {
-      delete req.session.companyId;
-      delete req.session.role;
-      return res.redirect('/company-selection');
+      if (!userCompany) {
+        delete req.session.companyId;
+        delete req.session.role;
+        return res.redirect('/company-selection');
+      }
     }
 
-    res.redirect('/dashboard/videos');
+  res.redirect('/dashboard/videos');
   } catch (error) {
     console.error('Dashboard redirect error:', error);
     res.redirect('/company-selection');
@@ -156,9 +160,9 @@ router.get('/playlists', webRequireAuth, webRequireCompany, async (req, res) => 
       },
       include: [
         {
-          model: User,
-          as: 'creator',
-          attributes: ['id', 'email', 'firstName', 'lastName'],
+        model: User,
+        as: 'creator',
+        attributes: ['id', 'email', 'firstName', 'lastName'],
         },
         {
           model: PlaylistItem,
@@ -250,7 +254,7 @@ router.get('/playlists/:playlistId/timeline', webRequireAuth, webRequireCompany,
  * POST /dashboard/playlists/create
  * Create a new playlist
  */
-router.post('/playlists/create', webRequireAuth, webRequireCompany, async (req, res) => {
+router.post('/playlists/create', webRequireAuth, webRequireCompany, webCheckCompanyLicense, async (req, res) => {
   try {
     const { Playlist } = require('../models');
     const { generateUniqueCode } = require('../utils/playlistCode');
@@ -285,7 +289,7 @@ router.post('/playlists/create', webRequireAuth, webRequireCompany, async (req, 
  * POST /dashboard/playlists/:playlistId/timeline/add
  * Add a video to playlist timeline
  */
-router.post('/playlists/:playlistId/timeline/add', webRequireAuth, webRequireCompany, async (req, res) => {
+router.post('/playlists/:playlistId/timeline/add', webRequireAuth, webRequireCompany, webCheckCompanyLicense, async (req, res) => {
   try {
     const { Playlist, PlaylistItem, Video } = require('../models');
     const { playlistId } = req.params;
@@ -367,7 +371,7 @@ router.post('/playlists/:playlistId/timeline/add', webRequireAuth, webRequireCom
  * POST /dashboard/playlists/:playlistId/timeline/:itemId/update
  * Update a playlist item (e.g., duration)
  */
-router.post('/playlists/:playlistId/timeline/:itemId/update', webRequireAuth, webRequireCompany, async (req, res) => {
+router.post('/playlists/:playlistId/timeline/:itemId/update', webRequireAuth, webRequireCompany, webCheckCompanyLicense, async (req, res) => {
   try {
     const { Playlist, PlaylistItem } = require('../models');
     const { playlistId, itemId } = req.params;
@@ -569,7 +573,7 @@ router.post('/playlists/:playlistId/timeline/clear', webRequireAuth, webRequireC
  * POST /dashboard/playlists/:playlistId/update
  * Update an existing playlist
  */
-router.post('/playlists/:playlistId/update', webRequireAuth, webRequireCompany, async (req, res) => {
+router.post('/playlists/:playlistId/update', webRequireAuth, webRequireCompany, webCheckCompanyLicense, async (req, res) => {
   try {
     const { Playlist } = require('../models');
     const { playlistId } = req.params;
@@ -646,7 +650,7 @@ router.post('/playlists/:playlistId/delete', webRequireAuth, webRequireCompany, 
  * POST /dashboard/upload
  * Upload a new video
  */
-router.post('/upload', webRequireAuth, webRequireCompany, (req, res, next) => {
+router.post('/upload', webRequireAuth, webRequireCompany, webCheckCompanyLicense, (req, res, next) => {
   upload.single('video')(req, res, async (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
@@ -748,6 +752,12 @@ router.post('/upload', webRequireAuth, webRequireCompany, (req, res, next) => {
         isActive: true,
       });
 
+      // Update company storage usage
+      await Company.increment('storageUsedBytes', {
+        by: req.file.size,
+        where: { id: req.company.id }
+      });
+
       res.redirect(`/dashboard/videos?success=${encodeURIComponent('Video uploaded successfully!')}`);
     } catch (error) {
       console.error('Video upload error:', error);
@@ -764,7 +774,7 @@ router.post('/upload', webRequireAuth, webRequireCompany, (req, res, next) => {
  * POST /dashboard/videos/:videoId/edit
  * Edit video name
  */
-router.post('/videos/:videoId/edit', webRequireAuth, webRequireCompany, async (req, res) => {
+router.post('/videos/:videoId/edit', webRequireAuth, webRequireCompany, webCheckCompanyLicense, async (req, res) => {
   try {
     const { videoId } = req.params;
     const { fileName } = req.body;
@@ -839,6 +849,12 @@ router.post('/videos/:videoId/delete', webRequireAuth, webRequireCompany, async 
     // Soft delete in database
     await video.update({ isActive: false });
 
+    // Update company storage usage
+    await Company.decrement('storageUsedBytes', {
+      by: video.fileSize,
+      where: { id: req.company.id }
+    });
+
     res.redirect(`/dashboard/videos?success=${encodeURIComponent('Video deleted successfully!')}`);
   } catch (error) {
     console.error('Video delete error:', error);
@@ -889,6 +905,12 @@ router.post('/videos/bulk-delete', webRequireAuth, webRequireCompany, async (req
         // Soft delete in database
         await video.update({ isActive: false });
 
+        // Update company storage usage
+        await Company.decrement('storageUsedBytes', {
+          by: video.fileSize,
+          where: { id: req.company.id }
+        });
+
         deleted++;
       } catch (error) {
         console.error(`Error deleting video ${video.id}:`, error);
@@ -903,6 +925,92 @@ router.post('/videos/bulk-delete', webRequireAuth, webRequireCompany, async (req
   } catch (error) {
     console.error('Bulk delete error:', error);
     res.redirect(`/dashboard?tab=uploads&error=${encodeURIComponent('Bulk delete failed: ' + error.message)}`);
+  }
+});
+
+/**
+ * GET /dashboard/license
+ * Display license details for the company
+ */
+router.get('/license', webRequireAuth, webRequireCompany, async (req, res) => {
+  try {
+    // Find active license for this company
+    const activeLicense = await License.findOne({
+      where: {
+        companyId: req.company.id,
+        isActive: true,
+      },
+      include: [{
+        model: User,
+        as: 'creator',
+        attributes: ['id', 'email', 'firstName', 'lastName'],
+      }],
+    });
+
+    // Find all licenses for this company (including inactive ones for history)
+    const allLicenses = await License.findAll({
+      where: {
+        companyId: req.company.id,
+      },
+      include: [{
+        model: User,
+        as: 'creator',
+        attributes: ['id', 'email', 'firstName', 'lastName'],
+      }],
+      order: [['createdAt', 'DESC']],
+    });
+
+    // Count current active users in the company
+    const activeUsersCount = await UserCompany.count({
+      where: {
+        companyId: req.company.id,
+        isActive: true,
+      },
+    });
+
+    // Get storage usage
+    const storageUsed = req.company.storageUsedBytes || 0;
+    const storageLimit = activeLicense?.maxStorageBytes || 10737418240; // 10GB default
+
+    // Calculate license status
+    let licenseStatus = 'no_license';
+    let daysRemaining = 0;
+    let isExpired = false;
+    
+    if (activeLicense) {
+      const now = new Date();
+      const expiryDate = new Date(activeLicense.expiresAt);
+      const diffTime = expiryDate - now;
+      daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (daysRemaining < 0) {
+        licenseStatus = 'expired';
+        isExpired = true;
+      } else if (daysRemaining <= 7) {
+        licenseStatus = 'expiring_soon';
+      } else {
+        licenseStatus = 'active';
+      }
+    }
+
+    res.render('license-details', {
+      title: 'License Details',
+      user: req.user,
+      company: req.company,
+      userCompany: req.userCompany,
+      session: req.session,
+      activeLicense: activeLicense,
+      allLicenses: allLicenses,
+      activeUsersCount: activeUsersCount,
+      storageUsed: storageUsed,
+      storageLimit: storageLimit,
+      licenseStatus: licenseStatus,
+      daysRemaining: daysRemaining,
+      isExpired: isExpired,
+    });
+  } catch (error) {
+    console.error('License details error:', error);
+    res.status(500).send('Error loading license details');
   }
 });
 

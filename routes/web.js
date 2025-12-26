@@ -5,8 +5,9 @@
 
 const express = require('express');
 const router = express.Router();
-const { User, Company, UserCompany } = require('../models');
+const { User, Company, UserCompany, License } = require('../models');
 const { body, validationResult } = require('express-validator');
+const { Op } = require('sequelize');
 
 /**
  * GET /
@@ -132,22 +133,85 @@ router.post('/login',
 
 /**
  * GET /register
- * Show registration page
+ * PUBLIC REGISTRATION DISABLED - Use license-based registration instead
  */
 router.get('/register', (req, res) => {
-  if (req.session && req.session.userId) {
-    return res.redirect('/dashboard');
-  }
-  res.render('register', {
-    error: req.query.error,
+  res.status(403).render('error', {
+    title: 'Registration Closed',
+    message: 'Public registration is not available. Please contact your administrator for a registration link.',
   });
 });
 
 /**
  * POST /register
- * Process registration form
+ * PUBLIC REGISTRATION DISABLED - Use license-based registration instead
  */
-router.post('/register',
+router.post('/register', async (req, res) => {
+  res.status(403).json({ 
+    success: false, 
+    message: 'Public registration is not available. Please contact your administrator for a registration link.' 
+  });
+});
+
+/**
+ * GET /license-signup/:token
+ * Show license-based registration page
+ */
+router.get('/license-signup/:token', async (req, res) => {
+  try {
+    if (req.session && req.session.userId) {
+      return res.redirect('/dashboard');
+    }
+
+    const { token } = req.params;
+
+    // Validate license
+    const license = await License.findOne({
+      where: { token },
+    });
+
+    if (!license) {
+      return res.status(404).render('error', {
+        title: 'Invalid License',
+        message: 'The registration link you used is invalid. Please contact your administrator.',
+      });
+    }
+
+    if (license.isUsed) {
+      return res.status(403).render('error', {
+        title: 'License Already Used',
+        message: 'This registration link has already been used. Please contact your administrator for a new link.',
+      });
+    }
+
+    if (new Date(license.expiresAt) <= new Date()) {
+      return res.status(403).render('error', {
+        title: 'License Expired',
+        message: 'This registration link has expired. Please contact your administrator for a new link.',
+      });
+    }
+
+    // Show registration form with license info
+    res.render('license-register', {
+      error: req.query.error,
+      token,
+      companyName: license.companyName || '',
+      licenseExpiresAt: license.expiresAt,
+    });
+  } catch (error) {
+    console.error('License signup error:', error);
+    res.status(500).render('error', {
+      title: 'Error',
+      message: 'An error occurred. Please try again later.',
+    });
+  }
+});
+
+/**
+ * POST /license-signup/:token
+ * Process license-based registration
+ */
+router.post('/license-signup/:token',
   [
     body('firstName').trim().notEmpty().withMessage('First name is required'),
     body('lastName').trim().notEmpty().withMessage('Last name is required'),
@@ -163,12 +227,25 @@ router.post('/register',
   ],
   async (req, res) => {
     try {
+      const { token } = req.params;
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.redirect(`/register?error=${encodeURIComponent(errors.array()[0].msg)}`);
+        return res.redirect(`/license-signup/${token}?error=${encodeURIComponent(errors.array()[0].msg)}`);
       }
 
       const { firstName, lastName, email, phoneNumber, password, companyName, companyDescription } = req.body;
+
+      // Validate license again
+      const license = await License.findOne({
+        where: { token },
+      });
+
+      if (!license || license.isUsed || new Date(license.expiresAt) <= new Date()) {
+        return res.status(403).render('error', {
+          title: 'Invalid License',
+          message: 'This registration link is no longer valid.',
+        });
+      }
 
       // Check if user already exists
       const existingUser = await User.findOne({
@@ -176,7 +253,7 @@ router.post('/register',
       });
 
       if (existingUser) {
-        return res.redirect(`/register?error=${encodeURIComponent('User with this email already exists')}`);
+        return res.redirect(`/license-signup/${token}?error=${encodeURIComponent('User with this email already exists')}`);
       }
 
       // Create user
@@ -211,6 +288,16 @@ router.post('/register',
         role: 'owner',
       });
 
+      // Mark license as used and active for this company
+      await license.update({
+        isActive: true,
+        isUsed: true,
+        usedAt: new Date(),
+        companyId: company.id,
+      });
+
+      console.log(`✅ License ${license.id} used for company ${company.name}`);
+
       // Set session
       req.session.userId = user.id;
       req.session.companyId = company.id;
@@ -218,8 +305,8 @@ router.post('/register',
 
       res.redirect('/dashboard');
     } catch (error) {
-      console.error('Registration error:', error);
-      res.redirect(`/register?error=${encodeURIComponent('An error occurred during registration')}`);
+      console.error('License registration error:', error);
+      res.redirect(`/license-signup/${req.params.token}?error=${encodeURIComponent('An error occurred during registration')}`);
     }
   }
 );

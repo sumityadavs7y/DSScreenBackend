@@ -62,25 +62,39 @@ const loadUserContext = async (req, res, next) => {
         });
       }
 
-      const userCompany = await UserCompany.findOne({
-        where: {
+      req.company = company;
+
+      // If super admin is impersonating/accessing company, skip UserCompany check
+      if (req.session.impersonating && req.session.originalSuperAdminId) {
+        // Create a virtual userCompany for super admin with owner role
+        req.userCompany = {
           userId: req.session.userId,
           companyId: req.session.companyId,
+          role: req.session.role || 'owner',
           isActive: true,
-        },
-      });
-
-      if (!userCompany) {
-        delete req.session.companyId;
-        delete req.session.role;
-        return res.status(403).json({
-          success: false,
-          message: 'Access to this company has been revoked',
+          isSuperAdminAccess: true
+        };
+      } else {
+        // Regular user - check UserCompany
+        const userCompany = await UserCompany.findOne({
+          where: {
+            userId: req.session.userId,
+            companyId: req.session.companyId,
+            isActive: true,
+          },
         });
-      }
 
-      req.company = company;
-      req.userCompany = userCompany;
+        if (!userCompany) {
+          delete req.session.companyId;
+          delete req.session.role;
+          return res.status(403).json({
+            success: false,
+            message: 'Access to this company has been revoked',
+          });
+        }
+
+        req.userCompany = userCompany;
+      }
     }
 
     next();
@@ -161,6 +175,10 @@ const webRequireAuth = async (req, res, next) => {
 
 const webRequireCompany = async (req, res, next) => {
   if (!req.session || !req.session.companyId) {
+    // Check if super admin trying to access without a company
+    if (req.user && req.user.isSuperAdmin && !req.session.impersonating) {
+      return res.redirect('/admin');
+    }
     return res.redirect('/company-selection');
   }
 
@@ -172,6 +190,22 @@ const webRequireCompany = async (req, res, next) => {
       return res.redirect('/company-selection');
     }
 
+    req.company = company;
+
+    // If super admin is impersonating/accessing company, skip UserCompany check
+    if (req.session.impersonating && req.session.originalSuperAdminId) {
+      // Create a virtual userCompany for super admin with owner role
+      req.userCompany = {
+        userId: req.session.userId,
+        companyId: req.session.companyId,
+        role: req.session.role || 'owner',
+        isActive: true,
+        isSuperAdminAccess: true
+      };
+      return next();
+    }
+
+    // Regular user - check UserCompany
     const userCompany = await UserCompany.findOne({
       where: {
         userId: req.session.userId,
@@ -186,7 +220,6 @@ const webRequireCompany = async (req, res, next) => {
       return res.redirect('/company-selection');
     }
 
-    req.company = company;
     req.userCompany = userCompany;
     next();
   } catch (error) {

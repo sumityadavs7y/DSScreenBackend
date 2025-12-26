@@ -9,7 +9,7 @@ const router = express.Router();
 router.get('/api', (req, res) => {
     res.json({
         status: 'success',
-        message: 'dsScreen Backend API - Multi-Tenant Authentication',
+        message: 'Digital Signage Backend API - by Logical Valley Infotech',
         version: '1.0.0',
         documentation: {
             authentication: 'See AUTHENTICATION.md for detailed auth documentation',
@@ -78,7 +78,7 @@ router.get('/favicon.ico', (req, res) => {
 router.post('/playlists/device/register', async (req, res) => {
   console.log('🔥 Device registration endpoint hit!', req.body);
   try {
-    const { Playlist, PlaylistItem, Video, Device, DevicePlaylist } = require('../models');
+    const { Playlist, PlaylistItem, Video, Device, DevicePlaylist, Company, License } = require('../models');
     const { playlistCode, uid, deviceInfo } = req.body;
 
     // Validate inputs
@@ -99,13 +99,18 @@ router.post('/playlists/device/register', async (req, res) => {
     // Use the code as-is (case-sensitive)
     console.log(`🔍 Searching for playlist with code: "${playlistCode}"`);
 
-    // Find playlist by code
+    // Find playlist by code with company
     const playlist = await Playlist.findOne({
       where: {
         code: playlistCode,
         isActive: true,
       },
       include: [
+        {
+          model: Company,
+          as: 'company',
+          attributes: ['id', 'name', 'isActive'],
+        },
         {
           model: PlaylistItem,
           as: 'items',
@@ -128,7 +133,7 @@ router.post('/playlists/device/register', async (req, res) => {
 
     if (!playlist) {
       // Show all available playlist codes for debugging
-      const allPlaylists = await Playlist.findAll({ 
+      const allPlaylists = await Playlist.findAll({
         where: { isActive: true }, 
         attributes: ['code', 'name', 'id'] 
       });
@@ -140,6 +145,35 @@ router.post('/playlists/device/register', async (req, res) => {
         message: 'Playlist not found or inactive',
       });
     }
+
+    // Check if the company has a valid license
+    const activeLicense = await License.findOne({
+      where: {
+        companyId: playlist.companyId,
+        isActive: true,
+      },
+    });
+
+    if (!activeLicense) {
+      console.log('❌ No active license found for company:', playlist.companyId);
+      return res.status(403).json({
+        success: false,
+        message: 'This company does not have an active license. Device registration is not allowed.',
+      });
+    }
+
+    // Check if license is expired
+    const now = new Date();
+    const expiryDate = new Date(activeLicense.expiresAt);
+    if (expiryDate < now) {
+      console.log('❌ License expired for company:', playlist.companyId);
+      return res.status(403).json({
+        success: false,
+        message: 'This company\'s license has expired. Device registration is not allowed.',
+      });
+    }
+
+    console.log('✅ Valid license found for company:', playlist.companyId);
 
     // Find or create device
     let device = await Device.findOne({

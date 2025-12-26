@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "dsScreen Backend - Complete API Collection",
-    "description": "Complete API collection for dsScreen backend with multi-tenant authentication, company management, video upload system, and schedule management for digital signage.\n\n**Features:**\n- Multi-tenant authentication with JWT\n- Company and user management\n- Video upload and streaming (500MB limit per company)\n- Schedule management with timeline-based playback\n- Public schedule viewing via unique codes\n- Role-based access control\n\n**Quick Start:**\n1. Register → Select Company → Get Access Token\n2. Upload videos\n3. Create schedule (get unique code)\n4. Add videos to timeline\n5. Share schedule publicly via code",
+    "name": "Digital Signage Backend - Complete API Collection",
+    "description": "Complete API collection for Digital Signage backend by Logical Valley Infotech with multi-tenant authentication, company management, video upload system, and schedule management for digital signage.\n\n**Features:**\n- Multi-tenant authentication with JWT\n- Company and user management\n- Video upload and streaming (500MB limit per company)\n- Schedule management with timeline-based playback\n- Public schedule viewing via unique codes\n- Role-based access control\n\n**Quick Start:**\n1. Register → Select Company → Get Access Token\n2. Upload videos\n3. Create schedule (get unique code)\n4. Add videos to timeline\n5. Share schedule publicly via code",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "12345678"
   },

@@ -1,6 +1,6 @@
-# dsScreen Backend
+# Digital Signage Backend
 
-Backend infrastructure setup with database configuration and basic authentication middleware.
+Digital Signage platform developed by **Logical Valley Infotech** - A comprehensive backend infrastructure for managing digital signage content.
 
 ## Features
 
@@ -53,7 +53,7 @@ npm start
 ## Project Structure
 
 ```
-dsScreenBackend/
+DSScreenBackend/
 ├── config/              # Configuration files
 │   └── database.js      # Database configuration
 ├── middleware/          # Express middlewares

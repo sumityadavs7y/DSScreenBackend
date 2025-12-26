@@ -1,7 +1,7 @@
 {
-  "name": "dsscreenbackend",
+  "name": "digital-signage-backend",
   "version": "1.0.0",
-  "description": "Backend infrastructure setup with database config and basic auth",
+  "description": "Digital Signage - Backend infrastructure by Logical Valley Infotech",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

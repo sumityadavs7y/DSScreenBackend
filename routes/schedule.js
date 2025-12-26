@@ -644,6 +644,36 @@ router.post('/device/register',
         });
       }
 
+      // Check if the company has a valid license
+      const { License } = require('../models');
+      const activeLicense = await License.findOne({
+        where: {
+          companyId: schedule.companyId,
+          isActive: true,
+        },
+      });
+
+      if (!activeLicense) {
+        console.log('❌ No active license found for company:', schedule.companyId);
+        return res.status(403).json({
+          success: false,
+          message: 'This company does not have an active license. Device registration is not allowed.',
+        });
+      }
+
+      // Check if license is expired
+      const now = new Date();
+      const expiryDate = new Date(activeLicense.expiresAt);
+      if (expiryDate < now) {
+        console.log('❌ License expired for company:', schedule.companyId);
+        return res.status(403).json({
+          success: false,
+          message: 'This company\'s license has expired. Device registration is not allowed.',
+        });
+      }
+
+      console.log('✅ Valid license found for company:', schedule.companyId);
+
       // Create or update device registration
       const [device, created] = await Device.findOrCreate({
         where: {

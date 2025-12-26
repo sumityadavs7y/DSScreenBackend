@@ -219,7 +219,7 @@
     </style>
 </head>
 <body>
-    <%- include('partials/navbar') %>
+    <%- include('partials/navbar', { user, company, userCompany, session }) %>
     
     <div class="container mt-5 mb-5">
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -323,7 +323,7 @@
                         <div class="license-info-item">
                             <div class="license-info-label"><i class="bi bi-hdd"></i> Storage Limit</div>
                             <div class="license-info-value">
-                                <%= (storageLimit / (1024 * 1024 * 1024)).toFixed(2) %> GB
+                                <%= (storageLimit / (1024 * 1024)).toFixed(0) %> MB
                             </div>
                             <small class="text-muted">Maximum storage allowed</small>
                         </div>
@@ -331,7 +331,7 @@
                         <div class="license-info-item">
                             <div class="license-info-label"><i class="bi bi-database"></i> Storage Used</div>
                             <div class="license-info-value <%= storageUsed > storageLimit ? 'expired' : (storageUsed >= storageLimit * 0.9 ? 'warning' : '') %>">
-                                <%= (storageUsed / (1024 * 1024 * 1024)).toFixed(2) %> GB
+                                <%= (storageUsed / (1024 * 1024)).toFixed(2) %> MB
                             </div>
                             <small class="text-muted">Current storage usage</small>
                             <% if (storageLimit > 0) { %>
@@ -405,7 +405,7 @@
                                 <td><code><%= license.token %></code></td>
                                 <td><span class="status-badge <%= statusClass %>"><%= statusText %></span></td>
                                 <td><%= license.maxUsers %></td>
-                                <td><%= ((license.maxStorageBytes || 10737418240) / (1024 * 1024 * 1024)).toFixed(2) %> GB</td>
+                                <td><%= ((license.maxStorageBytes || 524288000) / (1024 * 1024)).toFixed(0) %> MB</td>
                                 <td>
                                     <%= new Date(license.expiresAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %>
                                     <% if (licenseExpired) { %>

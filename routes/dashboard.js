@@ -929,6 +929,319 @@ router.post('/videos/bulk-delete', webRequireAuth, webRequireCompany, async (req
 });
 
 /**
+ * GET /dashboard/users
+ * User management page for company owners/admins
+ */
+router.get('/users', webRequireAuth, webRequireCompany, async (req, res) => {
+  try {
+    // Check if user has permission (owner or admin)
+    if (!['owner', 'admin'].includes(req.userCompany.role)) {
+      return res.status(403).render('error', {
+        message: 'Access Denied',
+        details: 'Only company owners and admins can manage users',
+        user: req.user,
+        company: req.company,
+        userCompany: req.userCompany,
+        session: req.session,
+      });
+    }
+
+    // Load all users in this company
+    const userCompanies = await UserCompany.findAll({
+      where: {
+        companyId: req.company.id,
+        isActive: true,
+      },
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['id', 'email', 'firstName', 'lastName', 'phoneNumber', 'isActive', 'createdAt', 'lastLoginAt'],
+      }],
+      order: [['joinedAt', 'DESC']],
+    });
+
+    // Format user data
+    const users = userCompanies.map(uc => ({
+      id: uc.user.id,
+      email: uc.user.email,
+      firstName: uc.user.firstName,
+      lastName: uc.user.lastName,
+      phoneNumber: uc.user.phoneNumber,
+      role: uc.role,
+      isActive: uc.user.isActive,
+      joinedAt: uc.joinedAt,
+      lastLoginAt: uc.user.lastLoginAt,
+      createdAt: uc.user.createdAt,
+    }));
+
+    res.render('users-management', {
+      title: 'User Management',
+      user: req.user,
+      company: req.company,
+      userCompany: req.userCompany,
+      session: req.session,
+      users: users,
+    });
+  } catch (error) {
+    console.error('User management page error:', error);
+    res.status(500).send('Error loading user management');
+  }
+});
+
+/**
+ * POST /dashboard/users/create
+ * Create a new user and add to the company (owner/admin only)
+ */
+router.post('/users/create', webRequireAuth, webRequireCompany, webCheckCompanyLicense, async (req, res) => {
+  try {
+    // Check if user has permission
+    if (!['owner', 'admin'].includes(req.userCompany.role)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only company owners and admins can create users' 
+      });
+    }
+
+    const { email, password, firstName, lastName, phoneNumber, role } = req.body;
+
+    // Validate role
+    const validRoles = ['admin', 'manager', 'member', 'viewer'];
+    if (role && !validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid role. Must be admin, manager, member, or viewer',
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ 
+      where: { email: email.toLowerCase() } 
+    });
+
+    if (existingUser) {
+      // Check if user is already in this company
+      const existingMembership = await UserCompany.findOne({
+        where: {
+          userId: existingUser.id,
+          companyId: req.company.id,
+        },
+      });
+
+      if (existingMembership) {
+        return res.status(409).json({
+          success: false,
+          message: 'User is already a member of this company',
+        });
+      }
+
+      // Add existing user to company
+      await UserCompany.create({
+        userId: existingUser.id,
+        companyId: req.company.id,
+        role: role || 'member',
+        isActive: true,
+        joinedAt: new Date(),
+      });
+
+      return res.json({
+        success: true,
+        message: 'User added to company successfully',
+      });
+    }
+
+    // Create new user
+    const user = await User.create({
+      email: email.toLowerCase(),
+      password,
+      firstName,
+      lastName,
+      phoneNumber: phoneNumber || null,
+    });
+
+    // Add to company
+    await UserCompany.create({
+      userId: user.id,
+      companyId: req.company.id,
+      role: role || 'member',
+      isActive: true,
+      joinedAt: new Date(),
+    });
+
+    res.json({
+      success: true,
+      message: 'User created and added to company successfully',
+    });
+  } catch (error) {
+    console.error('Create user error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error creating user: ' + error.message 
+    });
+  }
+});
+
+/**
+ * POST /dashboard/users/:userId/update
+ * Update a user's details in the company (owner/admin only)
+ */
+router.post('/users/:userId/update', webRequireAuth, webRequireCompany, webCheckCompanyLicense, async (req, res) => {
+  try {
+    // Check if user has permission
+    if (!['owner', 'admin'].includes(req.userCompany.role)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only company owners and admins can update users' 
+      });
+    }
+
+    const { userId } = req.params;
+    const { firstName, lastName, email, phoneNumber, password, role } = req.body;
+
+    // Prevent self-demotion
+    if (userId === req.user.id && role && role !== req.userCompany.role) {
+      return res.status(403).json({
+        success: false,
+        message: 'You cannot change your own role',
+      });
+    }
+
+    // Find user
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Check if user is in this company
+    const membership = await UserCompany.findOne({
+      where: {
+        userId,
+        companyId: req.company.id,
+        isActive: true,
+      },
+    });
+
+    if (!membership) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User is not a member of this company' 
+      });
+    }
+
+    // Update user details
+    const updateData = {};
+    if (firstName) updateData.firstName = firstName;
+    if (lastName) updateData.lastName = lastName;
+    if (email && email.toLowerCase() !== user.email) {
+      // Check if email is already taken
+      const existingUser = await User.findOne({
+        where: { email: email.toLowerCase() },
+      });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email already in use',
+        });
+      }
+      updateData.email = email.toLowerCase();
+    }
+    if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+    if (password && password.trim().length > 0) updateData.password = password;
+
+    if (Object.keys(updateData).length > 0) {
+      await user.update(updateData);
+    }
+
+    // Update role if provided
+    if (role && role !== membership.role) {
+      const validRoles = ['admin', 'manager', 'member', 'viewer'];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid role',
+        });
+      }
+
+      // Only owners can assign admin role
+      if (role === 'admin' && req.userCompany.role !== 'owner') {
+        return res.status(403).json({
+          success: false,
+          message: 'Only company owners can assign admin role',
+        });
+      }
+
+      await membership.update({ role });
+    }
+
+    res.json({
+      success: true,
+      message: 'User updated successfully',
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error updating user: ' + error.message 
+    });
+  }
+});
+
+/**
+ * POST /dashboard/users/:userId/remove
+ * Remove a user from the company (owner/admin only)
+ */
+router.post('/users/:userId/remove', webRequireAuth, webRequireCompany, async (req, res) => {
+  try {
+    // Check if user has permission
+    if (!['owner', 'admin'].includes(req.userCompany.role)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only company owners and admins can remove users' 
+      });
+    }
+
+    const { userId } = req.params;
+
+    // Prevent self-removal
+    if (userId === req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You cannot remove yourself from the company',
+      });
+    }
+
+    // Find membership
+    const membership = await UserCompany.findOne({
+      where: {
+        userId,
+        companyId: req.company.id,
+        isActive: true,
+      },
+    });
+
+    if (!membership) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User is not a member of this company' 
+      });
+    }
+
+    // Soft delete membership
+    await membership.update({ isActive: false });
+
+    res.json({
+      success: true,
+      message: 'User removed from company successfully',
+    });
+  } catch (error) {
+    console.error('Remove user error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error removing user: ' + error.message 
+    });
+  }
+});
+
+/**
  * GET /dashboard/license
  * Display license details for the company
  */
@@ -970,7 +1283,7 @@ router.get('/license', webRequireAuth, webRequireCompany, async (req, res) => {
 
     // Get storage usage
     const storageUsed = req.company.storageUsedBytes || 0;
-    const storageLimit = activeLicense?.maxStorageBytes || 10737418240; // 10GB default
+    const storageLimit = activeLicense?.maxStorageBytes || 524288000; // 500MB default
 
     // Calculate license status
     let licenseStatus = 'no_license';

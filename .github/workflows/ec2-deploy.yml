@@ -41,7 +41,7 @@ jobs:
             npm --version || echo "npm command failed"
             
             # Navigate to project directory
-            cd ${{ secrets.EC2_PROJECT_PATH || '~/ds' }}
+            cd ${{ secrets.EC2_PROJECT_PATH || '~/digitalsignage' }}
             
             # Show current branch
             echo "📍 Current branch: $(git branch --show-current)"
@@ -73,12 +73,12 @@ jobs:
             which pm2 || echo "pm2 not found in PATH"
             
             # Check if PM2 process exists
-            if pm2 describe dsinfra > /dev/null 2>&1; then
+            if pm2 describe digitalsignage > /dev/null 2>&1; then
               echo "♻️  Reloading existing PM2 process..."
-              pm2 reload dsinfra --update-env
+              pm2 reload digitalsignage --update-env
             else
               echo "🆕 Starting new PM2 process..."
-              pm2 start index.js --name dsinfra
+              pm2 start index.js --name digitalsignage
             fi
             
             # Save PM2 process list
@@ -91,7 +91,7 @@ jobs:
             
             # Show application logs (last 20 lines)
             echo "📋 Recent logs:"
-            pm2 logs dsinfra --lines 20 --nostream
+            pm2 logs digitalsignage --lines 20 --nostream
 
       - name: Deployment Status
         if: always()

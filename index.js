@@ -3,10 +3,19 @@ require('dotenv').config();
 
 const express = require('express');
 const session = require('express-session');
+const cors = require('cors');
 const app = express();
 const { envConfig } = require('./config');
 const { testConnection } = require('./models');
 const { runMigrations } = require('./utils/migrate');
+
+// CORS configuration
+app.use(cors({
+    origin: '*', // Allow all origins (you can restrict this to specific domains)
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));

@@ -133,7 +133,7 @@ router.post('/playlists/device/register', async (req, res) => {
 
     if (!playlist) {
       // Show all available playlist codes for debugging
-      const allPlaylists = await Playlist.findAll({
+      const allPlaylists = await Playlist.findAll({ 
         where: { isActive: true }, 
         attributes: ['code', 'name', 'id'] 
       });

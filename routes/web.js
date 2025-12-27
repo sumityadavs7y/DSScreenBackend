@@ -373,6 +373,14 @@ router.post('/company-selection', async (req, res) => {
 });
 
 /**
+ * GET /privacy-policy
+ * Show privacy policy page
+ */
+router.get('/privacy-policy', (req, res) => {
+  res.sendFile(require('path').join(__dirname, '../public/privacy-policy.html'));
+});
+
+/**
  * POST /logout
  * Logout user
  */

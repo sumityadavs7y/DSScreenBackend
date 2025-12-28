@@ -4,12 +4,14 @@ const fs = require('fs');
 const { s3Config } = require('../config');
 
 /**
- * Initialize S3 client
+ * Initialize S3 client with Signature Version 4
+ * Required for regions like ap-south-1, eu-central-1, etc.
  */
 const s3 = new AWS.S3({
   region: s3Config.region,
   accessKeyId: s3Config.accessKeyId,
   secretAccessKey: s3Config.secretAccessKey,
+  signatureVersion: 'v4', // Use AWS Signature Version 4 (required for newer regions)
 });
 
 /**

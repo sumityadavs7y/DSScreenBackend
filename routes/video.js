@@ -754,10 +754,18 @@ router.get('/:videoId/thumbnail', async (req, res) => {
   }
 });
 
+// In-memory cache for pre-signed URLs
+// Structure: { videoId: { url: string, expiresAt: Date, data: object } }
+const urlCache = new Map();
+
+// Cache duration: 25 minutes (5 min buffer before 30 min expiry)
+const CACHE_DURATION_MS = 25 * 60 * 1000;
+
 /**
  * GET /api/videos/:videoId/stream-url
  * Get a pre-signed URL for direct S3 streaming (no server bandwidth)
  * Returns a secure, temporary URL that expires in 30 minutes
+ * Uses caching: Multiple devices get the same URL (efficient for 1000s of devices)
  * PUBLIC ENDPOINT - No authentication required (URL is secure and temporary)
  * Perfect for: Device players, direct video streaming
  */
@@ -771,6 +779,28 @@ router.get('/:videoId/stream-url', async (req, res) => {
         success: false,
         message: 'Invalid video ID format',
       });
+    }
+
+    // Check cache first
+    const cached = urlCache.get(videoId);
+    const now = Date.now();
+    
+    if (cached && now < cached.expiresAt) {
+      console.log(`✅ Returning cached stream URL for video: ${videoId} (cache hit)`);
+      return res.json({
+        success: true,
+        data: {
+          ...cached.data,
+          cached: true,
+          cacheExpiresAt: new Date(cached.expiresAt).toISOString(),
+        },
+      });
+    }
+
+    // Cache miss or expired - generate new URL
+    if (cached) {
+      console.log(`🔄 Cache expired for video: ${videoId}, generating new URL`);
+      urlCache.delete(videoId);
     }
 
     // Find video (public access - no company check)
@@ -807,19 +837,29 @@ router.get('/:videoId/stream-url', async (req, res) => {
     const { getDownloadSignedUrl } = require('../utils/s3Storage');
     const signedUrlData = getDownloadSignedUrl(s3Key, 1800); // 1800 seconds = 30 minutes
 
-    console.log(`✅ Generated stream URL for video: ${video.fileName} (expires in 30 min)`);
+    // Prepare response data
+    const responseData = {
+      streamUrl: signedUrlData.url,
+      videoId: video.id,
+      fileName: video.fileName,
+      fileSize: video.fileSize,
+      duration: video.duration,
+      expiresIn: signedUrlData.expiresIn,
+      expiresAt: signedUrlData.expiresAt,
+      cached: false,
+    };
+
+    // Cache the URL (expires 5 min before S3 URL expires)
+    urlCache.set(videoId, {
+      data: responseData,
+      expiresAt: now + CACHE_DURATION_MS,
+    });
+
+    console.log(`✅ Generated & cached stream URL for video: ${video.fileName} (cache for 25 min)`);
 
     return res.json({
       success: true,
-      data: {
-        streamUrl: signedUrlData.url,
-        videoId: video.id,
-        fileName: video.fileName,
-        fileSize: video.fileSize,
-        duration: video.duration,
-        expiresIn: signedUrlData.expiresIn,
-        expiresAt: signedUrlData.expiresAt,
-      },
+      data: responseData,
     });
   } catch (error) {
     console.error('Error generating stream URL:', error);
@@ -830,6 +870,23 @@ router.get('/:videoId/stream-url', async (req, res) => {
     });
   }
 });
+
+// Cleanup expired cache entries every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  let cleanedCount = 0;
+  
+  for (const [videoId, cached] of urlCache.entries()) {
+    if (now >= cached.expiresAt) {
+      urlCache.delete(videoId);
+      cleanedCount++;
+    }
+  }
+  
+  if (cleanedCount > 0) {
+    console.log(`🧹 Cleaned ${cleanedCount} expired URL(s) from cache`);
+  }
+}, 10 * 60 * 1000);
 
 /**
  * GET /api/videos/:videoId/download
@@ -1250,6 +1307,12 @@ router.delete('/:videoId',
         await transaction.commit();
         console.log('✅ Transaction committed - Delete operation complete');
 
+        // Invalidate cached URL for this video
+        if (urlCache.has(videoId)) {
+          urlCache.delete(videoId);
+          console.log('✅ Invalidated cached stream URL');
+        }
+
         res.json({
           success: true,
           message: 'Video deleted successfully',
@@ -1434,6 +1497,11 @@ router.post('/bulk-delete',
 
             // Commit transaction
             await videoTransaction.commit();
+
+            // Invalidate cached URL for this video
+            if (urlCache.has(video.id)) {
+              urlCache.delete(video.id);
+            }
 
             results.deleted.push({
               id: video.id,

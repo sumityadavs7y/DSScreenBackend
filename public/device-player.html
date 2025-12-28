@@ -616,8 +616,8 @@
                     console.log(`✅ Playing from cache: ${videoName}`);
                     videoURL = URL.createObjectURL(cachedVideo.blob);
                 } else {
-                    console.log(`🌐 Streaming: ${videoName}`);
-                    videoURL = getVideoURL(item.video.filePath);
+                    console.log(`🌐 Streaming from S3: ${videoName}`);
+                    videoURL = getVideoURL(videoId);
                 }
                 
                 // Set video source
@@ -785,12 +785,11 @@
 
         async function cacheVideo(item) {
             const videoId = item.video.id;
-            const videoPath = item.video.filePath;
             const videoName = item.video.fileName;
             
-            console.log(`📥 Caching in background: ${videoName}`);
+            console.log(`📥 Caching from S3: ${videoName}`);
             
-            const videoURL = getVideoURL(videoPath);
+            const videoURL = getVideoURL(videoId);
             const response = await fetch(videoURL);
             
             if (!response.ok) {
@@ -803,18 +802,13 @@
             console.log(`✅ Cached: ${videoName} (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
         }
 
-        function getVideoURL(videoPath) {
-            if (!videoPath) {
-                throw new Error('Video file path is missing');
+        function getVideoURL(videoId) {
+            if (!videoId) {
+                throw new Error('Video ID is missing');
             }
             
-            if (videoPath.startsWith('videos/')) {
-                return `/${videoPath}`;
-            } else if (videoPath.startsWith('http') || videoPath.startsWith('/')) {
-                return videoPath;
-            } else {
-                return `/videos/${videoPath}`;
-            }
+            // Use the API endpoint to stream from S3
+            return `/api/videos/${videoId}/download`;
         }
 
         function updateCacheIndicator(cached, total) {

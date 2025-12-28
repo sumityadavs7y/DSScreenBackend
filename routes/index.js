@@ -267,7 +267,7 @@ router.post('/playlists/device/register', async (req, res) => {
  */
 router.get('/api/playlists/:playlistId/timeline', async (req, res) => {
   try {
-    const { Playlist, PlaylistItem, Video } = require('../models');
+    const { Playlist, PlaylistItem, Video, Company, License } = require('../models');
     const { playlistId } = req.params;
 
     console.log('📋 Fetching timeline for playlist:', playlistId);
@@ -303,9 +303,42 @@ router.get('/api/playlists/:playlistId/timeline', async (req, res) => {
 
     console.log('✅ Found playlist with', playlist.items?.length || 0, 'items');
 
+    // Fetch company license information
+    const company = await Company.findOne({
+      where: {
+        id: playlist.companyId,
+        isActive: true,
+      },
+    });
+
+    let license = null;
+    if (company) {
+      const activeLicense = await License.findOne({
+        where: {
+          companyId: company.id,
+          isActive: true,
+        },
+        order: [['expiresAt', 'DESC']],
+      });
+
+      if (activeLicense) {
+        const now = new Date();
+        const expiresAt = new Date(activeLicense.expiresAt);
+        const isExpired = expiresAt < now;
+
+        license = {
+          expiresAt: activeLicense.expiresAt,
+          isExpired: isExpired,
+          isActive: !isExpired,
+        };
+      }
+    }
+
     res.json({
       success: true,
       data: playlist.items || [],
+      license: license,
+      timestamp: new Date().toISOString(),
     });
 
   } catch (error) {

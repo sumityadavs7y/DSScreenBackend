@@ -398,9 +398,42 @@
                     return;
                 }
                 
-                // Sort timeline items by order
-                timelineItems = [...playlist.items].sort((a, b) => a.order - b.order);
-                console.log(`📋 Timeline loaded: ${timelineItems.length} videos`);
+                // Check license status immediately on load
+                console.log('🔍 Checking license status...');
+                try {
+                    const timelineResponse = await fetch(`/api/playlists/${playlist.id}/timeline`);
+                    if (timelineResponse.ok) {
+                        const timelineResult = await timelineResponse.json();
+                        
+                        // Check license
+                        if (timelineResult.license) {
+                            const license = timelineResult.license;
+                            console.log('📜 License status:', license.isExpired ? '❌ EXPIRED' : '✅ Active', '| Expires:', license.expiresAt);
+                            
+                            if (license.isExpired || !license.isActive) {
+                                showError('License has expired. Please contact your administrator to renew the license.');
+                                return;
+                            }
+                        }
+                        
+                        // Update timeline with latest data
+                        if (timelineResult.data && timelineResult.data.length > 0) {
+                            timelineItems = [...timelineResult.data].sort((a, b) => a.order - b.order);
+                            console.log(`📋 Timeline loaded from server: ${timelineItems.length} videos`);
+                        } else {
+                            // Fallback to local data
+                            timelineItems = [...playlist.items].sort((a, b) => a.order - b.order);
+                            console.log(`📋 Timeline loaded from cache: ${timelineItems.length} videos`);
+                        }
+                    } else {
+                        // If API fails, use local data
+                        timelineItems = [...playlist.items].sort((a, b) => a.order - b.order);
+                        console.log(`📋 Timeline loaded from cache (API unavailable): ${timelineItems.length} videos`);
+                    }
+                } catch (err) {
+                    console.warn('⚠️  Failed to fetch initial timeline, using cached data:', err.message);
+                    timelineItems = [...playlist.items].sort((a, b) => a.order - b.order);
+                }
                 
                 // Update info overlay
                 const deviceUID = localStorage.getItem('deviceUID') || 'Unknown';
@@ -462,6 +495,34 @@
                 }
                 
                 const result = await response.json();
+                
+                // Check license status first
+                if (result.license) {
+                    const license = result.license;
+                    console.log('📜 License check:', license.isExpired ? '❌ EXPIRED' : '✅ Active', '| Expires:', license.expiresAt);
+                    
+                    // If license is expired, stop playback
+                    if (license.isExpired || !license.isActive) {
+                        console.error('❌ License has expired! Stopping playback...');
+                        
+                        // Stop video playback
+                        if (videoPlayer) {
+                            videoPlayer.pause();
+                            videoPlayer.src = '';
+                        }
+                        
+                        // Clear all intervals
+                        if (checkIntervalId) clearInterval(checkIntervalId);
+                        if (updateIntervalId) clearInterval(updateIntervalId);
+                        if (timelineCheckIntervalId) clearInterval(timelineCheckIntervalId);
+                        
+                        // Show license expired message
+                        showError('License has expired. Please contact your administrator to renew the license.');
+                        return;
+                    }
+                } else {
+                    console.warn('⚠️  No license information available');
+                }
                 
                 if (!result.success || !result.data || result.data.length === 0) {
                     console.log('No timeline data received');

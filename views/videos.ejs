@@ -276,7 +276,7 @@
                     <h5 class="modal-title"><i class="bi bi-cloud-upload"></i> Upload Video</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="uploadModalClose"></button>
                 </div>
-                <form id="uploadForm" enctype="multipart/form-data">
+                <form id="uploadForm" action="javascript:void(0);" enctype="multipart/form-data">
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="video" class="form-label">Select Video File</label>
@@ -649,134 +649,7 @@
             bulkDeleteModal.show();
         }
 
-        // Handle video upload with progress bar
-        document.getElementById('uploadForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const fileInput = document.getElementById('video');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                alert('Please select a video file');
-                return;
-            }
-
-            // Validate file type
-            const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo'];
-            if (!validTypes.includes(file.type)) {
-                alert('Please select a valid video file (MP4, WebM, OGG, MOV, AVI)');
-                return;
-            }
-
-            // Validate file size (500MB max)
-            const maxSize = 500 * 1024 * 1024;
-            if (file.size > maxSize) {
-                alert('File size exceeds 500MB limit');
-                return;
-            }
-
-            // Prepare form data
-            const formData = new FormData();
-            formData.append('video', file);
-
-            // Get UI elements
-            const progressContainer = document.getElementById('uploadProgressContainer');
-            const progressBar = document.getElementById('uploadProgressBar');
-            const progressPercent = document.getElementById('uploadProgressPercent');
-            const submitBtn = document.getElementById('uploadSubmitBtn');
-            const cancelBtn = document.getElementById('uploadCancelBtn');
-            const closeBtn = document.getElementById('uploadModalClose');
-
-            // Show progress bar and disable buttons
-            progressContainer.style.display = 'block';
-            submitBtn.disabled = true;
-            cancelBtn.disabled = true;
-            closeBtn.disabled = true;
-            fileInput.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading...';
-
-            // Create XMLHttpRequest for progress tracking
-            const xhr = new XMLHttpRequest();
-
-            // Track upload progress
-            xhr.upload.addEventListener('progress', function(e) {
-                if (e.lengthComputable) {
-                    const percentComplete = Math.round((e.loaded / e.total) * 100);
-                    progressBar.style.width = percentComplete + '%';
-                    progressBar.setAttribute('aria-valuenow', percentComplete);
-                    progressPercent.textContent = percentComplete;
-                }
-            });
-
-            // Handle completion
-            xhr.addEventListener('load', function() {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        // Success - reload the page to show the new video
-                        window.location.href = '/dashboard/videos?success=' + encodeURIComponent('Video uploaded successfully!');
-                    } catch (error) {
-                        alert('Upload completed but response was invalid');
-                        resetUploadForm();
-                    }
-                } else {
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        alert('Upload failed: ' + (response.message || 'Unknown error'));
-                    } catch (error) {
-                        alert('Upload failed with status: ' + xhr.status);
-                    }
-                    resetUploadForm();
-                }
-            });
-
-            // Handle errors
-            xhr.addEventListener('error', function() {
-                alert('Upload failed: Network error');
-                resetUploadForm();
-            });
-
-            // Handle abort
-            xhr.addEventListener('abort', function() {
-                alert('Upload cancelled');
-                resetUploadForm();
-            });
-
-            // Send request
-            xhr.open('POST', '/api/videos/upload');
-            xhr.withCredentials = true; // Include cookies for authentication
-            xhr.send(formData);
-
-            // Store xhr for potential cancellation
-            window.currentUploadXHR = xhr;
-        });
-
-        // Reset upload form
-        function resetUploadForm() {
-            const progressContainer = document.getElementById('uploadProgressContainer');
-            const progressBar = document.getElementById('uploadProgressBar');
-            const progressPercent = document.getElementById('uploadProgressPercent');
-            const submitBtn = document.getElementById('uploadSubmitBtn');
-            const cancelBtn = document.getElementById('uploadCancelBtn');
-            const closeBtn = document.getElementById('uploadModalClose');
-            const fileInput = document.getElementById('video');
-
-            progressContainer.style.display = 'none';
-            progressBar.style.width = '0%';
-            progressBar.setAttribute('aria-valuenow', 0);
-            progressPercent.textContent = '0';
-            submitBtn.disabled = false;
-            cancelBtn.disabled = false;
-            closeBtn.disabled = false;
-            fileInput.disabled = false;
-            submitBtn.innerHTML = '<i class="bi bi-upload"></i> Upload';
-            fileInput.value = '';
-        }
-
-        // Reset form when modal is closed
-        document.getElementById('uploadModal').addEventListener('hidden.bs.modal', function() {
-            resetUploadForm();
-        });
+        // Legacy upload code removed - now using direct S3 upload (see event listener above)
     </script>
 </body>
 </html>

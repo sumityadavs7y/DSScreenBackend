@@ -755,11 +755,89 @@ router.get('/:videoId/thumbnail', async (req, res) => {
 });
 
 /**
+ * GET /api/videos/:videoId/stream-url
+ * Get a pre-signed URL for direct S3 streaming (no server bandwidth)
+ * Returns a secure, temporary URL that expires in 30 minutes
+ * PUBLIC ENDPOINT - No authentication required (URL is secure and temporary)
+ * Perfect for: Device players, direct video streaming
+ */
+router.get('/:videoId/stream-url', async (req, res) => {
+  try {
+    const { videoId } = req.params;
+
+    // Validate UUID format
+    if (!isValidUUID(videoId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid video ID format',
+      });
+    }
+
+    // Find video (public access - no company check)
+    const video = await Video.findOne({
+      where: {
+        id: videoId,
+        isActive: true,
+      },
+    });
+
+    if (!video) {
+      return res.status(404).json({
+        success: false,
+        message: 'Video not found',
+      });
+    }
+
+    // Get S3 key from video filePath
+    const s3Key = video.filePath;
+
+    // Check if file exists in S3
+    const { s3FileExists } = require('../utils/s3Storage');
+    const fileExists = await s3FileExists(s3Key);
+    
+    if (!fileExists) {
+      console.error('Video file not found in S3:', s3Key);
+      return res.status(404).json({
+        success: false,
+        message: 'Video file not found in storage',
+      });
+    }
+
+    // Generate pre-signed URL for direct S3 access (30 minutes expiry)
+    const { getDownloadSignedUrl } = require('../utils/s3Storage');
+    const signedUrlData = getDownloadSignedUrl(s3Key, 1800); // 1800 seconds = 30 minutes
+
+    console.log(`✅ Generated stream URL for video: ${video.fileName} (expires in 30 min)`);
+
+    return res.json({
+      success: true,
+      data: {
+        streamUrl: signedUrlData.url,
+        videoId: video.id,
+        fileName: video.fileName,
+        fileSize: video.fileSize,
+        duration: video.duration,
+        expiresIn: signedUrlData.expiresIn,
+        expiresAt: signedUrlData.expiresAt,
+      },
+    });
+  } catch (error) {
+    console.error('Error generating stream URL:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to generate stream URL',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+});
+
+/**
  * GET /api/videos/:videoId/download
- * Download or stream a video file from S3
+ * Download or stream a video file from S3 (LEGACY - streams through server)
+ * NOTE: For better performance, use /stream-url endpoint for direct S3 access
  * PUBLIC ENDPOINT - No authentication required
  * Supports: Range requests for video streaming
- * Perfect for: Digital signage displays, public viewing, embedded players
+ * Perfect for: Backwards compatibility, server-side processing
  */
 router.get('/:videoId/download', async (req, res) => {
   try {

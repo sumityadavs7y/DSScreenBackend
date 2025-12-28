@@ -616,8 +616,12 @@
                     console.log(`✅ Playing from cache: ${videoName}`);
                     videoURL = URL.createObjectURL(cachedVideo.blob);
                 } else {
-                    console.log(`🌐 Streaming from S3: ${videoName}`);
-                    videoURL = getVideoURL(videoId);
+                    console.log(`🌐 Streaming directly from S3: ${videoName}`);
+                    const streamData = await getVideoStreamURL(videoId);
+                    videoURL = streamData.streamUrl;
+                    
+                    // Store expiry time for potential refresh
+                    window.currentVideoExpiry = new Date(streamData.expiresAt).getTime();
                 }
                 
                 // Set video source
@@ -787,10 +791,11 @@
             const videoId = item.video.id;
             const videoName = item.video.fileName;
             
-            console.log(`📥 Caching from S3: ${videoName}`);
+            console.log(`📥 Caching directly from S3: ${videoName}`);
             
-            const videoURL = getVideoURL(videoId);
-            const response = await fetch(videoURL);
+            // Get direct S3 streaming URL
+            const streamData = await getVideoStreamURL(videoId);
+            const response = await fetch(streamData.streamUrl);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
@@ -802,13 +807,27 @@
             console.log(`✅ Cached: ${videoName} (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
         }
 
-        function getVideoURL(videoId) {
+        async function getVideoStreamURL(videoId) {
             if (!videoId) {
                 throw new Error('Video ID is missing');
             }
             
-            // Use the API endpoint to stream from S3
-            return `/api/videos/${videoId}/download`;
+            // Request pre-signed URL from server
+            const response = await fetch(`/api/videos/${videoId}/stream-url`);
+            
+            if (!response.ok) {
+                throw new Error(`Failed to get stream URL: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (!result.success || !result.data || !result.data.streamUrl) {
+                throw new Error('Invalid stream URL response');
+            }
+            
+            console.log(`🔑 Got direct S3 stream URL (valid for ${result.data.expiresIn / 60} minutes)`);
+            
+            return result.data;
         }
 
         function updateCacheIndicator(cached, total) {

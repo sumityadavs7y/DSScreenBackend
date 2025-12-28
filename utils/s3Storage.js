@@ -182,7 +182,7 @@ const getUploadSignedUrl = (s3Key, contentType, expiresIn = 900) => {
     throw new Error('S3 key (file path) is required');
   }
   
-  console.log('🔑 Generating pre-signed URL:', {
+  console.log('🔑 Generating upload pre-signed URL:', {
     bucket: s3Config.bucket,
     key: s3Key,
     region: s3Config.region,
@@ -199,13 +199,57 @@ const getUploadSignedUrl = (s3Key, contentType, expiresIn = 900) => {
   
   const signedUrl = s3.getSignedUrl('putObject', params);
   
-  console.log('✅ Pre-signed URL generated:', signedUrl.substring(0, 100) + '...');
+  console.log('✅ Upload pre-signed URL generated:', signedUrl.substring(0, 100) + '...');
   
   return {
     url: signedUrl,
     key: s3Key,
     bucket: s3Config.bucket,
     contentType: contentType, // Return for reference only
+  };
+};
+
+/**
+ * Generate pre-signed URL for direct download/streaming from S3
+ * Allows clients to stream videos directly from S3 without going through server
+ * @param {string} s3Key - S3 key (path in bucket)
+ * @param {number} expiresIn - URL expiration time in seconds (default: 30 minutes = 1800 seconds)
+ * @returns {Object} Pre-signed URL and metadata
+ */
+const getDownloadSignedUrl = (s3Key, expiresIn = 1800) => {
+  // Validate required parameters
+  if (!s3Config.bucket) {
+    throw new Error('S3 bucket name is not configured. Please set AWS_S3_BUCKET environment variable.');
+  }
+  if (!s3Key) {
+    throw new Error('S3 key (file path) is required');
+  }
+  
+  console.log('📥 Generating download pre-signed URL:', {
+    bucket: s3Config.bucket,
+    key: s3Key,
+    region: s3Config.region,
+    expiresIn: `${expiresIn}s (${expiresIn / 60} minutes)`,
+  });
+  
+  const params = {
+    Bucket: s3Config.bucket,
+    Key: s3Key,
+    Expires: expiresIn,
+    // ResponseContentDisposition can be added if you want to force download vs inline
+    // ResponseContentDisposition: 'inline', // or 'attachment; filename="video.mp4"'
+  };
+  
+  const signedUrl = s3.getSignedUrl('getObject', params);
+  
+  console.log('✅ Download pre-signed URL generated (valid for', expiresIn / 60, 'minutes)');
+  
+  return {
+    url: signedUrl,
+    key: s3Key,
+    bucket: s3Config.bucket,
+    expiresIn,
+    expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
   };
 };
 
@@ -345,6 +389,7 @@ module.exports = {
   deleteFromS3,
   getSignedUrl,
   getUploadSignedUrl,
+  getDownloadSignedUrl,
   getUploadPresignedPost,
   downloadFromS3,
   getS3Stream,

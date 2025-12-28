@@ -4,6 +4,27 @@ const fs = require('fs');
 const { s3Config } = require('../config');
 
 /**
+ * Validate S3 configuration
+ */
+if (!s3Config.bucket) {
+  console.error('❌ S3 Configuration Error: AWS_S3_BUCKET is not set!');
+  console.error('Please set AWS_S3_BUCKET in your .env file');
+}
+if (!s3Config.region) {
+  console.error('❌ S3 Configuration Error: AWS_REGION is not set!');
+}
+if (!s3Config.accessKeyId || !s3Config.secretAccessKey) {
+  console.error('❌ S3 Configuration Error: AWS credentials are not set!');
+}
+
+console.log('✅ S3 Configuration:', {
+  region: s3Config.region,
+  bucket: s3Config.bucket,
+  hasAccessKey: !!s3Config.accessKeyId,
+  hasSecretKey: !!s3Config.secretAccessKey,
+});
+
+/**
  * Initialize S3 client with Signature Version 4
  * Required for regions like ap-south-1, eu-central-1, etc.
  */
@@ -153,6 +174,21 @@ const getSignedUrl = (s3Key, expiresIn = 3600) => {
  * @returns {Object} Pre-signed URL and fields
  */
 const getUploadSignedUrl = (s3Key, contentType, expiresIn = 900) => {
+  // Validate required parameters
+  if (!s3Config.bucket) {
+    throw new Error('S3 bucket name is not configured. Please set AWS_S3_BUCKET environment variable.');
+  }
+  if (!s3Key) {
+    throw new Error('S3 key (file path) is required');
+  }
+  
+  console.log('🔑 Generating pre-signed URL:', {
+    bucket: s3Config.bucket,
+    key: s3Key,
+    region: s3Config.region,
+    expiresIn,
+  });
+  
   const params = {
     Bucket: s3Config.bucket,
     Key: s3Key,
@@ -162,6 +198,8 @@ const getUploadSignedUrl = (s3Key, contentType, expiresIn = 900) => {
   };
   
   const signedUrl = s3.getSignedUrl('putObject', params);
+  
+  console.log('✅ Pre-signed URL generated:', signedUrl.substring(0, 100) + '...');
   
   return {
     url: signedUrl,

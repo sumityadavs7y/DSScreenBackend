@@ -161,7 +161,7 @@ function renderVideoList() {
 }
 
 /**
- * Handle file upload
+ * Handle file upload - Direct S3 Upload Method
  */
 async function handleFileUpload(event) {
   const file = event.target.files[0];
@@ -183,22 +183,63 @@ async function handleFileUpload(event) {
     return;
   }
 
+  let videoId = null;
+
   try {
-    showLoading(true, 'Uploading video...');
+    // Step 1: Request upload URL
+    showLoading(true, 'Preparing upload...');
 
-    const formData = new FormData();
-    formData.append('video', file);
-
-    const response = await fetch('/api/videos/upload', {
+    const urlResponse = await fetch('/api/videos/request-upload-url', {
       method: 'POST',
       credentials: 'include',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type,
+      }),
     });
 
-    const data = await response.json();
+    const urlData = await urlResponse.json();
 
-    if (!response.ok) {
-      throw new Error(data.message || 'Upload failed');
+    if (!urlResponse.ok) {
+      throw new Error(urlData.message || 'Failed to get upload URL');
+    }
+
+    videoId = urlData.data.videoId;
+    const uploadUrl = urlData.data.uploadUrl;
+
+    // Step 2: Upload directly to S3
+    showLoading(true, 'Uploading to cloud storage...');
+
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      // Don't set Content-Type header - it triggers CORS preflight
+      // S3 will use the content type from the pre-signed URL signature
+      // headers: {
+      //   'Content-Type': file.type,
+      // },
+      body: file,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error('Failed to upload video to storage');
+    }
+
+    // Step 3: Complete the upload (extract metadata, generate thumbnail)
+    showLoading(true, 'Processing video...');
+
+    const completeResponse = await fetch(`/api/videos/${videoId}/complete-upload`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+
+    const completeData = await completeResponse.json();
+
+    if (!completeResponse.ok) {
+      throw new Error(completeData.message || 'Failed to process video');
     }
 
     showSuccess('Video uploaded successfully!');
@@ -207,10 +248,18 @@ async function handleFileUpload(event) {
   } catch (error) {
     console.error('Upload error:', error);
     showError('Upload failed: ' + error.message);
+    
+    // If we have a videoId but upload failed, optionally clean up
+    // (The backend will handle orphaned records, but you could add cleanup here)
   } finally {
     showLoading(false);
   }
 }
+
+// LEGACY UPLOAD METHOD REMOVED
+// The server-side upload endpoint (/api/videos/upload) has been deprecated
+// All uploads now use the direct S3 upload method (handleFileUpload above)
+// This saves server bandwidth and provides better performance
 
 /**
  * Start editing video name

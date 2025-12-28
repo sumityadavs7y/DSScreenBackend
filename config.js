@@ -36,3 +36,10 @@ exports.storageConfig = {
     maxFileSizeBytes: parseInt(process.env.MAX_FILE_SIZE_MB || '500') * 1024 * 1024,
 };
 
+exports.s3Config = {
+    region: process.env.AWS_REGION || 'us-east-1',
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET,
+    bucket: process.env.AWS_S3_BUCKET,
+};
+

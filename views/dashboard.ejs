@@ -338,24 +338,43 @@
     </div>
 
     <!-- Upload Modal -->
-    <div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal fade" id="uploadModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="bi bi-cloud-upload"></i> Upload Video</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="uploadModalClose"></button>
                 </div>
-                <form action="/dashboard/upload" method="POST" enctype="multipart/form-data">
+                <form id="uploadForm" action="javascript:void(0);" enctype="multipart/form-data">
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="video" class="form-label">Select Video File</label>
                             <input type="file" class="form-control" id="video" name="video" accept="video/*" required>
                             <small class="text-muted">Max size: 500MB. Supported: MP4, WebM, OGG, MOV, AVI</small>
                         </div>
+                        <!-- Progress Bar -->
+                        <div id="uploadProgressContainer" style="display: none; margin-top: 15px;">
+                            <div class="mb-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <small class="text-muted" id="uploadStatus">Uploading...</small>
+                                    <small class="text-muted"><span id="uploadProgressPercent">0</span>%</small>
+                                </div>
+                                <div class="progress" style="height: 20px;">
+                                    <div id="uploadProgressBar" 
+                                         class="progress-bar progress-bar-striped progress-bar-animated" 
+                                         role="progressbar" 
+                                         style="width: 0%"
+                                         aria-valuenow="0" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-gradient">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="uploadCancelBtn">Cancel</button>
+                        <button type="submit" class="btn btn-gradient" id="uploadSubmitBtn">
                             <i class="bi bi-upload"></i> Upload
                         </button>
                     </div>
@@ -437,6 +456,11 @@
     <script src="/js/video.min.js"></script>
     <script src="/js/toast.js"></script>
     <script>
+        // Ensure DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Dashboard JavaScript loaded - DOM ready');
+        });
+
         const editModal = new bootstrap.Modal(document.getElementById('editModal'));
         const bulkDeleteModal = new bootstrap.Modal(document.getElementById('bulkDeleteModal'));
         const videoPlayerModal = new bootstrap.Modal(document.getElementById('videoPlayerModal'));
@@ -524,6 +548,164 @@
             
             document.getElementById('selectedVideosList').innerHTML = listHtml;
             bulkDeleteModal.show();
+        }
+
+        // Handle direct S3 upload
+        const uploadForm = document.getElementById('uploadForm');
+        if (!uploadForm) {
+            console.error('❌ Upload form not found!');
+        } else {
+            console.log('✅ Attaching upload form event listener');
+            uploadForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                console.log('🚀 Form submitted - using direct S3 upload');
+            
+            const fileInput = document.getElementById('video');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a video file');
+                return;
+            }
+
+            const submitBtn = document.getElementById('uploadSubmitBtn');
+            const cancelBtn = document.getElementById('uploadCancelBtn');
+            const closeBtn = document.getElementById('uploadModalClose');
+            const progressContainer = document.getElementById('uploadProgressContainer');
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressPercent = document.getElementById('uploadProgressPercent');
+            const uploadStatus = document.getElementById('uploadStatus');
+
+            try {
+                // Disable buttons
+                submitBtn.disabled = true;
+                cancelBtn.disabled = true;
+                closeBtn.disabled = true;
+                fileInput.disabled = true;
+                progressContainer.style.display = 'block';
+
+                // Update progress
+                function updateProgress(percent, status) {
+                    progressBar.style.width = percent + '%';
+                    progressBar.setAttribute('aria-valuenow', percent);
+                    progressPercent.textContent = Math.round(percent);
+                    if (status) {
+                        uploadStatus.textContent = status;
+                    }
+                }
+
+                // Step 1: Request upload URL
+                console.log('Step 1: Requesting upload URL...');
+                updateProgress(10, 'Preparing upload...');
+                
+                const urlResponse = await fetch('/api/videos/request-upload-url', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileName: file.name,
+                        fileSize: file.size,
+                        mimeType: file.type,
+                    }),
+                });
+
+                if (!urlResponse.ok) {
+                    const error = await urlResponse.json();
+                    throw new Error(error.message || 'Failed to get upload URL');
+                }
+
+                const { data } = await urlResponse.json();
+                console.log('✅ Got upload URL. Video ID:', data.videoId);
+
+                // Step 2: Upload directly to S3 with progress
+                console.log('Step 2: Uploading to S3...');
+                updateProgress(20, 'Uploading to cloud storage...');
+
+                await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            const percent = 20 + (e.loaded / e.total) * 60; // 20% to 80%
+                            updateProgress(percent, `Uploading to cloud storage... ${(e.loaded / 1024 / 1024).toFixed(1)}MB / ${(e.total / 1024 / 1024).toFixed(1)}MB`);
+                        }
+                    });
+
+                    xhr.addEventListener('load', () => {
+                        if (xhr.status === 200) {
+                            console.log('✅ Successfully uploaded to S3');
+                            resolve();
+                        } else {
+                            console.error('❌ S3 upload failed with status:', xhr.status);
+                            reject(new Error('S3 upload failed'));
+                        }
+                    });
+
+                    xhr.addEventListener('error', () => {
+                        console.error('❌ Network error during S3 upload');
+                        reject(new Error('Network error during upload'));
+                    });
+
+                    xhr.open('PUT', data.uploadUrl);
+                    // Don't set Content-Type header - let browser set it automatically
+                    // Setting it manually triggers CORS preflight which S3 pre-signed URLs don't handle well
+                    // xhr.setRequestHeader('Content-Type', file.type);
+                    xhr.send(file);
+                });
+
+                // Step 3: Complete upload and process video
+                console.log('Step 3: Processing video...');
+                updateProgress(85, 'Processing video metadata...');
+
+                const completeResponse = await fetch(`/api/videos/${data.videoId}/complete-upload`, {
+                    method: 'POST',
+                    credentials: 'include',
+                });
+
+                console.log('Complete response status:', completeResponse.status);
+
+                if (!completeResponse.ok) {
+                    let errorMessage = 'Failed to process video';
+                    try {
+                        const error = await completeResponse.json();
+                        console.error('Complete-upload error response:', error);
+                        errorMessage = error.message || errorMessage;
+                    } catch (e) {
+                        console.error('Could not parse error response');
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const result = await completeResponse.json();
+                console.log('✅ Upload complete! Result:', result);
+
+                if (!result.success) {
+                    throw new Error(result.message || 'Upload completed but with errors');
+                }
+
+                updateProgress(100, 'Upload complete!');
+
+                // Success! Reload page after a short delay
+                setTimeout(() => {
+                    window.location.href = window.location.pathname + '?success=' + encodeURIComponent('Video uploaded successfully!');
+                }, 500);
+
+            } catch (error) {
+                console.error('❌ Upload error:', error);
+                alert('Upload failed: ' + error.message);
+                
+                // Reset form
+                progressContainer.style.display = 'none';
+                progressBar.style.width = '0%';
+                progressPercent.textContent = '0';
+                uploadStatus.textContent = 'Uploading...';
+                submitBtn.disabled = false;
+                cancelBtn.disabled = false;
+                closeBtn.disabled = false;
+                fileInput.disabled = false;
+                fileInput.value = '';
+            }
+            });
         }
     </script>
 </body>

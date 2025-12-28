@@ -11,40 +11,33 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { body, validationResult } = require('express-validator');
-const { Video, User, ScheduleItem, Schedule } = require('../models');
+const { Video, User, ScheduleItem, Schedule, Company } = require('../models');
 const { requireAuth, requireCompany, requireRole } = require('../middleware/sessionAuth');
 const { checkCompanyLicense } = require('../middleware/licenseCheck');
 const verifyToken = requireAuth; // Alias for compatibility
-const { storageConfig } = require('../config');
+const { storageConfig, envConfig } = require('../config');
 const {
-  ensureCompanyDir,
-  deleteFile,
   isValidVideoMimeType,
 } = require('../utils/fileStorage');
+const {
+  generateS3Key,
+  generateThumbnailS3Key,
+  uploadToS3,
+  uploadBufferToS3,
+  deleteFromS3,
+  getS3Metadata,
+  getS3ObjectRange,
+  getUploadSignedUrl,
+  downloadFromS3,
+} = require('../utils/s3Storage');
+const { extractVideoMetadata, generateThumbnailAtPercentage } = require('../utils/videoMetadata');
+const { sequelize } = require('../models/sequelize');
 
 /**
  * Configure multer for video uploads
- * Files are stored in videos/{companyId}/ directory
+ * Files are temporarily stored in memory before uploading to S3
  */
-const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    try {
-      // Ensure company directory exists
-      const companyDir = await ensureCompanyDir(req.company.id);
-      cb(null, companyDir);
-    } catch (error) {
-      cb(error);
-    }
-  },
-  filename: (req, file, cb) => {
-    // Use original filename with timestamp to avoid immediate conflicts
-    const timestamp = Date.now();
-    const ext = path.extname(file.originalname);
-    const baseName = path.basename(file.originalname, ext);
-    const safeName = baseName.replace(/[^a-zA-Z0-9_-]/g, '_');
-    cb(null, `${safeName}_${timestamp}${ext}`);
-  }
-});
+const storage = multer.memoryStorage();
 
 /**
  * File filter to only accept video files
@@ -78,51 +71,26 @@ const isValidUUID = (str) => {
 };
 
 /**
- * POST /api/videos/upload
- * Upload a video file
- * Requires: accessToken, multipart/form-data with 'video' field
+ * POST /api/videos/request-upload-url
+ * Request a pre-signed URL for direct S3 upload
+ * Requires: accessToken
  * Allowed roles: owner, admin, manager, member
  */
-router.post('/upload',
+router.post('/request-upload-url',
   verifyToken,
+  requireCompany,
   requireRole('owner', 'admin', 'manager', 'member'),
   checkCompanyLicense,
-  (req, res, next) => {
-    upload.single('video')(req, res, (err) => {
-      if (err instanceof multer.MulterError) {
-        if (err.code === 'LIMIT_FILE_SIZE') {
-          const maxSizeMB = (storageConfig.maxFileSizeBytes / (1024 * 1024)).toFixed(0);
-          return res.status(400).json({
-            success: false,
-            message: `File size too large. Maximum allowed size is ${maxSizeMB}MB`,
-          });
-        }
-        return res.status(400).json({
-          success: false,
-          message: `Upload error: ${err.message}`,
-        });
-      } else if (err) {
-        return res.status(400).json({
-          success: false,
-          message: err.message || 'File upload failed',
-        });
-      }
-      next();
-    });
-  },
   [
+    body('fileName').trim().notEmpty().withMessage('File name is required'),
+    body('fileSize').isInt({ min: 1 }).withMessage('File size must be a positive integer'),
+    body('mimeType').trim().notEmpty().withMessage('MIME type is required'),
     body('displayName').optional().trim().notEmpty().withMessage('Display name cannot be empty'),
-    body('metadata').optional().isJSON().withMessage('Metadata must be valid JSON'),
   ],
   async (req, res) => {
     try {
-      // Validate request
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        // Delete uploaded file if validation fails
-        if (req.file) {
-          await deleteFile(path.join('videos', req.company.id, req.file.filename));
-        }
         return res.status(400).json({
           success: false,
           message: 'Validation failed',
@@ -130,15 +98,27 @@ router.post('/upload',
         });
       }
 
-      // Check if file was uploaded
-      if (!req.file) {
+      const { fileName, fileSize, mimeType, displayName } = req.body;
+
+      // Validate video MIME type
+      if (!isValidVideoMimeType(mimeType)) {
         return res.status(400).json({
           success: false,
-          message: 'No video file provided',
+          message: 'Invalid video file type',
         });
       }
 
-      // Check company storage limit from license
+      // Check file size against config
+      if (fileSize > storageConfig.maxFileSizeBytes) {
+        const maxSizeMB = (storageConfig.maxFileSizeBytes / (1024 * 1024)).toFixed(0);
+        const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(2);
+        return res.status(400).json({
+          success: false,
+          message: `File size (${fileSizeMB}MB) exceeds maximum allowed size of ${maxSizeMB}MB`,
+        });
+      }
+
+      // Check company storage limit
       const { License } = require('../models');
       const activeLicense = await License.findOne({
         where: {
@@ -147,20 +127,13 @@ router.post('/upload',
         }
       });
       
-      // Use license storage limit if available, otherwise fall back to config
       const companyStorageLimit = activeLicense?.maxStorageBytes || storageConfig.companyStorageLimitBytes;
-      
-      // Get current storage from company record (cached for performance)
       const currentUsage = req.company.storageUsedBytes || 0;
+      const newTotalSize = currentUsage + fileSize;
 
-      // Check if adding this file would exceed the limit
-      const newTotalSize = currentUsage + req.file.size;
       if (newTotalSize > companyStorageLimit) {
-        // Delete the uploaded file as it exceeds company limit
-        await deleteFile(path.join('videos', req.company.id, req.file.filename));
-        
         const currentUsageMB = (currentUsage / (1024 * 1024)).toFixed(2);
-        const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
+        const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(2);
         const limitMB = (companyStorageLimit / (1024 * 1024)).toFixed(2);
         
         return res.status(413).json({
@@ -168,47 +141,38 @@ router.post('/upload',
           message: `Company storage limit exceeded. Your company has used ${currentUsageMB}MB of ${limitMB}MB. This file (${fileSizeMB}MB) would exceed your storage quota.`,
           data: {
             currentUsage: currentUsage,
-            fileSize: req.file.size,
+            fileSize: fileSize,
             limit: companyStorageLimit,
             availableSpace: companyStorageLimit - currentUsage,
           }
         });
       }
 
-      // Get display name from request or use original filename
-      let displayName = req.body.displayName || path.basename(
-        req.file.originalname,
-        path.extname(req.file.originalname)
-      );
+      // Get display name
+      let finalDisplayName = displayName || path.basename(fileName, path.extname(fileName));
 
-      // Check if a video with this display name already exists and auto-number if needed
-      // NOTE: Check ALL videos (active and inactive) because DB constraint applies to all
-      const baseDisplayName = displayName;
+      // Check for duplicate names and auto-number if needed
+      // Only check active videos - inactive ones are from failed uploads
+      const baseDisplayName = finalDisplayName;
       let counter = 1;
-      let finalDisplayName = displayName;
       
       while (true) {
         const existingVideo = await Video.findOne({
           where: {
             companyId: req.company.id,
             fileName: finalDisplayName,
-            // Don't filter by isActive - DB constraint applies to all records
+            isActive: true, // Only check active videos
           },
         });
 
         if (!existingVideo) {
-          // Name is available
-          displayName = finalDisplayName;
           break;
         }
 
-        // Name exists, try next number
         finalDisplayName = `${baseDisplayName} (${counter})`;
         counter++;
 
-        // Safety limit to prevent infinite loops
         if (counter > 1000) {
-          await deleteFile(path.join('videos', req.company.id, req.file.filename));
           return res.status(400).json({
             success: false,
             message: 'Unable to generate unique filename. Please use a different name.',
@@ -216,83 +180,356 @@ router.post('/upload',
         }
       }
 
-      // Parse metadata if provided
-      let metadata = {};
-      if (req.body.metadata) {
-        try {
-          metadata = JSON.parse(req.body.metadata);
-        } catch (e) {
-          metadata = {};
-        }
-      }
+      // Clean up any orphaned inactive videos with the same name
+      // (from previous failed uploads)
+      // IMPORTANT: Use force: true to hard delete, otherwise unique constraint still applies
+      await Video.destroy({
+        where: {
+          companyId: req.company.id,
+          fileName: finalDisplayName,
+          isActive: false,
+        },
+        force: true, // Hard delete - actually remove from database
+      });
 
-      // Create video record in database
+      // Create video record in database (status: uploading)
       const video = await Video.create({
         companyId: req.company.id,
         uploadedBy: req.user.id,
-        fileName: displayName,
-        originalFileName: req.file.originalname,
-        filePath: path.join('videos', req.company.id, req.file.filename),
-        fileSize: req.file.size,
-        mimeType: req.file.mimetype,
-        metadata: metadata,
-        isActive: true,
+        fileName: finalDisplayName,
+        originalFileName: fileName,
+        filePath: '', // Will be updated after upload
+        fileSize: fileSize,
+        mimeType: mimeType,
+        metadata: { uploadStatus: 'pending' },
+        isActive: false, // Will be activated after successful upload
       });
 
-      // Update company storage usage
-      const { Company } = require('../models');
-      await Company.increment('storageUsedBytes', {
-        by: req.file.size,
-        where: { id: req.company.id }
-      });
+      // Generate S3 key
+      const env = envConfig.envMode === 'production' ? 'prod' : 'dev';
+      const ext = path.extname(fileName);
+      const s3Key = generateS3Key(env, req.company.name, req.company.id, video.id, ext);
 
-      // Check if name was auto-numbered
-      const wasRenamed = displayName !== baseDisplayName;
+      // Generate pre-signed URL
+      const uploadUrl = getUploadSignedUrl(s3Key, mimeType, 900); // 15 minutes expiry
 
-      res.status(201).json({
+      // Update video with S3 key
+      await video.update({ filePath: s3Key });
+
+      res.status(200).json({
         success: true,
-        message: wasRenamed 
-          ? `Video uploaded successfully. Name was changed to "${displayName}" to avoid duplicates.`
-          : 'Video uploaded successfully',
+        message: 'Upload URL generated successfully',
         data: {
-          id: video.id,
-          fileName: video.fileName,
-          originalName: baseDisplayName,
-          fileSize: video.fileSize,
-          mimeType: video.mimeType,
-          uploadedAt: video.createdAt,
-          wasRenamed: wasRenamed,
+          videoId: video.id,
+          uploadUrl: uploadUrl.url,
+          s3Key: uploadUrl.key,
+          fileName: finalDisplayName,
+          expiresIn: 900, // 15 minutes
+          wasRenamed: finalDisplayName !== baseDisplayName,
         },
       });
     } catch (error) {
-      console.error('Upload video error:', error);
+      console.error('Request upload URL error:', error);
       
-      // Clean up uploaded file if database insert fails
-      if (req.file) {
-        try {
-          await deleteFile(path.join('videos', req.company.id, req.file.filename));
-          console.log('Cleaned up orphaned file:', req.file.filename);
-        } catch (cleanupError) {
-          console.error('Error cleaning up file:', cleanupError);
-        }
-      }
-
-      // Handle specific database errors
+      // Handle unique constraint violation
       if (error.name === 'SequelizeUniqueConstraintError') {
         return res.status(409).json({
           success: false,
-          message: 'A video with this name already exists. Please use a different name.',
+          message: 'A video with this name already exists. Please try a different name or delete the existing video first.',
+          error: process.env.NODE_ENV === 'development' ? error.message : undefined,
         });
       }
-
+      
       res.status(500).json({
         success: false,
-        message: 'An error occurred while uploading the video',
+        message: 'An error occurred while generating upload URL',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined,
       });
     }
   }
 );
+
+/**
+ * POST /api/videos/:videoId/complete-upload
+ * Complete the upload process after direct S3 upload
+ * Extracts metadata and generates thumbnail
+ * Requires: accessToken
+ * Allowed roles: owner, admin, manager, member
+ */
+router.post('/:videoId/complete-upload',
+  verifyToken,
+  requireCompany,
+  requireRole('owner', 'admin', 'manager', 'member'),
+  async (req, res) => {
+    try {
+      const { videoId } = req.params;
+
+      if (!isValidUUID(videoId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid video ID format',
+        });
+      }
+
+      // Find video record
+      const video = await Video.findOne({
+        where: {
+          id: videoId,
+          companyId: req.company.id,
+          uploadedBy: req.user.id,
+        },
+      });
+
+      if (!video) {
+        return res.status(404).json({
+          success: false,
+          message: 'Video not found',
+        });
+      }
+
+      if (video.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: 'Video upload already completed',
+        });
+      }
+
+      // Verify file exists in S3
+      const s3Key = video.filePath;
+      const fileExists = await getS3Metadata(s3Key).then(() => true).catch(() => false);
+
+      if (!fileExists) {
+        return res.status(404).json({
+          success: false,
+          message: 'Video file not found in storage. Upload may have failed.',
+        });
+      }
+
+      // Download temporarily for processing
+      const ext = path.extname(video.originalFileName);
+      const tempFilePath = path.join('/tmp', `${video.id}${ext}`);
+      
+      try {
+        await downloadFromS3(s3Key, tempFilePath);
+
+        // Extract video metadata
+        let videoMetadata = {};
+        let duration = null;
+        let resolution = null;
+        let thumbnailPath = null;
+
+        try {
+          const extractedMetadata = await extractVideoMetadata(tempFilePath);
+          
+          duration = extractedMetadata.duration;
+          resolution = extractedMetadata.resolution;
+          videoMetadata = {
+            codec: extractedMetadata.codec,
+            bitrate: extractedMetadata.bitrate,
+            fps: extractedMetadata.fps,
+            format: extractedMetadata.format,
+            uploadStatus: 'completed',
+          };
+
+          console.log('✅ Video metadata extracted:', { duration, resolution });
+
+          // Generate thumbnail
+          try {
+            const thumbnailTempPath = path.join('/tmp', `${video.id}_thumb.jpg`);
+            await generateThumbnailAtPercentage(tempFilePath, thumbnailTempPath, 10);
+            
+            // Upload thumbnail to S3
+            const env = envConfig.envMode === 'production' ? 'prod' : 'dev';
+            const thumbnailS3Key = generateThumbnailS3Key(env, req.company.name, req.company.id, video.id);
+            const thumbnailBuffer = fs.readFileSync(thumbnailTempPath);
+            await uploadBufferToS3(thumbnailBuffer, thumbnailS3Key, 'image/jpeg');
+            thumbnailPath = thumbnailS3Key;
+            
+            // Clean up temp thumbnail
+            fs.unlinkSync(thumbnailTempPath);
+            
+            console.log('✅ Thumbnail generated and uploaded:', thumbnailPath);
+          } catch (thumbError) {
+            console.error('⚠️  Failed to generate thumbnail:', thumbError.message);
+          }
+        } catch (metadataError) {
+          console.error('⚠️  Failed to extract video metadata:', metadataError.message);
+          videoMetadata = { uploadStatus: 'completed_no_metadata' };
+        }
+
+        // Clean up temporary video file
+        fs.unlinkSync(tempFilePath);
+
+        // ATOMIC UPDATE: Use transaction for database operations
+        const transaction = await sequelize.transaction();
+        
+        try {
+          // Update video record (within transaction)
+          await video.update({
+            duration: duration,
+            resolution: resolution,
+            thumbnailPath: thumbnailPath,
+            metadata: videoMetadata,
+            isActive: true,
+          }, { transaction });
+
+          // Update company storage usage (within transaction)
+          await Company.increment('storageUsedBytes', {
+            by: video.fileSize,
+            where: { id: req.company.id },
+            transaction,
+          });
+
+          // Commit transaction
+          await transaction.commit();
+          console.log('✅ Database transaction committed - Upload complete');
+
+          res.status(200).json({
+            success: true,
+            message: 'Upload completed successfully',
+            data: {
+              id: video.id,
+              fileName: video.fileName,
+              fileSize: video.fileSize,
+              duration: duration,
+              resolution: resolution,
+              hasThumbnail: !!thumbnailPath,
+              uploadedAt: video.createdAt,
+            },
+          });
+        } catch (dbError) {
+          // Rollback transaction
+          await transaction.rollback();
+          console.error('❌ Database update failed, rolling back:', dbError);
+          
+          // CLEANUP: Delete S3 files since DB update failed (maintain atomicity)
+          console.log('🗑️  Cleaning up S3 files due to database failure...');
+          try {
+            await deleteFromS3(s3Key);
+            if (thumbnailPath) {
+              await deleteFromS3(thumbnailPath);
+            }
+            console.log('✅ S3 cleanup complete');
+          } catch (cleanupError) {
+            console.error('⚠️  S3 cleanup failed:', cleanupError.message);
+          }
+
+          // Delete the database record too
+          try {
+            await video.destroy({ force: true });
+            console.log('✅ Database record cleaned up');
+          } catch (destroyError) {
+            console.error('⚠️  Failed to cleanup database record:', destroyError.message);
+          }
+
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to complete upload. All changes have been rolled back.',
+            error: process.env.NODE_ENV === 'development' ? dbError.message : undefined,
+          });
+        }
+      } catch (processingError) {
+        console.error('Error processing uploaded video:', processingError);
+        
+        // Clean up temp file if it exists
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+
+        // ATOMIC FAILURE HANDLING: Delete S3 files if processing fails
+        console.log('🗑️  Processing failed, cleaning up S3 files...');
+        try {
+          await deleteFromS3(s3Key);
+          if (thumbnailPath) {
+            await deleteFromS3(thumbnailPath);
+          }
+          console.log('✅ S3 cleanup complete');
+        } catch (cleanupError) {
+          console.error('⚠️  S3 cleanup failed:', cleanupError.message);
+        }
+
+        // Delete the incomplete database record
+        try {
+          await video.destroy({ force: true });
+          console.log('✅ Database record cleaned up');
+        } catch (destroyError) {
+          console.error('⚠️  Failed to cleanup database record:', destroyError.message);
+        }
+
+        return res.status(500).json({
+          success: false,
+          message: 'Upload processing failed. All changes have been rolled back.',
+          error: process.env.NODE_ENV === 'development' ? processingError.message : undefined,
+        });
+      }
+    } catch (error) {
+      console.error('Complete upload error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'An error occurred while completing the upload',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/videos/upload
+ * DEPRECATED: This endpoint has been removed to save server bandwidth
+ * Use the direct S3 upload flow instead:
+ *   1. POST /api/videos/request-upload-url - Get pre-signed URL
+ *   2. PUT to S3 URL - Upload directly from client to S3
+ *   3. POST /api/videos/:videoId/complete-upload - Complete the upload
+ */
+router.post('/upload',
+  verifyToken,
+  requireRole('owner', 'admin', 'manager', 'member'),
+  async (req, res) => {
+    return res.status(410).json({
+      success: false,
+      message: 'This endpoint has been deprecated. Please use the direct S3 upload flow.',
+      migration: {
+        reason: 'Server-side uploads consume double bandwidth (client→server→S3). Direct uploads are faster and more efficient.',
+        newFlow: [
+          '1. POST /api/videos/request-upload-url with {fileName, fileSize, mimeType}',
+          '2. PUT directly to the returned uploadUrl with video file',
+          '3. POST /api/videos/{videoId}/complete-upload to finalize'
+        ],
+        documentation: 'See S3_DIRECT_UPLOAD_GUIDE.md for complete implementation guide'
+      }
+    });
+  }
+);
+
+/**
+ * REMOVED: The following 240+ lines of legacy upload code have been removed
+ * Reason: Replaced by atomic direct S3 upload (see above endpoints)
+ * Previous functionality:
+ *   - Validated file upload
+ *   - Checked storage limits
+ *   - Uploaded through server to S3 (inefficient - double bandwidth!)
+ *   - Created database record
+ * New functionality:
+ *   - Client uploads directly to S3 (single bandwidth usage)
+ *   - Server only handles metadata and database operations
+ *   - Atomic operations with automatic rollback
+ *   - Better performance and reliability
+ */
+
+// Original implementation removed. If you need to restore it for some reason,
+// check git history before this commit.
+
+//router.post('/upload', ... 240+ lines removed ...);
+
+// Continue with other endpoints below
+
+/**
+ * Legacy upload endpoint implementation has been completely removed.
+ * All uploads now use the atomic direct S3 upload flow.
+ * This saves ~240 lines of code and eliminates server bandwidth waste.
+ */
+
+// === END OF DEPRECATED UPLOAD ENDPOINT ===
 
 /**
  * GET /api/videos/storage
@@ -472,8 +709,54 @@ router.get('/:videoId', verifyToken, async (req, res) => {
 });
 
 /**
+ * GET /api/videos/:videoId/thumbnail
+ * Get video thumbnail from S3
+ * PUBLIC ENDPOINT - No authentication required
+ */
+router.get('/:videoId/thumbnail', async (req, res) => {
+  try {
+    const { videoId } = req.params;
+
+    // Validate UUID format
+    if (!isValidUUID(videoId)) {
+      return res.status(404).send('Not found');
+    }
+
+    // Find video
+    const video = await Video.findOne({
+      where: {
+        id: videoId,
+        isActive: true,
+      },
+    });
+
+    if (!video || !video.thumbnailPath) {
+      return res.status(404).send('Thumbnail not found');
+    }
+
+    // Get thumbnail from S3
+    try {
+      const s3Data = await getS3ObjectRange(video.thumbnailPath, 'bytes=0-');
+      
+      res.writeHead(200, {
+        'Content-Type': 'image/jpeg',
+        'Content-Length': s3Data.ContentLength,
+        'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+      });
+      res.end(s3Data.Body);
+    } catch (error) {
+      console.error('Thumbnail not found in S3:', video.thumbnailPath);
+      return res.status(404).send('Thumbnail not found');
+    }
+  } catch (error) {
+    console.error('Get thumbnail error:', error);
+    res.status(500).send('Error loading thumbnail');
+  }
+});
+
+/**
  * GET /api/videos/:videoId/download
- * Download or stream a video file
+ * Download or stream a video file from S3
  * PUBLIC ENDPOINT - No authentication required
  * Supports: Range requests for video streaming
  * Perfect for: Digital signage displays, public viewing, embedded players
@@ -505,21 +788,22 @@ router.get('/:videoId/download', async (req, res) => {
       });
     }
 
-    // Get full file path
-    const filePath = path.join(__dirname, '..', video.filePath);
+    // Get S3 key from video filePath
+    const s3Key = video.filePath;
 
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-      console.error('File not found on disk:', filePath);
+    // Get file metadata from S3
+    let metadata;
+    try {
+      metadata = await getS3Metadata(s3Key);
+    } catch (error) {
+      console.error('File not found in S3:', s3Key);
       return res.status(404).json({
         success: false,
-        message: 'Video file not found on server',
+        message: 'Video file not found in storage',
       });
     }
 
-    // Get file stats
-    const stat = fs.statSync(filePath);
-    const fileSize = stat.size;
+    const fileSize = metadata.ContentLength;
     const range = req.headers.range;
 
     // If range header exists, handle partial content (for video streaming)
@@ -528,7 +812,10 @@ router.get('/:videoId/download', async (req, res) => {
       const start = parseInt(parts[0], 10);
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
       const chunksize = (end - start) + 1;
-      const file = fs.createReadStream(filePath, { start, end });
+
+      // Get object from S3 with range
+      const rangeHeader = `bytes=${start}-${end}`;
+      const s3Data = await getS3ObjectRange(s3Key, rangeHeader);
 
       const head = {
         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
@@ -539,9 +826,11 @@ router.get('/:videoId/download', async (req, res) => {
       };
 
       res.writeHead(206, head);
-      file.pipe(res);
+      res.end(s3Data.Body);
     } else {
       // No range header, send entire file
+      const s3Data = await getS3ObjectRange(s3Key, `bytes=0-${fileSize - 1}`);
+
       const head = {
         'Content-Length': fileSize,
         'Content-Type': video.mimeType,
@@ -550,7 +839,7 @@ router.get('/:videoId/download', async (req, res) => {
       };
 
       res.writeHead(200, head);
-      fs.createReadStream(filePath).pipe(res);
+      res.end(s3Data.Body);
     }
   } catch (error) {
     console.error('Download video error:', error);
@@ -822,43 +1111,89 @@ router.delete('/:videoId',
         });
       }
 
-      // If forceDelete is true, remove from all schedules first
-      if (scheduleItems.length > 0 && forceDelete === 'true') {
-        await ScheduleItem.update(
-          { isActive: false },
-          {
-            where: {
-              videoId: videoId,
-              isActive: true,
-            },
+      // ATOMIC DELETE OPERATION
+      // Strategy: Delete from S3 first, then database (within transaction)
+      // If S3 delete fails, we don't delete from database (maintains consistency)
+      
+      const transaction = await sequelize.transaction();
+      
+      try {
+        // Step 1: Delete from S3 first (outside transaction)
+        console.log(`🗑️  Deleting video from S3: ${video.filePath}`);
+        const fileDeleted = await deleteFromS3(video.filePath);
+        
+        if (!fileDeleted) {
+          throw new Error('Failed to delete video file from S3');
+        }
+        
+        console.log('✅ Video deleted from S3');
+
+        // Step 2: Delete thumbnail from S3 if exists
+        if (video.thumbnailPath) {
+          console.log(`🗑️  Deleting thumbnail from S3: ${video.thumbnailPath}`);
+          try {
+            await deleteFromS3(video.thumbnailPath);
+            console.log('✅ Thumbnail deleted from S3');
+          } catch (thumbError) {
+            console.warn('⚠️  Thumbnail delete failed, continuing:', thumbError.message);
+            // Non-critical, continue
           }
-        );
+        }
+
+        // Step 3: Remove from schedules if needed (within transaction)
+        if (scheduleItems.length > 0 && forceDelete === 'true') {
+          await ScheduleItem.update(
+            { isActive: false },
+            {
+              where: {
+                videoId: videoId,
+                isActive: true,
+              },
+              transaction,
+            }
+          );
+          console.log(`✅ Removed from ${scheduleItems.length} schedule(s)`);
+        }
+
+        // Step 4: Delete from database (within transaction)
+        console.log('🗑️  Deleting video from database');
+        await video.destroy({ force: true, transaction });
+        console.log('✅ Video deleted from database');
+
+        // Step 5: Update company storage usage (within transaction)
+        await Company.decrement('storageUsedBytes', {
+          by: video.fileSize,
+          where: { id: req.company.id },
+          transaction,
+        });
+        console.log('✅ Storage usage updated');
+
+        // Commit transaction
+        await transaction.commit();
+        console.log('✅ Transaction committed - Delete operation complete');
+
+        res.json({
+          success: true,
+          message: 'Video deleted successfully',
+          data: {
+            id: video.id,
+            fileName: video.fileName,
+            fileDeleted: true,
+            removedFromSchedules: scheduleItems.length,
+            deletedAt: new Date(),
+          },
+        });
+      } catch (deleteError) {
+        // Rollback transaction
+        await transaction.rollback();
+        console.error('❌ Delete operation failed, transaction rolled back:', deleteError);
+
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to delete video. The operation has been rolled back.',
+          error: process.env.NODE_ENV === 'development' ? deleteError.message : undefined,
+        });
       }
-
-      // Delete file from filesystem
-      const fileDeleted = await deleteFile(video.filePath);
-
-      // Soft delete in database
-      await video.update({ isActive: false });
-
-      // Update company storage usage
-      const { Company } = require('../models');
-      await Company.decrement('storageUsedBytes', {
-        by: video.fileSize,
-        where: { id: req.company.id }
-      });
-
-      res.json({
-        success: true,
-        message: 'Video deleted successfully',
-        data: {
-          id: video.id,
-          fileName: video.fileName,
-          fileDeleted: fileDeleted,
-          removedFromSchedules: scheduleItems.length,
-          deletedAt: new Date(),
-        },
-      });
     } catch (error) {
       console.error('Delete video error:', error);
       res.status(500).json({
@@ -982,18 +1317,62 @@ router.post('/bulk-delete',
             );
           }
 
-          // Delete file from filesystem
-          const fileDeleted = await deleteFile(video.filePath);
+          // ATOMIC DELETE: S3 first, then DB in transaction
+          const videoTransaction = await sequelize.transaction();
+          
+          try {
+            // Delete from S3 first
+            const fileDeleted = await deleteFromS3(video.filePath);
+            
+            if (!fileDeleted) {
+              throw new Error('S3 delete failed');
+            }
 
-          // Soft delete in database
-          await video.update({ isActive: false });
+            // Delete thumbnail if exists
+            if (video.thumbnailPath) {
+              try {
+                await deleteFromS3(video.thumbnailPath);
+              } catch (thumbError) {
+                console.warn(`⚠️  Thumbnail delete failed for ${video.id}, continuing`);
+              }
+            }
 
-          results.deleted.push({
-            id: video.id,
-            fileName: video.fileName,
-            fileDeleted: fileDeleted,
-            removedFromSchedules: scheduleItems.length,
-          });
+            // Remove from schedules if needed
+            if (scheduleItems.length > 0 && forceDelete) {
+              await ScheduleItem.update(
+                { isActive: false },
+                {
+                  where: {
+                    videoId: video.id,
+                    isActive: true,
+                  },
+                  transaction: videoTransaction,
+                }
+              );
+            }
+
+            // Delete from database
+            await video.destroy({ force: true, transaction: videoTransaction });
+
+            // Commit transaction
+            await videoTransaction.commit();
+
+            results.deleted.push({
+              id: video.id,
+              fileName: video.fileName,
+              fileDeleted: true,
+              removedFromSchedules: scheduleItems.length,
+            });
+          } catch (error) {
+            // Rollback transaction
+            await videoTransaction.rollback();
+            
+            results.failed.push({
+              id: video.id,
+              fileName: video.fileName,
+              reason: `Delete failed: ${error.message}`,
+            });
+          }
         } catch (error) {
           console.error(`Error deleting video ${video.id}:`, error);
           results.failed.push({

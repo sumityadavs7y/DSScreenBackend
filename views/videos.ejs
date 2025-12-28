@@ -216,7 +216,7 @@
                                                 <div class="d-flex align-items-center">
                                                     <div class="video-thumbnail me-3" onclick='playVideo("<%= video.id %>", "<%= video.fileName.replace(/"/g, "&quot;") %>")'>
                                                         <% if (video.thumbnailPath) { %>
-                                                            <img src="/<%= video.thumbnailPath %>" alt="<%= video.fileName %>" loading="lazy">
+                                                            <img src="/api/videos/<%= video.id %>/thumbnail" alt="<%= video.fileName %>" loading="lazy">
                                                             <div class="play-overlay">
                                                                 <i class="bi bi-play-fill"></i>
                                                             </div>
@@ -389,7 +389,151 @@
         const editModal = new bootstrap.Modal(document.getElementById('editModal'));
         const bulkDeleteModal = new bootstrap.Modal(document.getElementById('bulkDeleteModal'));
         const videoPlayerModal = new bootstrap.Modal(document.getElementById('videoPlayerModal'));
+        const uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));
         let player = null;
+
+        // Handle direct S3 upload
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('video');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a video file');
+                return;
+            }
+
+            const submitBtn = document.getElementById('uploadSubmitBtn');
+            const cancelBtn = document.getElementById('uploadCancelBtn');
+            const closeBtn = document.getElementById('uploadModalClose');
+            const progressContainer = document.getElementById('uploadProgressContainer');
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressPercent = document.getElementById('uploadProgressPercent');
+
+            try {
+                // Disable buttons
+                submitBtn.disabled = true;
+                cancelBtn.disabled = true;
+                closeBtn.disabled = true;
+                fileInput.disabled = true;
+                progressContainer.style.display = 'block';
+
+                // Update progress
+                function updateProgress(percent, status) {
+                    progressBar.style.width = percent + '%';
+                    progressBar.setAttribute('aria-valuenow', percent);
+                    progressPercent.textContent = Math.round(percent);
+                    if (status) {
+                        progressBar.textContent = status;
+                    }
+                }
+
+                // Step 1: Request upload URL
+                updateProgress(10, 'Preparing...');
+                
+                const urlResponse = await fetch('/api/videos/request-upload-url', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileName: file.name,
+                        fileSize: file.size,
+                        mimeType: file.type,
+                    }),
+                });
+
+                if (!urlResponse.ok) {
+                    const error = await urlResponse.json();
+                    throw new Error(error.message || 'Failed to get upload URL');
+                }
+
+                const { data } = await urlResponse.json();
+                console.log('✅ Got upload URL for video:', data.videoId);
+
+                // Step 2: Upload to S3 with progress
+                updateProgress(20, 'Uploading...');
+
+                await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            const percent = 20 + (e.loaded / e.total) * 60; // 20% to 80%
+                            updateProgress(percent, 'Uploading to cloud...');
+                        }
+                    });
+
+                    xhr.addEventListener('load', () => {
+                        if (xhr.status === 200) {
+                            console.log('✅ Uploaded to S3');
+                            resolve();
+                        } else {
+                            reject(new Error('S3 upload failed'));
+                        }
+                    });
+
+                    xhr.addEventListener('error', () => reject(new Error('Upload error')));
+
+                    xhr.open('PUT', data.uploadUrl);
+                    // Don't set Content-Type header - let browser set it automatically
+                    // Setting it manually triggers CORS preflight which S3 pre-signed URLs don't handle well
+                    // xhr.setRequestHeader('Content-Type', file.type);
+                    xhr.send(file);
+                });
+
+                // Step 3: Complete upload
+                updateProgress(85, 'Processing...');
+
+                const completeResponse = await fetch(`/api/videos/${data.videoId}/complete-upload`, {
+                    method: 'POST',
+                    credentials: 'include',
+                });
+
+                console.log('Complete response status:', completeResponse.status);
+
+                if (!completeResponse.ok) {
+                    let errorMessage = 'Failed to process video';
+                    try {
+                        const error = await completeResponse.json();
+                        console.error('Complete-upload error response:', error);
+                        errorMessage = error.message || errorMessage;
+                    } catch (e) {
+                        console.error('Could not parse error response');
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const result = await completeResponse.json();
+                console.log('✅ Upload complete! Result:', result);
+
+                if (!result.success) {
+                    throw new Error(result.message || 'Upload completed but with errors');
+                }
+
+                updateProgress(100, 'Complete!');
+                console.log('✅ Upload complete!');
+
+                // Success!
+                setTimeout(() => {
+                    uploadModal.hide();
+                    window.location.reload();
+                }, 500);
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('Upload failed: ' + error.message);
+                
+                // Reset form
+                progressContainer.style.display = 'none';
+                progressBar.style.width = '0%';
+                progressPercent.textContent = '0';
+                submitBtn.disabled = false;
+                cancelBtn.disabled = false;
+                closeBtn.disabled = false;
+                fileInput.disabled = false;
+            }
+        });
 
         function openEditModal(videoId, videoName) {
             document.getElementById('editForm').action = `/dashboard/videos/${videoId}/edit`;

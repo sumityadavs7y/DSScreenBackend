@@ -2,33 +2,27 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const { Video, User, Company, UserCompany, License } = require('../models');
 const { webRequireAuth, webRequireCompany } = require('../middleware/sessionAuth');
 const { webCheckCompanyLicense } = require('../middleware/licenseCheck');
-const { ensureCompanyDir, deleteFile, isValidVideoMimeType } = require('../utils/fileStorage');
-const { storageConfig } = require('../config');
+const { isValidVideoMimeType } = require('../utils/fileStorage');
+const { storageConfig, envConfig } = require('../config');
 const { extractVideoMetadata, generateThumbnailAtPercentage } = require('../utils/videoMetadata');
+const {
+  generateS3Key,
+  generateThumbnailS3Key,
+  uploadToS3,
+  uploadBufferToS3,
+  deleteFromS3,
+} = require('../utils/s3Storage');
+const { sequelize } = require('../models/sequelize');
 
 /**
  * Configure multer for video uploads
+ * Files are temporarily stored in memory before uploading to S3
  */
-const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    try {
-      const companyDir = await ensureCompanyDir(req.company.id);
-      cb(null, companyDir);
-    } catch (error) {
-      cb(error);
-    }
-  },
-  filename: (req, file, cb) => {
-    const timestamp = Date.now();
-    const ext = path.extname(file.originalname);
-    const baseName = path.basename(file.originalname, ext);
-    const safeName = baseName.replace(/[^a-zA-Z0-9_-]/g, '_');
-    cb(null, `${safeName}_${timestamp}${ext}`);
-  }
-});
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   if (isValidVideoMimeType(file.mimetype)) {
@@ -648,126 +642,12 @@ router.post('/playlists/:playlistId/delete', webRequireAuth, webRequireCompany, 
 
 /**
  * POST /dashboard/upload
- * Upload a new video
+ * DEPRECATED - This endpoint has been removed
+ * The dashboard now uses direct S3 upload via JavaScript
+ * See dashboard.ejs for the client-side implementation
  */
-router.post('/upload', webRequireAuth, webRequireCompany, webCheckCompanyLicense, (req, res, next) => {
-  upload.single('video')(req, res, async (err) => {
-    if (err instanceof multer.MulterError) {
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        const maxSizeMB = (storageConfig.maxFileSizeBytes / (1024 * 1024)).toFixed(0);
-        return res.redirect(`/dashboard/videos?error=${encodeURIComponent(`File size too large. Maximum allowed size is ${maxSizeMB}MB`)}`);
-      }
-      return res.redirect(`/dashboard/videos?error=${encodeURIComponent('Upload error: ' + err.message)}`);
-    } else if (err) {
-      return res.redirect(`/dashboard/videos?error=${encodeURIComponent(err.message)}`);
-    }
-
-    if (!req.file) {
-      return res.redirect(`/dashboard/videos?error=${encodeURIComponent('No file uploaded')}`);
-    }
-
-    try {
-      // Get display name from original filename
-      let displayName = path.basename(req.file.originalname, path.extname(req.file.originalname));
-
-      // Check if a video with this display name already exists and auto-number if needed
-      const baseDisplayName = displayName;
-      let counter = 1;
-      let finalDisplayName = displayName;
-      
-      while (true) {
-        const existingVideo = await Video.findOne({
-          where: {
-            companyId: req.company.id,
-            fileName: finalDisplayName,
-          },
-        });
-
-        if (!existingVideo) {
-          displayName = finalDisplayName;
-          break;
-        }
-
-        finalDisplayName = `${baseDisplayName} (${counter})`;
-        counter++;
-
-        if (counter > 1000) {
-          await deleteFile(path.join('videos', req.company.id, req.file.filename));
-          return res.redirect(`/dashboard/videos?error=${encodeURIComponent('Unable to generate unique filename')}`);
-        }
-      }
-
-      // Extract video metadata (duration, resolution, etc.)
-      let videoMetadata = {};
-      let duration = null;
-      let resolution = null;
-      let thumbnailPath = null;
-
-      try {
-        const fullPath = path.join(process.cwd(), 'videos', req.company.id, req.file.filename);
-        const extractedMetadata = await extractVideoMetadata(fullPath);
-        
-        duration = extractedMetadata.duration;
-        resolution = extractedMetadata.resolution;
-        videoMetadata = {
-          codec: extractedMetadata.codec,
-          bitrate: extractedMetadata.bitrate,
-          fps: extractedMetadata.fps,
-          format: extractedMetadata.format,
-        };
-
-        console.log('✅ Video metadata extracted:', { duration, resolution });
-
-        // Generate thumbnail (at 10% of video duration)
-        try {
-          const thumbnailFilename = `${path.basename(req.file.filename, path.extname(req.file.filename))}_thumb.jpg`;
-          const thumbnailFullPath = path.join(process.cwd(), 'videos', req.company.id, 'thumbnails', thumbnailFilename);
-          
-          await generateThumbnailAtPercentage(fullPath, thumbnailFullPath, 10);
-          thumbnailPath = path.join('videos', req.company.id, 'thumbnails', thumbnailFilename);
-          
-          console.log('✅ Thumbnail generated:', thumbnailPath);
-        } catch (thumbError) {
-          console.error('⚠️  Failed to generate thumbnail:', thumbError.message);
-          // Continue without thumbnail
-        }
-      } catch (metadataError) {
-        console.error('⚠️  Failed to extract video metadata:', metadataError.message);
-        // Continue with upload even if metadata extraction fails
-      }
-
-      // Create video record
-      await Video.create({
-        companyId: req.company.id,
-        uploadedBy: req.user.id,
-        fileName: displayName,
-        originalFileName: req.file.originalname,
-        filePath: path.join('videos', req.company.id, req.file.filename),
-        fileSize: req.file.size,
-        mimeType: req.file.mimetype,
-        duration: duration,
-        resolution: resolution,
-        thumbnailPath: thumbnailPath,
-        metadata: videoMetadata,
-        isActive: true,
-      });
-
-      // Update company storage usage
-      await Company.increment('storageUsedBytes', {
-        by: req.file.size,
-        where: { id: req.company.id }
-      });
-
-      res.redirect(`/dashboard/videos?success=${encodeURIComponent('Video uploaded successfully!')}`);
-    } catch (error) {
-      console.error('Video upload error:', error);
-      // Try to delete the uploaded file
-      if (req.file) {
-        await deleteFile(path.join('videos', req.company.id, req.file.filename));
-      }
-      res.redirect(`/dashboard/videos?error=${encodeURIComponent('Upload failed: ' + error.message)}`);
-    }
-  });
+router.post('/upload', webRequireAuth, webRequireCompany, async (req, res) => {
+  return res.redirect(`/dashboard/videos?error=${encodeURIComponent('This upload method has been deprecated. Please use the upload button on the page which uploads directly to S3.')}`);
 });
 
 /**
@@ -843,19 +723,46 @@ router.post('/videos/:videoId/delete', webRequireAuth, webRequireCompany, async 
       return res.redirect(`/dashboard/videos?error=${encodeURIComponent('You do not have permission to delete this video')}`);
     }
 
-    // Delete file from filesystem
-    await deleteFile(video.filePath);
+    // ATOMIC DELETE OPERATION
+    const transaction = await sequelize.transaction();
+    
+    try {
+      // Step 1: Delete from S3 first
+      const fileDeleted = await deleteFromS3(video.filePath);
+      if (!fileDeleted) {
+        throw new Error('Failed to delete video from S3');
+      }
 
-    // Soft delete in database
-    await video.update({ isActive: false });
+      // Step 2: Delete thumbnail if exists
+      if (video.thumbnailPath) {
+        try {
+          await deleteFromS3(video.thumbnailPath);
+        } catch (thumbError) {
+          console.warn('⚠️  Thumbnail delete failed, continuing');
+        }
+      }
 
-    // Update company storage usage
-    await Company.decrement('storageUsedBytes', {
-      by: video.fileSize,
-      where: { id: req.company.id }
-    });
+      // Step 3: Delete from database (within transaction)
+      await video.destroy({ force: true, transaction });
 
-    res.redirect(`/dashboard/videos?success=${encodeURIComponent('Video deleted successfully!')}`);
+      // Step 4: Update company storage usage (within transaction)
+      await Company.decrement('storageUsedBytes', {
+        by: video.fileSize,
+        where: { id: req.company.id },
+        transaction,
+      });
+
+      // Commit transaction
+      await transaction.commit();
+
+      res.redirect(`/dashboard/videos?success=${encodeURIComponent('Video deleted successfully!')}`);
+    } catch (error) {
+      // Rollback transaction
+      await transaction.rollback();
+      console.error('Delete operation failed:', error);
+      
+      res.redirect(`/dashboard/videos?error=${encodeURIComponent('Failed to delete video: ' + error.message)}`);
+    }
   } catch (error) {
     console.error('Video delete error:', error);
     res.redirect(`/dashboard/videos?error=${encodeURIComponent('Delete failed: ' + error.message)}`);
@@ -899,19 +806,45 @@ router.post('/videos/bulk-delete', webRequireAuth, webRequireCompany, async (req
           continue;
         }
 
-        // Delete file from filesystem
-        await deleteFile(video.filePath);
+        // ATOMIC DELETE: S3 first, then DB in transaction
+        const videoTransaction = await sequelize.transaction();
+        
+        try {
+          // Delete from S3 first
+          const fileDeleted = await deleteFromS3(video.filePath);
+          if (!fileDeleted) {
+            throw new Error('S3 delete failed');
+          }
 
-        // Soft delete in database
-        await video.update({ isActive: false });
+          // Delete thumbnail if exists
+          if (video.thumbnailPath) {
+            try {
+              await deleteFromS3(video.thumbnailPath);
+            } catch (thumbError) {
+              console.warn(`⚠️  Thumbnail delete failed for ${video.id}, continuing`);
+            }
+          }
 
-        // Update company storage usage
-        await Company.decrement('storageUsedBytes', {
-          by: video.fileSize,
-          where: { id: req.company.id }
-        });
+          // Delete from database
+          await video.destroy({ force: true, transaction: videoTransaction });
 
-        deleted++;
+          // Update company storage usage (within transaction)
+          await Company.decrement('storageUsedBytes', {
+            by: video.fileSize,
+            where: { id: req.company.id },
+            transaction: videoTransaction,
+          });
+
+          // Commit transaction
+          await videoTransaction.commit();
+
+          deleted++;
+        } catch (error) {
+          // Rollback transaction
+          await videoTransaction.rollback();
+          console.error(`Error deleting video ${video.id}:`, error);
+          failed++;
+        }
       } catch (error) {
         console.error(`Error deleting video ${video.id}:`, error);
         failed++;

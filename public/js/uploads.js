@@ -224,8 +224,17 @@ async function handleFileUpload(event) {
       body: file,
     });
 
+    console.log('S3 Upload Response:', {
+      status: uploadResponse.status,
+      statusText: uploadResponse.statusText,
+      ok: uploadResponse.ok,
+      headers: Object.fromEntries(uploadResponse.headers.entries())
+    });
+
     if (!uploadResponse.ok) {
-      throw new Error('Failed to upload video to storage');
+      const errorText = await uploadResponse.text().catch(() => 'Unable to read error response');
+      console.error('S3 Upload Failed:', errorText);
+      throw new Error(`Failed to upload video to storage: ${uploadResponse.status} ${uploadResponse.statusText}`);
     }
 
     // Step 3: Complete the upload (extract metadata, generate thumbnail)

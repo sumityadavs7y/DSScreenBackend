@@ -465,15 +465,26 @@
                     });
 
                     xhr.addEventListener('load', () => {
+                        console.log('S3 Response Status:', xhr.status);
+                        console.log('S3 Response Text:', xhr.responseText);
                         if (xhr.status === 200) {
                             console.log('✅ Uploaded to S3');
                             resolve();
                         } else {
-                            reject(new Error('S3 upload failed'));
+                            console.error('❌ S3 upload failed:', {
+                                status: xhr.status,
+                                statusText: xhr.statusText,
+                                response: xhr.responseText,
+                                headers: xhr.getAllResponseHeaders()
+                            });
+                            reject(new Error(`S3 upload failed: ${xhr.status} ${xhr.statusText}`));
                         }
                     });
 
-                    xhr.addEventListener('error', () => reject(new Error('Upload error')));
+                    xhr.addEventListener('error', (e) => {
+                        console.error('❌ Network error:', e);
+                        reject(new Error('Network error during upload'));
+                    });
 
                     xhr.open('PUT', data.uploadUrl);
                     // Don't set Content-Type header - let browser set it automatically

@@ -632,12 +632,19 @@
                     });
 
                     xhr.addEventListener('load', () => {
+                        console.log('S3 Response Status:', xhr.status);
+                        console.log('S3 Response Text:', xhr.responseText);
                         if (xhr.status === 200) {
                             console.log('✅ Successfully uploaded to S3');
                             resolve();
                         } else {
-                            console.error('❌ S3 upload failed with status:', xhr.status);
-                            reject(new Error('S3 upload failed'));
+                            console.error('❌ S3 upload failed:', {
+                                status: xhr.status,
+                                statusText: xhr.statusText,
+                                response: xhr.responseText,
+                                headers: xhr.getAllResponseHeaders()
+                            });
+                            reject(new Error(`S3 upload failed: ${xhr.status} ${xhr.statusText}`));
                         }
                     });
 

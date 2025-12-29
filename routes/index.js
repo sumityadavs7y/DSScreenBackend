@@ -165,11 +165,17 @@ router.post('/playlists/device/register', async (req, res) => {
     // Check if license is expired
     const now = new Date();
     const expiryDate = new Date(activeLicense.expiresAt);
-    if (expiryDate < now) {
+    const isExpired = expiryDate < now;
+    if (isExpired) {
       console.log('❌ License expired for company:', playlist.companyId);
       return res.status(403).json({
         success: false,
         message: 'This company\'s license has expired. Device registration is not allowed.',
+        license: {
+          expiresAt: activeLicense.expiresAt,
+          isExpired: true,
+          isActive: false,
+        },
       });
     }
 
@@ -246,6 +252,10 @@ router.post('/playlists/device/register', async (req, res) => {
           description: playlist.description,
           code: playlist.code,
           items: playlist.items,
+        },
+        license: {
+          expiresAt: activeLicense.expiresAt,
+          isActive: !isExpired,
         },
       },
     });

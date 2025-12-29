@@ -158,6 +158,52 @@ const isValidVideoMimeType = (mimeType) => {
   return validTypes.includes(mimeType) || (mimeType && mimeType.startsWith('video/'));
 };
 
+/**
+ * Validate that a file is an image file based on MIME type
+ * @param {string} mimeType - MIME type of the file
+ * @returns {boolean} True if valid image MIME type
+ */
+const isValidImageMimeType = (mimeType) => {
+  const validTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    'image/bmp',
+  ];
+  
+  return validTypes.includes(mimeType) || (mimeType && mimeType.startsWith('image/'));
+};
+
+/**
+ * Validate that a file is a valid media file (video or image)
+ * @param {string} mimeType - MIME type of the file
+ * @returns {boolean} True if valid media MIME type
+ */
+const isValidMediaMimeType = (mimeType) => {
+  return isValidVideoMimeType(mimeType) || isValidImageMimeType(mimeType);
+};
+
+/**
+ * Check if a MIME type is for an image
+ * @param {string} mimeType - MIME type of the file
+ * @returns {boolean} True if it's an image type
+ */
+const isImageMimeType = (mimeType) => {
+  return mimeType && mimeType.startsWith('image/');
+};
+
+/**
+ * Get default display duration for media based on type
+ * @param {string} mimeType - MIME type of the file
+ * @returns {number} Duration in seconds (null for videos, 10 for images)
+ */
+const getDefaultDuration = (mimeType) => {
+  return isImageMimeType(mimeType) ? 10 : null; // Images: 10 seconds, Videos: null (actual duration)
+};
+
 module.exports = {
   VIDEO_BASE_DIR,
   ensureVideoBaseDir,
@@ -169,5 +215,9 @@ module.exports = {
   getFileSize,
   listCompanyFiles,
   isValidVideoMimeType,
+  isValidImageMimeType,
+  isValidMediaMimeType,
+  isImageMimeType,
+  getDefaultDuration,
 };
 

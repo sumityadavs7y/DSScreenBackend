@@ -53,12 +53,12 @@ const Video = sequelize.define('Video', {
     type: DataTypes.STRING,
     allowNull: false,
     field: 'mime_type',
-    comment: 'MIME type of the video file',
+    comment: 'MIME type of the media file (video/* or image/*)',
   },
   duration: {
     type: DataTypes.FLOAT,
     allowNull: true,
-    comment: 'Video duration in seconds (optional)',
+    comment: 'Media duration in seconds (for videos: actual duration, for images: display duration, default 10s)',
   },
   resolution: {
     type: DataTypes.STRING,

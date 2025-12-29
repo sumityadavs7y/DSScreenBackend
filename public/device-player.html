@@ -40,25 +40,29 @@
             justify-content: center;
         }
         
-        #videoPlayer {
+        #videoPlayer, #imagePlayer {
             width: 100%;
             height: 100%;
             display: block;
             object-fit: contain;
         }
         
-        /* When in fullscreen, make video fill screen */
-        #videoPlayer:fullscreen {
+        #imagePlayer {
+            display: none; /* Hidden by default */
+        }
+        
+        /* When in fullscreen, make video/image fill screen */
+        #videoPlayer:fullscreen, #imagePlayer:fullscreen {
             max-height: 100vh;
             object-fit: contain;
         }
         
-        #videoPlayer:-webkit-full-screen {
+        #videoPlayer:-webkit-full-screen, #imagePlayer:-webkit-full-screen {
             max-height: 100vh;
             object-fit: contain;
         }
         
-        #videoPlayer:-moz-full-screen {
+        #videoPlayer:-moz-full-screen, #imagePlayer:-moz-full-screen {
             max-height: 100vh;
             object-fit: contain;
         }
@@ -250,9 +254,10 @@
 </head>
 <body>
     <div id="mainContainer">
-        <!-- Video Player -->
+        <!-- Media Player (Video & Image) -->
         <div id="videoContainer">
             <video id="videoPlayer" controls autoplay playsinline></video>
+            <img id="imagePlayer" alt="Display Image" />
         </div>
         
         <!-- Controls Section -->
@@ -362,7 +367,10 @@
         let currentVideoIndex = 0;
         let loopCount = 0;
         let videoPlayer = null;
+        let imagePlayer = null;
         let cacheStatus = {};
+        let currentMediaType = null; // 'video' or 'image'
+        let imageDisplayTimeout = null; // Timeout for image display duration
         let itemStartTime = 0;
         let itemDuration = 0;
         let checkIntervalId = null;
@@ -441,8 +449,9 @@
                 document.getElementById('infoPlaylistName').textContent = playlist.name;
                 document.getElementById('infoTotalVideos').textContent = timelineItems.length;
                 
-                // Setup video player
+                // Setup media players
                 videoPlayer = document.getElementById('videoPlayer');
+                imagePlayer = document.getElementById('imagePlayer');
                 videoPlayer.addEventListener('timeupdate', updateVideoInfo);
                 
                 // Initialize cache status
@@ -655,9 +664,13 @@
             
             const item = timelineItems[currentVideoIndex];
             const videoId = item.video.id;
-            const videoName = item.video.fileName;
+            const mediaName = item.video.fileName;
+            const mimeType = item.video.mimeType;
+            const isImage = mimeType && mimeType.startsWith('image/');
             
-            console.log(`▶️  Playing [${currentVideoIndex + 1}/${timelineItems.length}]: ${videoName}`);
+            currentMediaType = isImage ? 'image' : 'video';
+            
+            console.log(`▶️  Playing [${currentVideoIndex + 1}/${timelineItems.length}]: ${mediaName} (${currentMediaType})`);
             
             // Update info overlay
             document.getElementById('infoCurrentVideo').textContent = currentVideoIndex + 1;
@@ -669,46 +682,75 @@
             itemStartTime = Date.now();
             
             try {
-                // Check if video is cached
-                const cachedVideo = await getVideoFromCache(videoId);
-                let videoURL;
+                // Check if media is cached
+                const cachedMedia = await getVideoFromCache(videoId); // Works for both videos and images
+                let mediaURL;
                 
-                if (cachedVideo) {
-                    console.log(`✅ Playing from cache: ${videoName}`);
-                    videoURL = URL.createObjectURL(cachedVideo.blob);
+                if (cachedMedia) {
+                    console.log(`✅ Playing from cache: ${mediaName}`);
+                    mediaURL = URL.createObjectURL(cachedMedia.blob);
                 } else {
-                    console.log(`🌐 Streaming directly from S3: ${videoName}`);
+                    console.log(`🌐 Streaming directly from S3: ${mediaName}`);
                     const streamData = await getVideoStreamURL(videoId);
-                    videoURL = streamData.streamUrl;
+                    mediaURL = streamData.streamUrl;
                     
                     // Store expiry time for potential refresh
                     window.currentVideoExpiry = new Date(streamData.expiresAt).getTime();
                 }
                 
-                // Set video source
-                videoPlayer.src = videoURL;
-                videoPlayer.loop = true; // Loop the video
-                videoPlayer.muted = false; // Ensure unmuted
-                videoPlayer.volume = 1.0; // Full volume
-                videoPlayer.load();
-                
-                // Play video
-                try {
-                    await videoPlayer.play();
+                if (isImage) {
+                    // Display image
+                    videoPlayer.style.display = 'none';
+                    videoPlayer.pause();
+                    videoPlayer.src = '';
+                    
+                    imagePlayer.src = mediaURL;
+                    imagePlayer.style.display = 'block';
                     hideClickToPlay();
+                    
+                    // Set timeout to advance after duration
+                    const displayDuration = (item.duration || 10) * 1000; // Default 10 seconds
+                    console.log(`🖼️  Displaying image for ${displayDuration / 1000} seconds`);
+                    
+                    // Clear any existing timeout
+                    if (imageDisplayTimeout) {
+                        clearTimeout(imageDisplayTimeout);
+                    }
                     
                     // Start checking item duration
                     startItemDurationCheck();
+                    
                     return true; // Success
-                } catch (playError) {
-                    console.log('⚠️ Autoplay blocked, showing click to play overlay:', playError);
-                    showClickToPlay();
-                    return false; // Blocked
+                    
+                } else {
+                    // Play video
+                    imagePlayer.style.display = 'none';
+                    imagePlayer.src = '';
+                    
+                    videoPlayer.style.display = 'block';
+                    videoPlayer.src = mediaURL;
+                    videoPlayer.loop = true; // Loop the video
+                    videoPlayer.muted = false; // Ensure unmuted
+                    videoPlayer.volume = 1.0; // Full volume
+                    videoPlayer.load();
+                    
+                    try {
+                        await videoPlayer.play();
+                        hideClickToPlay();
+                        
+                        // Start checking item duration
+                        startItemDurationCheck();
+                        return true; // Success
+                    } catch (playError) {
+                        console.log('⚠️ Autoplay blocked, showing click to play overlay:', playError);
+                        showClickToPlay();
+                        return false; // Blocked
+                    }
                 }
                 
             } catch (error) {
-                console.error(`❌ Playback error for ${videoName}:`, error);
-                // Skip to next video on error
+                console.error(`❌ Playback error for ${mediaName}:`, error);
+                // Skip to next item on error
                 advanceToNextVideo();
                 return false;
             }
@@ -762,9 +804,17 @@
                 clearInterval(checkIntervalId);
             }
             
-            // Revoke old object URL to free memory
+            if (imageDisplayTimeout) {
+                clearTimeout(imageDisplayTimeout);
+                imageDisplayTimeout = null;
+            }
+            
+            // Revoke old object URLs to free memory
             if (videoPlayer.src && videoPlayer.src.startsWith('blob:')) {
                 URL.revokeObjectURL(videoPlayer.src);
+            }
+            if (imagePlayer.src && imagePlayer.src.startsWith('blob:')) {
+                URL.revokeObjectURL(imagePlayer.src);
             }
             
             // Move to next video
@@ -925,12 +975,16 @@
 
         // ==================== FULLSCREEN HANDLING ====================
         function enterFullscreen() {
-            if (videoPlayer && !document.fullscreenElement) {
+            if (!document.fullscreenElement) {
                 hasEnteredFullscreenOnce = true;
-                videoPlayer.requestFullscreen().catch(err => {
-                    console.log('⚠️ Fullscreen request denied:', err);
-                    console.log('You may need to interact with the page first or enable fullscreen in browser settings');
-                });
+                // Request fullscreen on the active player
+                const activePlayer = currentMediaType === 'image' ? imagePlayer : videoPlayer;
+                if (activePlayer) {
+                    activePlayer.requestFullscreen().catch(err => {
+                        console.log('⚠️ Fullscreen request denied:', err);
+                        console.log('You may need to interact with the page first or enable fullscreen in browser settings');
+                    });
+                }
             }
         }
 
@@ -982,8 +1036,12 @@
             if (checkIntervalId) clearInterval(checkIntervalId);
             if (updateIntervalId) clearInterval(updateIntervalId);
             if (timelineCheckIntervalId) clearInterval(timelineCheckIntervalId);
+            if (imageDisplayTimeout) clearTimeout(imageDisplayTimeout);
             if (videoPlayer && videoPlayer.src && videoPlayer.src.startsWith('blob:')) {
                 URL.revokeObjectURL(videoPlayer.src);
+            }
+            if (imagePlayer && imagePlayer.src && imagePlayer.src.startsWith('blob:')) {
+                URL.revokeObjectURL(imagePlayer.src);
             }
         });
     </script>

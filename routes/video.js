@@ -18,6 +18,9 @@ const verifyToken = requireAuth; // Alias for compatibility
 const { storageConfig, envConfig } = require('../config');
 const {
   isValidVideoMimeType,
+  isValidMediaMimeType,
+  isImageMimeType,
+  getDefaultDuration,
 } = require('../utils/fileStorage');
 const {
   generateS3Key,
@@ -40,13 +43,13 @@ const { sequelize } = require('../models/sequelize');
 const storage = multer.memoryStorage();
 
 /**
- * File filter to only accept video files
+ * File filter to accept video and image files
  */
 const fileFilter = (req, file, cb) => {
-  if (isValidVideoMimeType(file.mimetype)) {
+  if (isValidMediaMimeType(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Only video files are allowed'), false);
+    cb(new Error('Only video and image files are allowed'), false);
   }
 };
 
@@ -100,11 +103,11 @@ router.post('/request-upload-url',
 
       const { fileName, fileSize, mimeType, displayName } = req.body;
 
-      // Validate video MIME type
-      if (!isValidVideoMimeType(mimeType)) {
+      // Validate media MIME type (video or image)
+      if (!isValidMediaMimeType(mimeType)) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid video file type',
+          message: 'Invalid media file type. Supported formats: Videos (MP4, WebM, etc.) and Images (JPG, PNG, GIF, WebP)',
         });
       }
 
@@ -192,7 +195,10 @@ router.post('/request-upload-url',
         force: true, // Hard delete - actually remove from database
       });
 
-      // Create video record in database (status: uploading)
+      // Create media record in database (status: uploading)
+      // For images, set default duration of 10 seconds
+      const defaultDuration = getDefaultDuration(mimeType);
+      
       const video = await Video.create({
         companyId: req.company.id,
         uploadedBy: req.user.id,
@@ -201,7 +207,11 @@ router.post('/request-upload-url',
         filePath: '', // Will be updated after upload
         fileSize: fileSize,
         mimeType: mimeType,
-        metadata: { uploadStatus: 'pending' },
+        duration: defaultDuration, // 10 seconds for images, null for videos
+        metadata: { 
+          uploadStatus: 'pending',
+          mediaType: isImageMimeType(mimeType) ? 'image' : 'video',
+        },
         isActive: false, // Will be activated after successful upload
       });
 
@@ -305,60 +315,89 @@ router.post('/:videoId/complete-upload',
         });
       }
 
-      // Download temporarily for processing
-      const ext = path.extname(video.originalFileName);
-      const tempFilePath = path.join('/tmp', `${video.id}${ext}`);
+      // Check if this is an image or video
+      const isImage = isImageMimeType(video.mimeType);
       
-      try {
-        await downloadFromS3(s3Key, tempFilePath);
-
-        // Extract video metadata
-        let videoMetadata = {};
-        let duration = null;
-        let resolution = null;
-        let thumbnailPath = null;
-
+      let videoMetadata = {};
+      let duration = video.duration; // For images, already set to 10 seconds
+      let resolution = null;
+      let thumbnailPath = null;
+      
+      if (isImage) {
+        // For images, use the image itself as thumbnail (no processing needed)
+        console.log('🖼️  Processing image upload');
+        
+        videoMetadata = {
+          mediaType: 'image',
+          uploadStatus: 'completed',
+        };
+        
+        // For images, thumbnail is the image itself
+        thumbnailPath = s3Key;
+        console.log('✅ Image uploaded successfully:', s3Key);
+        
+      } else {
+        // For videos, download and process
+        console.log('🎥 Processing video upload');
+        
+        const ext = path.extname(video.originalFileName);
+        const tempFilePath = path.join('/tmp', `${video.id}${ext}`);
+        
         try {
-          const extractedMetadata = await extractVideoMetadata(tempFilePath);
-          
-          duration = extractedMetadata.duration;
-          resolution = extractedMetadata.resolution;
-          videoMetadata = {
-            codec: extractedMetadata.codec,
-            bitrate: extractedMetadata.bitrate,
-            fps: extractedMetadata.fps,
-            format: extractedMetadata.format,
-            uploadStatus: 'completed',
-          };
+          await downloadFromS3(s3Key, tempFilePath);
 
-          console.log('✅ Video metadata extracted:', { duration, resolution });
-
-          // Generate thumbnail
+          // Extract video metadata
           try {
-            const thumbnailTempPath = path.join('/tmp', `${video.id}_thumb.jpg`);
-            await generateThumbnailAtPercentage(tempFilePath, thumbnailTempPath, 10);
+            const extractedMetadata = await extractVideoMetadata(tempFilePath);
             
-            // Upload thumbnail to S3
-            const env = envConfig.envMode === 'production' ? 'prod' : 'dev';
-            const thumbnailS3Key = generateThumbnailS3Key(env, req.company.name, req.company.id, video.id);
-            const thumbnailBuffer = fs.readFileSync(thumbnailTempPath);
-            await uploadBufferToS3(thumbnailBuffer, thumbnailS3Key, 'image/jpeg');
-            thumbnailPath = thumbnailS3Key;
-            
-            // Clean up temp thumbnail
-            fs.unlinkSync(thumbnailTempPath);
-            
-            console.log('✅ Thumbnail generated and uploaded:', thumbnailPath);
-          } catch (thumbError) {
-            console.error('⚠️  Failed to generate thumbnail:', thumbError.message);
-          }
-        } catch (metadataError) {
-          console.error('⚠️  Failed to extract video metadata:', metadataError.message);
-          videoMetadata = { uploadStatus: 'completed_no_metadata' };
-        }
+            duration = extractedMetadata.duration;
+            resolution = extractedMetadata.resolution;
+            videoMetadata = {
+              mediaType: 'video',
+              codec: extractedMetadata.codec,
+              bitrate: extractedMetadata.bitrate,
+              fps: extractedMetadata.fps,
+              format: extractedMetadata.format,
+              uploadStatus: 'completed',
+            };
 
-        // Clean up temporary video file
-        fs.unlinkSync(tempFilePath);
+            console.log('✅ Video metadata extracted:', { duration, resolution });
+
+            // Generate thumbnail
+            try {
+              const thumbnailTempPath = path.join('/tmp', `${video.id}_thumb.jpg`);
+              await generateThumbnailAtPercentage(tempFilePath, thumbnailTempPath, 10);
+              
+              // Upload thumbnail to S3
+              const env = envConfig.envMode === 'production' ? 'prod' : 'dev';
+              const thumbnailS3Key = generateThumbnailS3Key(env, req.company.name, req.company.id, video.id);
+              const thumbnailBuffer = fs.readFileSync(thumbnailTempPath);
+              await uploadBufferToS3(thumbnailBuffer, thumbnailS3Key, 'image/jpeg');
+              thumbnailPath = thumbnailS3Key;
+              
+              // Clean up temp thumbnail
+              fs.unlinkSync(thumbnailTempPath);
+              
+              console.log('✅ Thumbnail generated and uploaded:', thumbnailPath);
+            } catch (thumbError) {
+              console.error('⚠️  Failed to generate thumbnail:', thumbError.message);
+            }
+          } catch (metadataError) {
+            console.error('⚠️  Failed to extract video metadata:', metadataError.message);
+            videoMetadata = { mediaType: 'video', uploadStatus: 'completed_no_metadata' };
+          }
+
+          // Clean up temporary video file
+          fs.unlinkSync(tempFilePath);
+          
+        } catch (downloadError) {
+          console.error('❌ Failed to download video from S3 for processing:', downloadError);
+          throw downloadError;
+        }
+      }
+      
+      // Continue with database update
+      try {
 
         // ATOMIC UPDATE: Use transaction for database operations
         const transaction = await sequelize.transaction();
@@ -429,18 +468,22 @@ router.post('/:videoId/complete-upload',
           });
         }
       } catch (processingError) {
-        console.error('Error processing uploaded video:', processingError);
+        console.error('Error processing uploaded media:', processingError);
         
-        // Clean up temp file if it exists
-        if (fs.existsSync(tempFilePath)) {
-          fs.unlinkSync(tempFilePath);
+        // Clean up temp file if it exists (only for videos)
+        if (!isImage) {
+          const ext = path.extname(video.originalFileName);
+          const tempFilePath = path.join('/tmp', `${video.id}${ext}`);
+          if (fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath);
+          }
         }
 
         // ATOMIC FAILURE HANDLING: Delete S3 files if processing fails
         console.log('🗑️  Processing failed, cleaning up S3 files...');
         try {
           await deleteFromS3(s3Key);
-          if (thumbnailPath) {
+          if (thumbnailPath && !isImage) { // Don't delete thumbnail for images (it's the image itself)
             await deleteFromS3(thumbnailPath);
           }
           console.log('✅ S3 cleanup complete');

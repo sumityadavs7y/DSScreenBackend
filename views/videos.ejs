@@ -227,6 +227,15 @@
                                                     <div class="flex-grow-1">
                                                         <div class="video-name-clickable mb-1" onclick='playVideo("<%= video.id %>", "<%= video.fileName.replace(/"/g, "&quot;") %>")'>
                                                             <%= video.fileName %>
+                                                            <% if (video.mimeType && video.mimeType.startsWith('image/')) { %>
+                                                                <span class="badge bg-info ms-2">
+                                                                    <i class="bi bi-image"></i> Image
+                                                                </span>
+                                                            <% } else { %>
+                                                                <span class="badge bg-primary ms-2">
+                                                                    <i class="bi bi-film"></i> Video
+                                                                </span>
+                                                            <% } %>
                                                         </div>
                                                         <small class="text-muted d-md-none">
                                                             <%= formatFileSize(video.fileSize) %>
@@ -279,9 +288,9 @@
                 <form id="uploadForm" action="javascript:void(0);" enctype="multipart/form-data">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label for="video" class="form-label">Select Video File</label>
-                            <input type="file" class="form-control" id="video" name="video" accept="video/*" required>
-                            <small class="text-muted">Max size: 500MB. Supported: MP4, WebM, OGG, MOV, AVI</small>
+                            <label for="video" class="form-label">Select Media File</label>
+                            <input type="file" class="form-control" id="video" name="video" accept="video/*,image/*" required>
+                            <small class="text-muted">Max size: 500MB. Videos: MP4, WebM, OGG, MOV, AVI | Images: JPG, PNG, GIF, WebP (10s display)</small>
                         </div>
                         <!-- Progress Bar -->
                         <div id="uploadProgressContainer" style="display: none;">

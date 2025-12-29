@@ -346,6 +346,9 @@
         </div>
     </div>
     
+    <!-- Click to Play Overlay (hidden, kept for compatibility) -->
+    <div id="clickToPlayOverlay" style="display: none;"></div>
+    
     <!-- Error Overlay -->
     <div id="errorOverlay">
         <div class="error-container">
@@ -847,11 +850,17 @@
         }
         
         function showClickToPlay() {
-            document.getElementById('clickToPlayOverlay').classList.add('show');
+            const overlay = document.getElementById('clickToPlayOverlay');
+            if (overlay) {
+                overlay.classList.add('show');
+            }
         }
         
         function hideClickToPlay() {
-            document.getElementById('clickToPlayOverlay').classList.remove('show');
+            const overlay = document.getElementById('clickToPlayOverlay');
+            if (overlay) {
+                overlay.classList.remove('show');
+            }
         }
         
         async function handleClickToPlay() {

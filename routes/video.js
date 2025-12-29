@@ -74,7 +74,7 @@ const isValidUUID = (str) => {
 };
 
 /**
- * POST /api/videos/request-upload-url
+ * POST /api/media/request-upload-url
  * Request a pre-signed URL for direct S3 upload
  * Requires: accessToken
  * Allowed roles: owner, admin, manager, member
@@ -276,7 +276,7 @@ router.post('/request-upload-url',
 );
 
 /**
- * POST /api/videos/:videoId/complete-upload
+ * POST /api/media/:videoId/complete-upload
  * Complete the upload process after direct S3 upload
  * Extracts metadata and generates thumbnail
  * Requires: accessToken
@@ -533,12 +533,12 @@ router.post('/:videoId/complete-upload',
 );
 
 /**
- * POST /api/videos/upload
+ * POST /api/media/upload
  * DEPRECATED: This endpoint has been removed to save server bandwidth
  * Use the direct S3 upload flow instead:
- *   1. POST /api/videos/request-upload-url - Get pre-signed URL
+ *   1. POST /api/media/request-upload-url - Get pre-signed URL
  *   2. PUT to S3 URL - Upload directly from client to S3
- *   3. POST /api/videos/:videoId/complete-upload - Complete the upload
+ *   3. POST /api/media/:videoId/complete-upload - Complete the upload
  */
 router.post('/upload',
   verifyToken,
@@ -550,9 +550,9 @@ router.post('/upload',
       migration: {
         reason: 'Server-side uploads consume double bandwidth (client→server→S3). Direct uploads are faster and more efficient.',
         newFlow: [
-          '1. POST /api/videos/request-upload-url with {fileName, fileSize, mimeType}',
+          '1. POST /api/media/request-upload-url with {fileName, fileSize, mimeType}',
           '2. PUT directly to the returned uploadUrl with video file',
-          '3. POST /api/videos/{videoId}/complete-upload to finalize'
+          '3. POST /api/media/{videoId}/complete-upload to finalize'
         ],
         documentation: 'See S3_DIRECT_UPLOAD_GUIDE.md for complete implementation guide'
       }
@@ -591,7 +591,7 @@ router.post('/upload',
 // === END OF DEPRECATED UPLOAD ENDPOINT ===
 
 /**
- * GET /api/videos/storage
+ * GET /api/media/storage
  * Get storage usage statistics for the current company
  * Requires: accessToken
  * Allowed roles: All authenticated users
@@ -699,7 +699,7 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 /**
- * GET /api/videos/:videoId
+ * GET /api/media/:videoId
  * Get details of a specific video
  * Requires: accessToken
  * Allowed roles: All authenticated users
@@ -768,7 +768,7 @@ router.get('/:videoId', verifyToken, async (req, res) => {
 });
 
 /**
- * GET /api/videos/:videoId/thumbnail
+ * GET /api/media/:videoId/thumbnail
  * Get video thumbnail from S3
  * PUBLIC ENDPOINT - No authentication required
  */
@@ -821,7 +821,7 @@ const urlCache = new Map();
 const CACHE_DURATION_MS = 25 * 60 * 1000;
 
 /**
- * GET /api/videos/:videoId/stream-url
+ * GET /api/media/:videoId/stream-url
  * Get a pre-signed URL for direct S3 streaming (no server bandwidth)
  * Returns a secure, temporary URL that expires in 30 minutes
  * Uses caching: Multiple devices get the same URL (efficient for 1000s of devices)
@@ -948,7 +948,7 @@ setInterval(() => {
 }, 10 * 60 * 1000);
 
 /**
- * GET /api/videos/:videoId/download
+ * GET /api/media/:videoId/download
  * Download or stream a video file from S3 (LEGACY - streams through server)
  * NOTE: For better performance, use /stream-url endpoint for direct S3 access
  * PUBLIC ENDPOINT - No authentication required
@@ -1052,7 +1052,7 @@ router.get('/:videoId/download', async (req, res) => {
 });
 
 /**
- * PUT /api/videos/:videoId
+ * PUT /api/media/:videoId
  * Update video metadata (display name, metadata)
  * Requires: accessToken
  * Allowed roles: owner, admin, manager, member (only uploader or higher roles)
@@ -1162,7 +1162,7 @@ router.put('/:videoId',
 );
 
 /**
- * GET /api/videos/:videoId/schedule-usage
+ * GET /api/media/:videoId/schedule-usage
  * Check if video is used in any schedules
  * Requires: accessToken
  */
@@ -1222,7 +1222,7 @@ router.get('/:videoId/schedule-usage',
 );
 
 /**
- * DELETE /api/videos/:videoId
+ * DELETE /api/media/:videoId
  * Delete a video (soft delete in DB, hard delete file)
  * Also removes video from all schedules if forceDelete=true
  * Requires: accessToken
@@ -1406,7 +1406,7 @@ router.delete('/:videoId',
 );
 
 /**
- * POST /api/videos/bulk-delete
+ * POST /api/media/bulk-delete
  * Delete multiple videos in one request
  * Requires: accessToken
  * Allowed roles: owner, admin, manager (or the uploader for each video)

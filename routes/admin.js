@@ -1,6 +1,6 @@
 /**
  * Super Admin Routes
- * System-wide management for companies, users, videos, and playlists
+ * System-wide management for companies, users, media, and playlists
  */
 
 const express = require('express');
@@ -391,10 +391,10 @@ router.get('/users', async (req, res) => {
 });
 
 /**
- * GET /admin/videos
- * List all videos across all companies
+ * GET /admin/media
+ * List all media across all companies
  */
-router.get('/videos', async (req, res) => {
+router.get('/media', async (req, res) => {
   try {
     const videos = await Video.findAll({
       where: { isActive: true },
@@ -416,14 +416,14 @@ router.get('/videos', async (req, res) => {
     const videosData = videos.map(v => v.toJSON());
 
     res.render('admin/videos', {
-      title: 'Manage Videos',
+      title: 'Manage Media',
       user: req.user,
       session: req.session,
       videos: videosData,
     });
   } catch (error) {
-    console.error('Admin videos error:', error);
-    res.status(500).send('Error loading videos');
+    console.error('Admin media error:', error);
+    res.status(500).send('Error loading media');
   }
 });
 
@@ -893,17 +893,17 @@ router.post('/companies/:companyId/toggle-active', async (req, res) => {
 });
 
 /**
- * DELETE /admin/videos/:videoId
- * Delete a video from any company
+ * DELETE /admin/media/:videoId
+ * Delete a media from any company
  */
-router.delete('/videos/:videoId', async (req, res) => {
+router.delete('/media/:videoId', async (req, res) => {
   try {
     const { videoId } = req.params;
     
     const video = await Video.findByPk(videoId);
     
     if (!video) {
-      return res.status(404).json({ success: false, message: 'Video not found' });
+      return res.status(404).json({ success: false, message: 'Media not found' });
     }
 
     // Soft delete
@@ -911,11 +911,11 @@ router.delete('/videos/:videoId', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Video deleted successfully',
+      message: 'Media deleted successfully',
     });
   } catch (error) {
-    console.error('Delete video error:', error);
-    res.status(500).json({ success: false, message: 'Error deleting video' });
+    console.error('Delete media error:', error);
+    res.status(500).json({ success: false, message: 'Error deleting media' });
   }
 });
 

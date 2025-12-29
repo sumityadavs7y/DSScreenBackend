@@ -46,7 +46,7 @@
         }
         .stat-icon.companies { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
         .stat-icon.users { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
-        .stat-icon.videos { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; }
+        .stat-icon.media { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; }
         .stat-icon.playlists { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; }
         .stat-icon.devices { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; }
         .stat-value {
@@ -104,7 +104,7 @@
         <div class="container">
             <div class="mb-4">
                 <h1 class="page-title"><i class="bi bi-shield-lock-fill"></i> Super Admin Panel</h1>
-                <p class="text-muted">Manage all companies, users, videos, and playlists</p>
+                <p class="text-muted">Manage all companies, users, media, and playlists</p>
             </div>
 
         <!-- Statistics Cards -->
@@ -135,12 +135,12 @@
             </div>
             <div class="col-md-4 col-sm-6 mb-4">
                 <div class="stat-card">
-                    <div class="stat-icon videos">
-                        <i class="bi bi-film"></i>
+                    <div class="stat-icon media">
+                        <i class="bi bi-collection-play"></i>
                     </div>
                     <div class="stat-value"><%= stats.totalVideos %></div>
-                    <div class="stat-label">Videos</div>
-                    <a href="/admin/videos" class="btn btn-sm btn-admin mt-3">
+                    <div class="stat-label">Media</div>
+                    <a href="/admin/media" class="btn btn-sm btn-admin mt-3">
                         Manage <i class="bi bi-arrow-right"></i>
                     </a>
                 </div>

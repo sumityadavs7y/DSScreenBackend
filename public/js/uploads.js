@@ -45,7 +45,7 @@ async function loadVideos() {
   try {
     showLoading(true);
     
-    const response = await fetch('/api/videos', {
+    const response = await fetch('/api/media', {
       credentials: 'include',
     });
 
@@ -189,7 +189,7 @@ async function handleFileUpload(event) {
     // Step 1: Request upload URL
     showLoading(true, 'Preparing upload...');
 
-    const urlResponse = await fetch('/api/videos/request-upload-url', {
+    const urlResponse = await fetch('/api/media/request-upload-url', {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -240,7 +240,7 @@ async function handleFileUpload(event) {
     // Step 3: Complete the upload (extract metadata, generate thumbnail)
     showLoading(true, 'Processing video...');
 
-    const completeResponse = await fetch(`/api/videos/${videoId}/complete-upload`, {
+    const completeResponse = await fetch(`/api/media/${videoId}/complete-upload`, {
       method: 'POST',
       credentials: 'include',
     });
@@ -266,7 +266,7 @@ async function handleFileUpload(event) {
 }
 
 // LEGACY UPLOAD METHOD REMOVED
-// The server-side upload endpoint (/api/videos/upload) has been deprecated
+// The server-side upload endpoint (/api/media/upload) has been deprecated
 // All uploads now use the direct S3 upload method (handleFileUpload above)
 // This saves server bandwidth and provides better performance
 
@@ -330,7 +330,7 @@ async function saveVideoName(videoId) {
   try {
     showLoading(true, 'Updating video name...');
 
-    const response = await fetch(`/api/videos/${videoId}`, {
+    const response = await fetch(`/api/media/${videoId}`, {
       method: 'PUT',
       credentials: 'include',
       headers: {
@@ -362,7 +362,7 @@ async function saveVideoName(videoId) {
 async function deleteVideo(videoId) {
   try {
     // First check if video is used in schedules
-    const usageResponse = await fetch(`/api/videos/${videoId}/schedule-usage`, {
+    const usageResponse = await fetch(`/api/media/${videoId}/schedule-usage`, {
       credentials: 'include',
     });
 
@@ -389,8 +389,8 @@ async function deleteVideo(videoId) {
     showLoading(true, 'Deleting video...');
 
     const deleteUrl = forceDelete 
-      ? `/api/videos/${videoId}?forceDelete=true`
-      : `/api/videos/${videoId}`;
+      ? `/api/media/${videoId}?forceDelete=true`
+      : `/api/media/${videoId}`;
 
     const response = await fetch(deleteUrl, {
       method: 'DELETE',
@@ -482,7 +482,7 @@ async function handleBulkDelete() {
 
     const usageChecks = await Promise.all(
       videoIds.map(async (videoId) => {
-        const response = await fetch(`/api/videos/${videoId}/schedule-usage`, {
+        const response = await fetch(`/api/media/${videoId}/schedule-usage`, {
           credentials: 'include',
         });
         const data = await response.json();
@@ -515,7 +515,7 @@ async function handleBulkDelete() {
 
     showLoading(true, 'Deleting videos...');
 
-    const response = await fetch('/api/videos/bulk-delete', {
+    const response = await fetch('/api/media/bulk-delete', {
       method: 'POST',
       credentials: 'include',
       headers: {

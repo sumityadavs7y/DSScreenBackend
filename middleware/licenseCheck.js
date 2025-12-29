@@ -183,7 +183,7 @@ const webCheckCompanyLicense = async (req, res, next) => {
         console.log('❌ LICENSE CHECK - BLOCKED: Storage limit reached');
         const usedMB = (storageUsed / (1024 * 1024)).toFixed(2);
         const limitMB = (storageLimit / (1024 * 1024)).toFixed(2);
-        return res.redirect(`/dashboard/videos?error=${encodeURIComponent(`Storage limit reached (${usedMB}MB / ${limitMB}MB). Please contact your administrator to upgrade your license or free up space.`)}`);
+        return res.redirect(`/dashboard/media?error=${encodeURIComponent(`Storage limit reached (${usedMB}MB / ${limitMB}MB). Please contact your administrator to upgrade your license or free up space.`)}`);
       }
     }
 

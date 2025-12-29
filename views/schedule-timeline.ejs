@@ -292,7 +292,7 @@
             background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
         }
 
-        /* Video Library Styles */
+        /* Media Library Styles */
         .video-library-container {
             background: white;
             border-radius: 12px;
@@ -470,7 +470,7 @@
                 <div class="col-lg-3">
                     <div class="video-library-container">
                         <h5 class="mb-3">
-                            <i class="bi bi-collection"></i> Video Library
+                            <i class="bi bi-collection-play"></i> Media Library
                         </h5>
                         
                         <div class="mb-3">
@@ -484,9 +484,9 @@
                             <% if (!availableVideos || availableVideos.length === 0) { %>
                                 <div class="text-center text-muted py-4">
                                     <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                                    <p class="mt-2 small">No videos available</p>
-                                    <a href="/dashboard/videos" class="btn btn-sm btn-gradient">
-                                        <i class="bi bi-plus-lg"></i> Upload Videos
+                                    <p class="mt-2 small">No media available</p>
+                                    <a href="/dashboard/media" class="btn btn-sm btn-gradient">
+                                        <i class="bi bi-plus-lg"></i> Upload Media
                                     </a>
                                 </div>
                             <% } else { %>
@@ -833,7 +833,7 @@
             }
         }
 
-        // Setup drag handlers for video library items
+        // Setup drag handlers for media library items
         function setupVideoLibraryDragHandlers() {
             const videoCards = document.querySelectorAll('.video-library-item');
             videoCards.forEach(card => {
@@ -926,7 +926,7 @@
         }
 
         async function removeTimelineItem(itemId) {
-            if (!confirm('Remove this video from the timeline?')) {
+            if (!confirm('Remove this media from the timeline?')) {
                 return;
             }
 
@@ -941,16 +941,16 @@
                     Toast.success('Video removed from timeline');
                     window.location.reload();
                 } else {
-                    Toast.error(result.error || 'Failed to remove video');
+                    Toast.error(result.error || 'Failed to remove media');
                 }
             } catch (error) {
                 console.error('Error removing video:', error);
-                Toast.error('Failed to remove video');
+                Toast.error('Failed to remove media');
             }
         }
 
         async function clearTimeline() {
-            if (!confirm('Are you sure you want to remove all videos from this timeline?\n\nThis action cannot be undone!')) {
+            if (!confirm('Are you sure you want to remove all media from this timeline?\n\nThis action cannot be undone!')) {
                 return;
             }
 

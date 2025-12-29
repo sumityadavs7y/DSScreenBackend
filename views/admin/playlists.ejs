@@ -37,7 +37,7 @@
                             <th>Company</th>
                             <th>Creator</th>
                             <th>Code</th>
-                            <th>Videos</th>
+                            <th>Media</th>
                             <th>Created</th>
                             <th>Actions</th>
                         </tr>
@@ -54,7 +54,7 @@
                                 <td><%= p.company.name %></td>
                                 <td><%= p.creator.firstName %> <%= p.creator.lastName %></td>
                                 <td><span class="badge bg-primary"><%= p.code %></span></td>
-                                <td><%= p.items ? p.items.length : 0 %> videos</td>
+                                <td><%= p.items ? p.items.length : 0 %> media</td>
                                 <td><%= new Date(p.createdAt).toLocaleDateString() %></td>
                                 <td>
                                     <button class="btn btn-sm btn-danger" onclick="deletePlaylist('<%= p.id %>')">

@@ -42,7 +42,7 @@ const upload = multer({
 
 /**
  * GET /dashboard
- * Redirect to video library by default
+ * Redirect to media library by default
  */
 router.get('/', webRequireAuth, async (req, res) => {
   // If user is super admin and not impersonating, redirect to admin panel
@@ -81,7 +81,7 @@ router.get('/', webRequireAuth, async (req, res) => {
       }
     }
 
-  res.redirect('/dashboard/videos');
+  res.redirect('/dashboard/media');
   } catch (error) {
     console.error('Dashboard redirect error:', error);
     res.redirect('/company-selection');
@@ -89,10 +89,10 @@ router.get('/', webRequireAuth, async (req, res) => {
 });
 
 /**
- * GET /dashboard/videos
- * Video library page
+ * GET /dashboard/media
+ * Media library page
  */
-router.get('/videos', webRequireAuth, webRequireCompany, async (req, res) => {
+router.get('/media', webRequireAuth, webRequireCompany, async (req, res) => {
   try {
     // Load videos for the company
     const videos = await Video.findAll({
@@ -134,8 +134,8 @@ router.get('/videos', webRequireAuth, webRequireCompany, async (req, res) => {
       videos: formattedVideos,
     });
   } catch (error) {
-    console.error('Video library error:', error);
-    res.status(500).send('Error loading video library');
+    console.error('Media library error:', error);
+    res.status(500).send('Error loading media library');
   }
 });
 
@@ -647,20 +647,20 @@ router.post('/playlists/:playlistId/delete', webRequireAuth, webRequireCompany, 
  * See dashboard.ejs for the client-side implementation
  */
 router.post('/upload', webRequireAuth, webRequireCompany, async (req, res) => {
-  return res.redirect(`/dashboard/videos?error=${encodeURIComponent('This upload method has been deprecated. Please use the upload button on the page which uploads directly to S3.')}`);
+  return res.redirect(`/dashboard/media?error=${encodeURIComponent('This upload method has been deprecated. Please use the upload button on the page which uploads directly to S3.')}`);
 });
 
 /**
- * POST /dashboard/videos/:videoId/edit
+ * POST /dashboard/media/:videoId/edit
  * Edit video name
  */
-router.post('/videos/:videoId/edit', webRequireAuth, webRequireCompany, webCheckCompanyLicense, async (req, res) => {
+router.post('/media/:videoId/edit', webRequireAuth, webRequireCompany, webCheckCompanyLicense, async (req, res) => {
   try {
     const { videoId } = req.params;
     const { fileName } = req.body;
 
     if (!fileName || !fileName.trim()) {
-      return res.redirect(`/dashboard/videos?error=${encodeURIComponent('Video name cannot be empty')}`);
+      return res.redirect(`/dashboard/media?error=${encodeURIComponent('Video name cannot be empty')}`);
     }
 
     const video = await Video.findOne({
@@ -672,7 +672,7 @@ router.post('/videos/:videoId/edit', webRequireAuth, webRequireCompany, webCheck
     });
 
     if (!video) {
-      return res.redirect(`/dashboard/videos?error=${encodeURIComponent('Video not found')}`);
+      return res.redirect(`/dashboard/media?error=${encodeURIComponent('Video not found')}`);
     }
 
     // Check if user has permission to edit
@@ -681,24 +681,24 @@ router.post('/videos/:videoId/edit', webRequireAuth, webRequireCompany, webCheck
       ['owner', 'admin', 'manager'].includes(req.userCompany.role);
 
     if (!canEdit) {
-      return res.redirect(`/dashboard/videos?error=${encodeURIComponent('You do not have permission to edit this video')}`);
+      return res.redirect(`/dashboard/media?error=${encodeURIComponent('You do not have permission to edit this video')}`);
     }
 
     // Update video name
     await video.update({ fileName: fileName.trim() });
 
-    res.redirect(`/dashboard/videos?success=${encodeURIComponent('Video name updated successfully!')}`);
+    res.redirect(`/dashboard/media?success=${encodeURIComponent('Video name updated successfully!')}`);
   } catch (error) {
     console.error('Video edit error:', error);
-    res.redirect(`/dashboard/videos?error=${encodeURIComponent('Update failed: ' + error.message)}`);
+    res.redirect(`/dashboard/media?error=${encodeURIComponent('Update failed: ' + error.message)}`);
   }
 });
 
 /**
- * POST /dashboard/videos/:videoId/delete
+ * POST /dashboard/media/:videoId/delete
  * Delete a single video
  */
-router.post('/videos/:videoId/delete', webRequireAuth, webRequireCompany, async (req, res) => {
+router.post('/media/:videoId/delete', webRequireAuth, webRequireCompany, async (req, res) => {
   try {
     const { videoId } = req.params;
 
@@ -711,7 +711,7 @@ router.post('/videos/:videoId/delete', webRequireAuth, webRequireCompany, async 
     });
 
     if (!video) {
-      return res.redirect(`/dashboard/videos?error=${encodeURIComponent('Video not found')}`);
+      return res.redirect(`/dashboard/media?error=${encodeURIComponent('Video not found')}`);
     }
 
     // Check if user has permission to delete
@@ -720,7 +720,7 @@ router.post('/videos/:videoId/delete', webRequireAuth, webRequireCompany, async 
       ['owner', 'admin', 'manager'].includes(req.userCompany.role);
 
     if (!canDelete) {
-      return res.redirect(`/dashboard/videos?error=${encodeURIComponent('You do not have permission to delete this video')}`);
+      return res.redirect(`/dashboard/media?error=${encodeURIComponent('You do not have permission to delete this video')}`);
     }
 
     // ATOMIC DELETE OPERATION
@@ -755,31 +755,31 @@ router.post('/videos/:videoId/delete', webRequireAuth, webRequireCompany, async 
       // Commit transaction
       await transaction.commit();
 
-      res.redirect(`/dashboard/videos?success=${encodeURIComponent('Video deleted successfully!')}`);
+      res.redirect(`/dashboard/media?success=${encodeURIComponent('Video deleted successfully!')}`);
     } catch (error) {
       // Rollback transaction
       await transaction.rollback();
       console.error('Delete operation failed:', error);
       
-      res.redirect(`/dashboard/videos?error=${encodeURIComponent('Failed to delete video: ' + error.message)}`);
+      res.redirect(`/dashboard/media?error=${encodeURIComponent('Failed to delete video: ' + error.message)}`);
     }
   } catch (error) {
     console.error('Video delete error:', error);
-    res.redirect(`/dashboard/videos?error=${encodeURIComponent('Delete failed: ' + error.message)}`);
+    res.redirect(`/dashboard/media?error=${encodeURIComponent('Delete failed: ' + error.message)}`);
   }
 });
 
 /**
- * POST /dashboard/videos/bulk-delete
+ * POST /dashboard/media/bulk-delete
  * Delete multiple videos
  */
-router.post('/videos/bulk-delete', webRequireAuth, webRequireCompany, async (req, res) => {
+router.post('/media/bulk-delete', webRequireAuth, webRequireCompany, async (req, res) => {
   try {
     const videoIds = req.body['videoIds[]'] || req.body.videoIds || [];
     const idsArray = Array.isArray(videoIds) ? videoIds : [videoIds];
 
     if (idsArray.length === 0) {
-      return res.redirect(`/dashboard/videos?error=${encodeURIComponent('No videos selected')}`);
+      return res.redirect(`/dashboard/media?error=${encodeURIComponent('No videos selected')}`);
     }
 
     // Find all videos
@@ -854,7 +854,7 @@ router.post('/videos/bulk-delete', webRequireAuth, webRequireCompany, async (req
     const message = `Successfully deleted ${deleted} video(s)` + 
                    (failed > 0 ? `. ${failed} video(s) could not be deleted.` : '');
 
-    res.redirect(`/dashboard/videos?success=${encodeURIComponent(message)}`);
+    res.redirect(`/dashboard/media?success=${encodeURIComponent(message)}`);
   } catch (error) {
     console.error('Bulk delete error:', error);
     res.redirect(`/dashboard?tab=uploads&error=${encodeURIComponent('Bulk delete failed: ' + error.message)}`);

@@ -40,7 +40,7 @@
             margin-right: 5px;
         }
         .badge-users { background: #fef3c7; color: #92400e; }
-        .badge-videos { background: #dbeafe; color: #1e40af; }
+        .badge-media { background: #dbeafe; color: #1e40af; }
         .badge-playlists { background: #d1fae5; color: #065f46; }
     </style>
 </head>
@@ -128,8 +128,8 @@
                                         <span class="stats-badge badge-users">
                                             <i class="bi bi-people-fill"></i> <%= company.companyUsers ? company.companyUsers.length : 0 %>
                                         </span>
-                                        <span class="stats-badge badge-videos">
-                                            <i class="bi bi-film"></i> <%= company.videos ? company.videos.length : 0 %>
+                                        <span class="stats-badge badge-media">
+                                            <i class="bi bi-collection-play"></i> <%= company.videos ? company.videos.length : 0 %>
                                         </span>
                                         <span class="stats-badge badge-playlists">
                                             <i class="bi bi-play-circle-fill"></i> <%= company.playlists ? company.playlists.length : 0 %>

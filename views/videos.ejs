@@ -3,7 +3,7 @@
 <head>
     <%- include('partials/head') %>
     <link rel="stylesheet" href="/css/video-js.css">
-    <title>Video Library - Digital Signage</title>
+    <title>Media Library - Digital Signage</title>
     <style>
         /* Video Thumbnail */
         .video-thumbnail {
@@ -159,12 +159,12 @@
             <!-- Navigation Tabs -->
             <%- include('partials/dashboard-tabs', { currentPage: 'videos', user, company, userCompany, session }) %>
 
-            <!-- Video Library Content -->
+            <!-- Media Library Content -->
             <div class="card table-card">
                 <div class="card-header bg-white border-0 py-3">
                     <div class="row align-items-center">
                         <div class="col">
-                            <h4 class="mb-0"><i class="bi bi-film"></i> Video Library</h4>
+                            <h4 class="mb-0"><i class="bi bi-collection-play"></i> Media Library</h4>
                         </div>
                         <div class="col-auto">
                             <% if (videos && videos.length > 0) { %>
@@ -173,7 +173,7 @@
                                 </button>
                             <% } %>
                             <button class="btn btn-gradient" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                                <i class="bi bi-cloud-upload"></i> Upload Video
+                                <i class="bi bi-cloud-upload"></i> Upload Media
                             </button>
                         </div>
                     </div>
@@ -183,8 +183,8 @@
                         <!-- Empty State -->
                         <div class="empty-state">
                             <i class="bi bi-film"></i>
-                            <h3 class="mt-3">No Videos Yet</h3>
-                            <p class="text-muted">Upload your first video using the button above.</p>
+                            <h3 class="mt-3">No Media Yet</h3>
+                            <p class="text-muted">Upload your first video or image using the button above.</p>
                         </div>
                     <% } else { %>
                         <!-- Video Table -->
@@ -216,7 +216,7 @@
                                                 <div class="d-flex align-items-center">
                                                     <div class="video-thumbnail me-3" onclick='playVideo("<%= video.id %>", "<%= video.fileName.replace(/"/g, "&quot;") %>")'>
                                                         <% if (video.thumbnailPath) { %>
-                                                            <img src="/api/videos/<%= video.id %>/thumbnail" alt="<%= video.fileName %>" loading="lazy">
+                                                            <img src="/api/media/<%= video.id %>/thumbnail" alt="<%= video.fileName %>" loading="lazy">
                                                             <div class="play-overlay">
                                                                 <i class="bi bi-play-fill"></i>
                                                             </div>
@@ -282,7 +282,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-cloud-upload"></i> Upload Video</h5>
+                    <h5 class="modal-title"><i class="bi bi-cloud-upload"></i> Upload Media</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="uploadModalClose"></button>
                 </div>
                 <form id="uploadForm" action="javascript:void(0);" enctype="multipart/form-data">
@@ -354,10 +354,10 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title"><i class="bi bi-trash"></i> Delete Videos</h5>
+                    <h5 class="modal-title"><i class="bi bi-trash"></i> Delete Media</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <form action="/dashboard/videos/bulk-delete" method="POST">
+                <form action="/dashboard/media/bulk-delete" method="POST">
                     <div class="modal-body">
                         <p>Are you sure you want to delete the following videos?</p>
                         <div id="selectedVideosList" class="list-group mb-3"></div>
@@ -409,7 +409,7 @@
             const file = fileInput.files[0];
             
             if (!file) {
-                alert('Please select a video file');
+                alert('Please select a media file (video or image)');
                 return;
             }
 
@@ -441,7 +441,7 @@
                 // Step 1: Request upload URL
                 updateProgress(10, 'Preparing...');
                 
-                const urlResponse = await fetch('/api/videos/request-upload-url', {
+                const urlResponse = await fetch('/api/media/request-upload-url', {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
@@ -505,7 +505,7 @@
                 // Step 3: Complete upload
                 updateProgress(85, 'Processing...');
 
-                const completeResponse = await fetch(`/api/videos/${data.videoId}/complete-upload`, {
+                const completeResponse = await fetch(`/api/media/${data.videoId}/complete-upload`, {
                     method: 'POST',
                     credentials: 'include',
                 });
@@ -556,7 +556,7 @@
         });
 
         function openEditModal(videoId, videoName) {
-            document.getElementById('editForm').action = `/dashboard/videos/${videoId}/edit`;
+            document.getElementById('editForm').action = `/dashboard/media/${videoId}/edit`;
             document.getElementById('editFileName').value = videoName;
             editModal.show();
         }
@@ -585,7 +585,7 @@
                 responsive: true,
                 aspectRatio: '16:9',
                 sources: [{
-                    src: `/api/videos/${videoId}/download`,
+                    src: `/api/media/${videoId}/download`,
                     type: 'video/mp4'
                 }]
             });
@@ -631,11 +631,11 @@
         });
 
         function deleteVideo(videoId) {
-            if (confirm('Are you sure you want to delete this video?')) {
+            if (confirm('Are you sure you want to delete this media?')) {
                 // Create a form and submit it
                 const form = document.createElement('form');
                 form.method = 'POST';
-                form.action = `/dashboard/videos/${videoId}/delete`;
+                form.action = `/dashboard/media/${videoId}/delete`;
                 document.body.appendChild(form);
                 form.submit();
             }

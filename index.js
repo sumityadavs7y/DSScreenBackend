@@ -52,7 +52,7 @@ app.use('/admin', adminRoutes); // Super Admin panel routes
 app.use('/api/auth', authRoutes);
 app.use('/api/company', companyRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/videos', videoRoutes);
+app.use('/api/media', videoRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/', indexRoutes); // Static pages
 

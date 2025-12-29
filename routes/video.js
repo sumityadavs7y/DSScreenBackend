@@ -131,8 +131,24 @@ router.post('/request-upload-url',
       });
       
       const companyStorageLimit = activeLicense?.maxStorageBytes || storageConfig.companyStorageLimitBytes;
-      const currentUsage = req.company.storageUsedBytes || 0;
+      
+      // Calculate actual storage used (only count active videos)
+      const currentUsage = await Video.sum('fileSize', {
+        where: {
+          companyId: req.company.id,
+          isActive: true,
+        }
+      }) || 0;
+      
       const newTotalSize = currentUsage + fileSize;
+
+      console.log('📊 Storage check:', {
+        currentUsageMB: (currentUsage / (1024 * 1024)).toFixed(2),
+        newFileMB: (fileSize / (1024 * 1024)).toFixed(2),
+        totalAfterMB: (newTotalSize / (1024 * 1024)).toFixed(2),
+        limitMB: (companyStorageLimit / (1024 * 1024)).toFixed(2),
+        wouldExceed: newTotalSize > companyStorageLimit,
+      });
 
       if (newTotalSize > companyStorageLimit) {
         const currentUsageMB = (currentUsage / (1024 * 1024)).toFixed(2);

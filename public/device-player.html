@@ -371,6 +371,8 @@
         let cacheStatus = {};
         let currentMediaType = null; // 'video' or 'image'
         let imageDisplayTimeout = null; // Timeout for image display duration
+        let isInitialPlay = true; // Track if this is the first play (needs user interaction)
+        let hasUserInteracted = false; // Track if user has clicked anywhere
         let itemStartTime = 0;
         let itemDuration = 0;
         let checkIntervalId = null;
@@ -453,6 +455,20 @@
                 videoPlayer = document.getElementById('videoPlayer');
                 imagePlayer = document.getElementById('imagePlayer');
                 videoPlayer.addEventListener('timeupdate', updateVideoInfo);
+                
+                // Track user interactions to enable unmuted autoplay
+                document.addEventListener('click', () => {
+                    if (!hasUserInteracted) {
+                        hasUserInteracted = true;
+                        console.log('✅ User interaction detected, unmuted playback enabled');
+                        
+                        // Unmute video if it's currently playing muted
+                        if (videoPlayer && !videoPlayer.paused && videoPlayer.muted) {
+                            videoPlayer.muted = false;
+                            console.log('🔊 Unmuted currently playing video');
+                        }
+                    }
+                }, { once: false });
                 
                 // Initialize cache status
                 for (const item of timelineItems) {
@@ -730,7 +746,10 @@
                     videoPlayer.style.display = 'block';
                     videoPlayer.src = mediaURL;
                     videoPlayer.loop = true; // Loop the video
-                    videoPlayer.muted = false; // Ensure unmuted
+                    
+                    // Use muted autoplay for automatic transitions to avoid browser blocking
+                    // Only unmute if user has interacted or it's not initial play
+                    videoPlayer.muted = isInitialPlay && !hasUserInteracted;
                     videoPlayer.volume = 1.0; // Full volume
                     videoPlayer.load();
                     
@@ -738,13 +757,45 @@
                         await videoPlayer.play();
                         hideClickToPlay();
                         
+                        // If muted, try to unmute after a short delay
+                        if (videoPlayer.muted && hasUserInteracted) {
+                            setTimeout(() => {
+                                videoPlayer.muted = false;
+                            }, 100);
+                        }
+                        
+                        // Mark as no longer initial play after first successful play
+                        if (isInitialPlay) {
+                            isInitialPlay = false;
+                        }
+                        
                         // Start checking item duration
                         startItemDurationCheck();
                         return true; // Success
                     } catch (playError) {
-                        console.log('⚠️ Autoplay blocked, showing click to play overlay:', playError);
-                        showClickToPlay();
-                        return false; // Blocked
+                        console.log('⚠️ Autoplay blocked:', playError);
+                        
+                        // Only show click-to-play on initial load, not on automatic transitions
+                        if (isInitialPlay) {
+                            console.log('⚠️ Showing click to play overlay for initial load');
+                            showClickToPlay();
+                            return false; // Blocked
+                        } else {
+                            // For automatic transitions, continue anyway with muted
+                            console.log('⚠️ Automatic transition blocked, continuing with muted playback');
+                            videoPlayer.muted = true;
+                            try {
+                                await videoPlayer.play();
+                                hideClickToPlay();
+                                startItemDurationCheck();
+                                return true;
+                            } catch (mutedPlayError) {
+                                console.error('❌ Even muted play failed:', mutedPlayError);
+                                // Skip to next if completely blocked
+                                advanceToNextVideo();
+                                return false;
+                            }
+                        }
                     }
                 }
                 
@@ -766,9 +817,16 @@
         
         async function handleClickToPlay() {
             hideClickToPlay();
+            hasUserInteracted = true; // Mark user interaction
+            isInitialPlay = false; // No longer initial play
+            
             try {
+                // Unmute and play
+                videoPlayer.muted = false;
                 await videoPlayer.play();
                 startItemDurationCheck();
+                
+                console.log('🔊 Playback started with user interaction (unmuted)');
                 
                 // Try to enter fullscreen after user interaction
                 setTimeout(() => {

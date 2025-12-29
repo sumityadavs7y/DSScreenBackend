@@ -200,45 +200,53 @@
         }
         
         
-        /* Click to Play Overlay (only shows if autoplay blocked) */
-        #clickToPlayOverlay {
+        /* Fullscreen Start Overlay (shown on page load) */
+        #fullscreenStartOverlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: rgba(0, 0, 0, 0.95);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            z-index: 9999;
+            z-index: 10000;
             color: white;
             cursor: pointer;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s, visibility 0.3s;
-        }
-        
-        #clickToPlayOverlay.show {
             opacity: 1;
             visibility: visible;
+            transition: opacity 0.5s, visibility 0.5s;
         }
         
-        #clickToPlayOverlay i {
-            font-size: 80px;
-            margin-bottom: 20px;
+        #fullscreenStartOverlay.hide {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        
+        #fullscreenStartOverlay .fullscreen-prompt {
+            text-align: center;
+            padding: 40px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            max-width: 600px;
+        }
+        
+        #fullscreenStartOverlay i {
             animation: pulse 2s infinite;
         }
         
         @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
         }
         
-        #clickToPlayOverlay p {
-            font-size: 24px;
-            margin: 0;
+        #fullscreenStartOverlay:hover .fullscreen-prompt {
+            background: rgba(0, 0, 0, 0.5);
+            transform: scale(1.02);
+            transition: all 0.3s ease;
         }
         
         /* Error Display */
@@ -329,10 +337,13 @@
         </div>
     </div>
     
-    <!-- Click to Play Overlay -->
-    <div id="clickToPlayOverlay" onclick="handleClickToPlay()">
-        <i class="bi bi-play-circle-fill"></i>
-        <p>Click to Play with Sound</p>
+    <!-- Fullscreen Start Overlay (shown on page load) -->
+    <div id="fullscreenStartOverlay" onclick="handleFullscreenStart()">
+        <div class="fullscreen-prompt">
+            <i class="bi bi-arrows-fullscreen" style="font-size: 80px; margin-bottom: 20px;"></i>
+            <h2 style="margin: 0 0 15px 0; font-size: 32px;">Digital Signage Display</h2>
+            <p style="margin: 0; font-size: 20px;">Tap anywhere to enter fullscreen and start playback</p>
+        </div>
     </div>
     
     <!-- Error Overlay -->
@@ -515,23 +526,16 @@
                 // Start background caching
                 startBackgroundCaching();
                 
-                // Start playback immediately
+                // Initialize video index but DON'T start playback yet
+                // Wait for user to click the fullscreen overlay
                 currentVideoIndex = 0;
                 loopCount = 0;
-                const playSuccess = await playCurrentVideo();
                 
-                // Try to enter fullscreen automatically on first load
-                if (playSuccess && !hasEnteredFullscreenOnce) {
-                    setTimeout(() => {
-                        enterFullscreen();
-                    }, 1000); // Give browser time to start playback first
-                }
+                // Show fullscreen start overlay (user must click to begin)
+                console.log('✅ Ready to start. Waiting for user to enter fullscreen...');
                 
-                // Start update intervals
-                updateIntervalId = setInterval(updateInfo, 100);
-                
-                // Start timeline update checker (every 30 seconds)
-                timelineCheckIntervalId = setInterval(checkForTimelineUpdates, 30000);
+                // Note: Playback will start when user clicks fullscreen overlay
+                // See handleFullscreenStart() function
                 
             } catch (error) {
                 console.error('❌ Initialization error:', error);
@@ -870,6 +874,43 @@
             } catch (error) {
                 console.error('Failed to play after click:', error);
                 showError('Failed to start playback. Please check your browser settings.');
+            }
+        }
+        
+        async function handleFullscreenStart() {
+            console.log('🚀 Starting playback in fullscreen mode...');
+            
+            // Hide the fullscreen start overlay
+            document.getElementById('fullscreenStartOverlay').classList.add('hide');
+            
+            // Mark that user has interacted
+            hasUserInteracted = true;
+            isInitialPlay = false;
+            
+            try {
+                // Enter fullscreen first
+                enterFullscreen();
+                
+                // Wait a moment for fullscreen to activate
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                // Start playback
+                const playSuccess = await playCurrentVideo();
+                
+                if (playSuccess) {
+                    console.log('✅ Playback started successfully in fullscreen');
+                    
+                    // Start update intervals
+                    updateIntervalId = setInterval(updateInfo, 100);
+                    
+                    // Start timeline update checker (every 30 seconds)
+                    timelineCheckIntervalId = setInterval(checkForTimelineUpdates, 30000);
+                } else {
+                    console.log('⚠️ Playback did not start immediately, may be buffering');
+                }
+            } catch (error) {
+                console.error('❌ Failed to start in fullscreen:', error);
+                showError(`Failed to start: ${error.message}`);
             }
         }
 

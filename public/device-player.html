@@ -145,9 +145,9 @@
             margin-bottom: 20px;
         }
         
-        /* Deregister Button */
+        /* Control Buttons */
+        #fullscreenToggleBtn,
         #deregisterBtn {
-            background: #dc2626;
             color: white;
             border: none;
             padding: 14px 28px;
@@ -161,6 +161,28 @@
             gap: 10px;
             width: 100%;
             justify-content: center;
+            margin-bottom: 12px;
+        }
+        
+        #fullscreenToggleBtn {
+            background: #10b981;
+        }
+        
+        #fullscreenToggleBtn:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+        
+        #fullscreenToggleBtn:active {
+            transform: translateY(0);
+        }
+        
+        #fullscreenToggleBtn i {
+            font-size: 18px;
+        }
+        
+        #deregisterBtn {
+            background: #dc2626;
         }
         
         #deregisterBtn:hover {
@@ -314,6 +336,12 @@
                     <div class="progress-fill" id="cacheProgressBar"></div>
                 </div>
             </div>
+            
+            <!-- Fullscreen Toggle Button -->
+            <button id="fullscreenToggleBtn" onclick="toggleFullscreen()">
+                <i class="bi bi-arrows-fullscreen" id="fullscreenIcon"></i>
+                <span id="fullscreenText">Enter Fullscreen</span>
+            </button>
             
             <!-- Deregister Button -->
             <button id="deregisterBtn" onclick="goHome()">
@@ -1189,12 +1217,36 @@
                                    document.mozFullScreenElement || 
                                    document.msFullscreenElement);
             
+            // Update fullscreen button text and icon
+            const fullscreenBtn = document.getElementById('fullscreenToggleBtn');
+            const fullscreenIcon = document.getElementById('fullscreenIcon');
+            const fullscreenText = document.getElementById('fullscreenText');
+            
             if (isFullscreen) {
                 console.log('📺 Entered fullscreen mode');
                 document.body.classList.add('is-fullscreen');
+                
+                if (fullscreenIcon) fullscreenIcon.className = 'bi bi-fullscreen-exit';
+                if (fullscreenText) fullscreenText.textContent = 'Exit Fullscreen';
             } else {
                 console.log('🖥️  Exited fullscreen mode');
                 document.body.classList.remove('is-fullscreen');
+                
+                if (fullscreenIcon) fullscreenIcon.className = 'bi bi-arrows-fullscreen';
+                if (fullscreenText) fullscreenText.textContent = 'Enter Fullscreen';
+            }
+        }
+        
+        function toggleFullscreen() {
+            const isFullscreen = !!(document.fullscreenElement || 
+                                   document.webkitFullscreenElement || 
+                                   document.mozFullScreenElement || 
+                                   document.msFullscreenElement);
+            
+            if (isFullscreen) {
+                exitFullscreen();
+            } else {
+                enterFullscreen();
             }
         }
 

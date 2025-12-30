@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Registration - QR Code</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .status-indicator.connecting {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-indicator.connected {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-indicator.disconnected {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connecting .status-dot {
+            background-color: #f59e0b;
+        }
+
+        .status-indicator.connected .status-dot {
+            background-color: #10b981;
+        }
+
+        .status-indicator.disconnected .status-dot {
+            background-color: #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        h1 {
+            color: #1f2937;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+
+        .qr-container {
+            background: #f9fafb;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .qr-container.show {
+            display: block;
+        }
+
+        .qr-code {
+            max-width: 400px;
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .registration-url {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            border: 2px dashed #d1d5db;
+        }
+
+        .registration-url p {
+            color: #6b7280;
+            font-size: 12px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .registration-url a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            word-break: break-all;
+            font-size: 14px;
+        }
+
+        .registration-url a:hover {
+            text-decoration: underline;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .device-id {
+            background: #f3f4f6;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .device-id strong {
+            color: #1f2937;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .success.show {
+            display: block;
+        }
+
+        .success h2 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .success p {
+            font-size: 16px;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+        }
+
+        .btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .instructions {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px 20px;
+            margin: 20px 0;
+            text-align: left;
+            border-radius: 8px;
+        }
+
+        .instructions h3 {
+            color: #1e40af;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .instructions ol {
+            color: #1e3a8a;
+            margin-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Connection Status -->
+        <div id="statusIndicator" class="status-indicator connecting">
+            <span class="status-dot"></span>
+            <span id="statusText">Connecting...</span>
+        </div>
+
+        <h1>Device Registration</h1>
+        <p class="subtitle">Scan the QR code with your mobile device to register</p>
+
+        <!-- Instructions -->
+        <div class="instructions">
+            <h3>📱 How to Register:</h3>
+            <ol>
+                <li>Open your mobile camera or QR scanner</li>
+                <li>Scan the QR code below</li>
+                <li>Enter your 5-character playlist code</li>
+                <li>Wait for confirmation</li>
+            </ol>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Generating QR Code...</p>
+        </div>
+
+        <!-- QR Code Display -->
+        <div id="qrContainer" class="qr-container">
+            <img id="qrCode" class="qr-code" alt="Registration QR Code">
+            <div class="registration-url">
+                <p>Or open this link on your mobile:</p>
+                <a id="registrationUrl" href="#" target="_blank"></a>
+            </div>
+        </div>
+
+        <!-- Error Display -->
+        <div id="error" class="error"></div>
+
+        <!-- Success Display -->
+        <div id="success" class="success">
+            <h2>✅ Registration Successful!</h2>
+            <p id="successMessage"></p>
+        </div>
+
+        <!-- Device Info -->
+        <div class="device-id">
+            <strong>Device ID:</strong> <span id="deviceId">Generating...</span>
+        </div>
+
+        <button id="retryBtn" class="btn" style="display: none;" onclick="location.reload()">
+            Retry
+        </button>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = window.location.origin;
+        const SOCKET_URL = window.location.origin;
+
+        // State
+        let socket = null;
+        let deviceId = null;
+        let sessionToken = null;
+
+        // DOM Elements
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const loading = document.getElementById('loading');
+        const qrContainer = document.getElementById('qrContainer');
+        const qrCode = document.getElementById('qrCode');
+        const registrationUrl = document.getElementById('registrationUrl');
+        const error = document.getElementById('error');
+        const success = document.getElementById('success');
+        const successMessage = document.getElementById('successMessage');
+        const deviceIdEl = document.getElementById('deviceId');
+        const retryBtn = document.getElementById('retryBtn');
+
+        // Generate device ID from browser fingerprint
+        function generateDeviceId() {
+            const nav = navigator;
+            const screen = window.screen;
+            const fingerprint = [
+                nav.userAgent,
+                nav.language,
+                screen.colorDepth,
+                screen.width + 'x' + screen.height,
+                new Date().getTimezoneOffset(),
+                !!window.sessionStorage,
+                !!window.localStorage,
+            ].join('|');
+
+            // Simple hash function
+            let hash = 0;
+            for (let i = 0; i < fingerprint.length; i++) {
+                const char = fingerprint.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+
+            return 'device_' + Math.abs(hash).toString(36) + '_' + Date.now().toString(36);
+        }
+
+        // Update connection status
+        function updateStatus(status) {
+            statusIndicator.className = `status-indicator ${status}`;
+            
+            switch(status) {
+                case 'connecting':
+                    statusText.textContent = 'Connecting...';
+                    break;
+                case 'connected':
+                    statusText.textContent = 'Connected';
+                    break;
+                case 'disconnected':
+                    statusText.textContent = 'Disconnected';
+                    break;
+            }
+        }
+
+        // Show error
+        function showError(message) {
+            error.textContent = message;
+            error.classList.add('show');
+            loading.style.display = 'none';
+            retryBtn.style.display = 'inline-block';
+        }
+
+        // Initialize Socket.IO
+        function initSocket() {
+            updateStatus('connecting');
+            
+            socket = io(SOCKET_URL, {
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionDelay: 1000,
+                reconnectionAttempts: 5
+            });
+
+            socket.on('connect', () => {
+                console.log('✅ Socket connected:', socket.id);
+                updateStatus('connected');
+                
+                // Join device room
+                socket.emit('device:join', deviceId);
+            });
+
+            socket.on('device:connected', (data) => {
+                console.log('✅ Device joined room:', data);
+            });
+
+            socket.on('disconnect', () => {
+                console.log('❌ Socket disconnected');
+                updateStatus('disconnected');
+            });
+
+            socket.on('connect_error', (err) => {
+                console.error('❌ Socket connection error:', err);
+                updateStatus('disconnected');
+            });
+
+            // Listen for registration completion
+            socket.on('registration:complete', (data) => {
+                console.log('✅ Registration complete:', data);
+                console.log('📋 Playlist items received:', data.playlist.items?.length || 0);
+                qrContainer.classList.remove('show');
+                success.classList.add('show');
+                successMessage.textContent = `Successfully registered to playlist: ${data.playlist.name} (${data.playlist.code}). Redirecting to player...`;
+                
+                // Store device info with full data - matching manual registration structure
+                const registrationData = {
+                    playlistCode: data.playlist.code,
+                    uid: deviceId,
+                    device: data.device,
+                    playlist: data.playlist, // This now includes items array
+                    deviceInfo: {
+                        resolution: `${window.screen.width}x${window.screen.height}`,
+                        browser: navigator.userAgent,
+                        platform: navigator.platform,
+                        timestamp: new Date().toISOString()
+                    },
+                    registeredAt: new Date().toISOString()
+                };
+                
+                localStorage.setItem('devicePlaylistRegistration', JSON.stringify(registrationData));
+                console.log('💾 Registration data saved to localStorage');
+                
+                // Redirect to player page after 2 seconds
+                setTimeout(() => {
+                    window.location.href = '/device-player.html';
+                }, 2000);
+            });
+        }
+
+        // Initialize registration session
+        async function initRegistration() {
+            try {
+                loading.style.display = 'block';
+                
+                const response = await fetch(`${API_BASE_URL}/api/device/init-registration`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ deviceId }),
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.message || 'Failed to initialize registration');
+                }
+
+                sessionToken = result.data.sessionToken;
+                
+                // Display QR code
+                qrCode.src = result.data.qrCodeDataUrl;
+                registrationUrl.href = result.data.registrationUrl;
+                registrationUrl.textContent = result.data.registrationUrl;
+
+                // Show QR container
+                loading.style.display = 'none';
+                qrContainer.classList.add('show');
+
+                console.log('✅ Registration session created:', sessionToken);
+
+            } catch (err) {
+                console.error('❌ Error initializing registration:', err);
+                showError('Failed to generate QR code. Please try again.');
+            }
+        }
+
+        // Initialize
+        async function init() {
+            // Generate device ID
+            deviceId = generateDeviceId();
+            deviceIdEl.textContent = deviceId;
+
+            console.log('📱 Device ID:', deviceId);
+
+            // Initialize Socket.IO
+            initSocket();
+
+            // Initialize registration session
+            await initRegistration();
+        }
+
+        // Start on page load
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
+

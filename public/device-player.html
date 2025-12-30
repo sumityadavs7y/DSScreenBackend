@@ -355,6 +355,7 @@
             <h3>📊 Playback Information</h3>
             <p><strong>Device UID:</strong> <span id="infoDeviceUID">-</span></p>
             <p><strong>Playlist:</strong> <span id="infoPlaylistName">-</span></p>
+            <p><strong>License Expires:</strong> <span id="infoLicenseExpiry">-</span></p>
             <p><strong>Current Video:</strong> <span id="infoCurrentVideo">-</span> / <span id="infoTotalVideos">-</span></p>
             <p><strong>Timeline Loop:</strong> #<span id="infoLoopCount">0</span></p>
             <p><strong>Video Time:</strong> <span id="infoVideoTime">00:00</span> / <span id="infoVideoDuration">00:00</span></p>
@@ -499,6 +500,9 @@
                             const license = timelineResult.license;
                             console.log('📜 License status:', license.isExpired ? '❌ EXPIRED' : '✅ Active', '| Expires:', license.expiresAt);
                             
+                            // Update license display
+                            updateLicenseDisplay(license);
+                            
                             if (license.isExpired || !license.isActive) {
                                 showError('License has expired. Please contact your administrator to renew the license.');
                                 return;
@@ -598,6 +602,9 @@
                     const license = result.license;
                     console.log('📜 License check:', license.isExpired ? '❌ EXPIRED' : '✅ Active', '| Expires:', license.expiresAt);
                     
+                    // Update license display
+                    updateLicenseDisplay(license);
+                    
                     // If license is expired, stop playback
                     if (license.isExpired || !license.isActive) {
                         console.error('❌ License has expired! Stopping playback...');
@@ -619,6 +626,7 @@
                     }
                 } else {
                     console.warn('⚠️  No license information available');
+                    document.getElementById('infoLicenseExpiry').textContent = 'No license info';
                 }
                 
                 if (!result.success || !result.data || result.data.length === 0) {
@@ -1258,6 +1266,47 @@
             const h = Math.floor(seconds / 3600);
             if (h > 0) return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
             return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function updateLicenseDisplay(license) {
+            if (!license || !license.expiresAt) {
+                document.getElementById('infoLicenseExpiry').textContent = 'No license info';
+                return;
+            }
+
+            const now = new Date();
+            const expiryDate = new Date(license.expiresAt);
+            const daysRemaining = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+            
+            let displayText;
+            let textColor = '';
+            
+            if (license.isExpired || daysRemaining < 0) {
+                displayText = '❌ EXPIRED';
+                textColor = '#dc3545'; // Red
+            } else if (daysRemaining === 0) {
+                displayText = '⚠️ Expires today';
+                textColor = '#fd7e14'; // Orange
+            } else if (daysRemaining === 1) {
+                displayText = `⚠️ ${daysRemaining} day remaining`;
+                textColor = '#fd7e14'; // Orange
+            } else if (daysRemaining <= 7) {
+                displayText = `⚠️ ${daysRemaining} days remaining`;
+                textColor = '#ffc107'; // Yellow/Warning
+            } else if (daysRemaining <= 30) {
+                displayText = `${daysRemaining} days remaining`;
+                textColor = '#0dcaf0'; // Info blue
+            } else {
+                displayText = `${daysRemaining} days remaining`;
+                textColor = '#20c997'; // Green/Success
+            }
+            
+            const licenseElement = document.getElementById('infoLicenseExpiry');
+            licenseElement.textContent = displayText;
+            licenseElement.style.color = textColor;
+            licenseElement.style.fontWeight = daysRemaining <= 7 ? 'bold' : 'normal';
+            
+            console.log(`📅 License: ${displayText} (Expires: ${expiryDate.toLocaleDateString()})`);
         }
 
         function goHome() {

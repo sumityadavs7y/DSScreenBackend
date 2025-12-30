@@ -14,10 +14,8 @@
     "migrate:run": "node -e \"require('./utils/migrate').runMigrations().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); })\"",
     "migrate:rollback": "node -e \"require('./utils/migrate').rollbackMigration().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); })\"",
     "migrate:check": "node -e \"require('./utils/migrate').checkMigrationStatus().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); })\"",
-    "cleanup:videos": "node scripts/cleanup-orphaned-videos.js",
-    "cleanup:videos:dry-run": "node scripts/cleanup-orphaned-videos.js --dry-run",
-    "backfill:metadata": "node scripts/backfill-video-metadata.js",
-    "backfill:thumbnails": "node scripts/backfill-video-thumbnails.js"
+    "cleanup:sessions": "node scripts/cleanup-registration-sessions.js",
+    "cleanup:sessions:dry-run": "node scripts/cleanup-registration-sessions.js --dry-run"
   },
   "keywords": [
     "backend",
@@ -43,7 +41,9 @@
     "multer": "^2.0.2",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
+    "qrcode": "^1.5.4",
     "sequelize": "^6.37.7",
+    "socket.io": "^4.8.3",
     "sqlite3": "^5.1.7",
     "umzug": "^3.8.2"
   },

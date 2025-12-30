@@ -10,6 +10,7 @@ const PlaylistItem = require('./PlaylistItem');
 const Device = require('./Device');
 const DevicePlaylist = require('./DevicePlaylist');
 const License = require('./License');
+const RegistrationSession = require('./RegistrationSession');
 
 // Define relationships
 // User <-> Company (Many-to-Many through UserCompany)
@@ -181,5 +182,6 @@ module.exports = {
   Device,
   DevicePlaylist,
   License,
+  RegistrationSession,
 };
 

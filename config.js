@@ -1,7 +1,8 @@
 exports.envConfig = {
     port: process.env.PORT || "3000",
     sessionSecret: process.env.SESSION_SECRET || 'dsscreen-secret-key-2024',
-    envMode: process.env.ENV_MODE || 'production'
+    envMode: process.env.ENV_MODE || 'production',
+    baseUrl: process.env.BASE_URL || `http://localhost:${process.env.PORT || "3000"}`
 };
 
 exports.jwtConfig = {

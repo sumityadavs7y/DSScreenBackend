@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Device</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            color: #1f2937;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .card {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            color: #1f2937;
+            font-size: 16px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 18px;
+            letter-spacing: 2px;
+            text-align: center;
+            font-weight: 600;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        input[type="text"]::placeholder {
+            text-transform: none;
+            letter-spacing: normal;
+            font-weight: normal;
+        }
+
+        .btn {
+            width: 100%;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+        }
+
+        .btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .device-info {
+            background: #f3f4f6;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #6b7280;
+            text-align: center;
+        }
+
+        .success-container {
+            text-align: center;
+            display: none;
+        }
+
+        .success-container.show {
+            display: block;
+        }
+
+        .success-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .success-container h2 {
+            color: #065f46;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .success-container p {
+            color: #6b7280;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .playlist-details {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .playlist-details h3 {
+            color: #1f2937;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .playlist-details .code {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 3px;
+        }
+
+        .instructions {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #1e3a8a;
+        }
+
+        .instructions p {
+            line-height: 1.6;
+        }
+
+        .code-hint {
+            color: #6b7280;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">📺</div>
+            <h1>Device Registration</h1>
+            <p class="subtitle">Register your digital signage device</p>
+        </div>
+
+        <!-- Alerts -->
+        <div id="alertError" class="alert alert-error"></div>
+        <div id="alertSuccess" class="alert alert-success"></div>
+        <div id="alertInfo" class="alert alert-info"></div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p id="loadingText">Loading...</p>
+        </div>
+
+        <!-- Registration Form -->
+        <div id="registrationForm">
+            <div class="instructions">
+                <p>
+                    <strong>📱 How it works:</strong><br>
+                    Enter your 5-character playlist code to register this device. You can find your playlist codes in the playlist dashboard.
+                </p>
+            </div>
+
+            <div class="card">
+                <h2>🔑 Enter Registration Code</h2>
+                <div class="form-group">
+                    <label for="codeInput">5-Character Code</label>
+                    <input 
+                        type="text" 
+                        id="codeInput" 
+                        maxlength="5" 
+                        placeholder="Playlist Code"
+                        autocomplete="off"
+                        autofocus
+                    >
+                </div>
+                <button id="submitBtn" class="btn">
+                    Register Device
+                </button>
+            </div>
+
+            <div class="device-info">
+                <strong>Session:</strong> <span id="sessionToken">Loading...</span>
+            </div>
+        </div>
+
+        <!-- Success State -->
+        <div id="successContainer" class="success-container">
+            <div class="success-icon">✅</div>
+            <h2>Registration Successful!</h2>
+            <p>Your device has been registered successfully.</p>
+            
+            <div class="playlist-details">
+                <h3>Registered to Playlist:</h3>
+                <div id="playlistName" style="font-size: 18px; color: #1f2937; margin: 10px 0;"></div>
+                <div class="code" id="playlistCode"></div>
+            </div>
+
+            <div class="alert alert-info show">
+                The device will now start playing content from the registered playlist. You can close this page.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = window.location.origin;
+
+        // State
+        let sessionToken = null;
+
+        // DOM Elements
+        const loadingState = document.getElementById('loadingState');
+        const loadingText = document.getElementById('loadingText');
+        const registrationForm = document.getElementById('registrationForm');
+        const successContainer = document.getElementById('successContainer');
+        const alertError = document.getElementById('alertError');
+        const alertSuccess = document.getElementById('alertSuccess');
+        const alertInfo = document.getElementById('alertInfo');
+        const codeInput = document.getElementById('codeInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const sessionTokenEl = document.getElementById('sessionToken');
+        const playlistName = document.getElementById('playlistName');
+        const playlistCode = document.getElementById('playlistCode');
+
+        // Show/hide elements
+        function showLoading(message = 'Loading...') {
+            loadingText.textContent = message;
+            loadingState.style.display = 'block';
+            registrationForm.style.display = 'none';
+            successContainer.classList.remove('show');
+        }
+
+        function hideLoading() {
+            loadingState.style.display = 'none';
+            registrationForm.style.display = 'block';
+        }
+
+        function showSuccess() {
+            loadingState.style.display = 'none';
+            registrationForm.style.display = 'none';
+            successContainer.classList.add('show');
+        }
+
+        // Show alerts
+        function showAlert(type, message) {
+            hideAlert();
+            const alertEl = type === 'error' ? alertError : (type === 'success' ? alertSuccess : alertInfo);
+            alertEl.textContent = message;
+            alertEl.classList.add('show');
+        }
+
+        function hideAlert() {
+            alertError.classList.remove('show');
+            alertSuccess.classList.remove('show');
+            alertInfo.classList.remove('show');
+        }
+
+        // Get session token from URL
+        function getSessionTokenFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('session');
+        }
+
+        // Validate session
+        async function validateSession() {
+            try {
+                showLoading('Validating session...');
+
+                const response = await fetch(`${API_BASE_URL}/api/device/register/${sessionToken}`);
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.message || 'Invalid or expired session');
+                }
+
+                sessionTokenEl.textContent = sessionToken.substring(0, 8) + '...';
+                hideLoading();
+
+            } catch (err) {
+                console.error('❌ Session validation error:', err);
+                showAlert('error', err.message);
+                submitBtn.disabled = true;
+                hideLoading();
+            }
+        }
+
+        // Submit registration
+        async function submitRegistration() {
+            const code = codeInput.value.trim(); // Keep original case, backend handles it
+
+            if (!code || code.length !== 5) {
+                showAlert('error', 'Please enter a valid 5-character code');
+                return;
+            }
+
+            try {
+                showLoading('Registering device...');
+                submitBtn.disabled = true;
+
+                const response = await fetch(`${API_BASE_URL}/api/device/register/${sessionToken}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ code }),
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.message || 'Registration failed');
+                }
+
+                // Show success
+                playlistName.textContent = result.data.playlist.name;
+                playlistCode.textContent = result.data.playlist.code;
+                showSuccess();
+
+                console.log('✅ Registration successful:', result);
+
+            } catch (err) {
+                console.error('❌ Registration error:', err);
+                showAlert('error', err.message);
+                hideLoading();
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Clear alert on input (allow any case)
+        codeInput.addEventListener('input', (e) => {
+            hideAlert();
+        });
+
+        // Handle form submission
+        submitBtn.addEventListener('click', submitRegistration);
+
+        // Handle Enter key
+        codeInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                submitRegistration();
+            }
+        });
+
+        // Initialize
+        async function init() {
+            sessionToken = getSessionTokenFromURL();
+
+            if (!sessionToken) {
+                showAlert('error', 'Invalid registration link. Please scan the QR code again.');
+                submitBtn.disabled = true;
+                return;
+            }
+
+            console.log('📱 Session token:', sessionToken);
+
+            // Validate session
+            await validateSession();
+        }
+
+        // Start on page load
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
+

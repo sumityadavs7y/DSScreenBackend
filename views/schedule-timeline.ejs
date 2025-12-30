@@ -835,9 +835,15 @@
         let timelineData = <%- JSON.stringify(schedule.items || []) %>;
         let totalDurationSeconds = 0;
         
-        // Restore view state from sessionStorage or use default
+        // Detect if device is mobile
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+                || window.innerWidth <= 768;
+        }
+        
+        // Restore view state from sessionStorage or use default based on device type
         const savedViewState = sessionStorage.getItem('scheduleTimelineView_<%= schedule.id %>');
-        let isListView = savedViewState === 'list';
+        let isListView = savedViewState ? savedViewState === 'list' : isMobileDevice();
         
         // Restore zoom state from sessionStorage or use default
         const savedZoom = sessionStorage.getItem('scheduleTimelineZoom_<%= schedule.id %>');

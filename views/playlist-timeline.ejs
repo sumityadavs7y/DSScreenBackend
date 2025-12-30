@@ -684,7 +684,7 @@
                                 </button>
                             </div>
                             <button class="btn btn-sm btn-outline-primary" id="btnToggleView">
-                                <i class="bi bi-list"></i> List View
+                                <i class="bi bi-list"></i> List View (mobile view)
                             </button>
                             <button class="btn btn-sm btn-outline-danger" id="btnClearTimeline" <%= (!playlist.items || playlist.items.length === 0) ? 'disabled' : '' %>>
                                 <i class="bi bi-trash"></i> Clear All
@@ -896,12 +896,12 @@
                 || window.innerWidth <= 768;
         }
         
-        // Restore view state from sessionStorage or use default based on device type
-        const savedViewState = sessionStorage.getItem('playlistTimelineView_<%= playlist.id %>');
-        let isListView = savedViewState ? savedViewState === 'list' : isMobileDevice();
+        // Restore view state from localStorage or use default based on device type
+        const savedViewState = localStorage.getItem('playlistTimelineView_<%= playlist.id %>');
+        let isListView = savedViewState !== null ? savedViewState === 'list' : isMobileDevice();
         
-        // Restore zoom state from sessionStorage or use default
-        const savedZoom = sessionStorage.getItem('playlistTimelineZoom_<%= playlist.id %>');
+        // Restore zoom state from localStorage or use default
+        const savedZoom = localStorage.getItem('playlistTimelineZoom_<%= playlist.id %>');
         let zoomScale = savedZoom ? parseFloat(savedZoom) : 100; // pixels per minute
         
         // Zoom levels: 
@@ -965,11 +965,8 @@
             setupVideoLibraryDragHandlers();
             setupButtonEventListeners();
             
-            // Restore view state if it was list view
-            if (isListView && timelineData && timelineData.length > 0) {
-                // Apply the view directly without toggling
-                applyViewState();
-            }
+            // Always apply view state on page load to restore correct view
+            applyViewState();
         });
 
         // Setup button event listeners
@@ -1729,7 +1726,7 @@
 
         // Save zoom state to sessionStorage
         function saveZoomState() {
-            sessionStorage.setItem('playlistTimelineZoom_<%= playlist.id %>', zoomScale.toString());
+            localStorage.setItem('playlistTimelineZoom_<%= playlist.id %>', zoomScale.toString());
         }
 
         // Zoom controls with exponential scaling
@@ -1795,9 +1792,9 @@
             document.getElementById('zoomLevel').textContent = zoomText;
         }
 
-        // Save view state to sessionStorage
+        // Save view state to localStorage
         function saveViewState() {
-            sessionStorage.setItem('playlistTimelineView_<%= playlist.id %>', isListView ? 'list' : 'timeline');
+            localStorage.setItem('playlistTimelineView_<%= playlist.id %>', isListView ? 'list' : 'timeline');
         }
         
         // Apply the current view state without toggling
@@ -1822,7 +1819,7 @@
                 listView.style.display = 'none';
                 if (zoomControls) zoomControls.style.display = 'flex';
                 if (mediaLibrary) mediaLibrary.style.display = 'block';
-                toggleBtn.innerHTML = '<i class="bi bi-list"></i> List View';
+                toggleBtn.innerHTML = '<i class="bi bi-list"></i> List View (mobile view)';
             }
         }
         

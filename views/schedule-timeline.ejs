@@ -631,7 +631,7 @@
                                 </button>
                             </div>
                             <button class="btn btn-sm btn-outline-primary" id="btnToggleView">
-                                <i class="bi bi-list"></i> List View
+                                <i class="bi bi-list"></i> List View (mobile view)
                             </button>
                             <button class="btn btn-sm btn-outline-danger" id="btnClearTimeline" <%= (!schedule.items || schedule.items.length === 0) ? 'disabled' : '' %>>
                                 <i class="bi bi-trash"></i> Clear All
@@ -841,12 +841,12 @@
                 || window.innerWidth <= 768;
         }
         
-        // Restore view state from sessionStorage or use default based on device type
-        const savedViewState = sessionStorage.getItem('scheduleTimelineView_<%= schedule.id %>');
-        let isListView = savedViewState ? savedViewState === 'list' : isMobileDevice();
+        // Restore view state from localStorage or use default based on device type
+        const savedViewState = localStorage.getItem('scheduleTimelineView_<%= schedule.id %>');
+        let isListView = savedViewState !== null ? savedViewState === 'list' : isMobileDevice();
         
-        // Restore zoom state from sessionStorage or use default
-        const savedZoom = sessionStorage.getItem('scheduleTimelineZoom_<%= schedule.id %>');
+        // Restore zoom state from localStorage or use default
+        const savedZoom = localStorage.getItem('scheduleTimelineZoom_<%= schedule.id %>');
         let zoomScale = savedZoom ? parseFloat(savedZoom) : 100; // pixels per minute
 
         // Initialize timeline on page load
@@ -860,11 +860,8 @@
             setupVideoLibraryDragHandlers();
             setupButtonEventListeners();
             
-            // Restore view state if it was list view
-            if (isListView && timelineData && timelineData.length > 0) {
-                // Apply the view directly without toggling
-                applyViewState();
-            }
+            // Always apply view state on page load to restore correct view
+            applyViewState();
         });
 
         // Setup button event listeners
@@ -1268,9 +1265,9 @@
             document.getElementById('endTime').textContent = formatTime(totalDurationSeconds);
         }
 
-        // Save zoom state to sessionStorage
+        // Save zoom state to localStorage
         function saveZoomState() {
-            sessionStorage.setItem('scheduleTimelineZoom_<%= schedule.id %>', zoomScale.toString());
+            localStorage.setItem('scheduleTimelineZoom_<%= schedule.id %>', zoomScale.toString());
         }
 
         // Zoom controls
@@ -1288,14 +1285,13 @@
             renderTimeline();
         }
 
-        // Save view state to sessionStorage
+        // Save view state to localStorage
         function saveViewState() {
-            sessionStorage.setItem('scheduleTimelineView_<%= schedule.id %>', isListView ? 'list' : 'timeline');
+            localStorage.setItem('scheduleTimelineView_<%= schedule.id %>', isListView ? 'list' : 'timeline');
         }
         
-        // Toggle between timeline and list view
-        function toggleGridView() {
-            isListView = !isListView;
+        // Apply the current view state without toggling
+        function applyViewState() {
             const timelineView = document.getElementById('timelineVisualization');
             const listView = document.getElementById('listViewContainer');
             const toggleBtn = document.getElementById('btnToggleView');
@@ -1316,10 +1312,14 @@
                 listView.style.display = 'none';
                 if (zoomControls) zoomControls.style.display = 'flex';
                 if (mediaLibrary) mediaLibrary.style.display = 'block';
-                toggleBtn.innerHTML = '<i class="bi bi-list"></i> List View';
+                toggleBtn.innerHTML = '<i class="bi bi-list"></i> List View (mobile view)';
             }
-            
-            // Save the view state
+        }
+        
+        // Toggle between timeline and list view
+        function toggleGridView() {
+            isListView = !isListView;
+            applyViewState();
             saveViewState();
         }
         

@@ -161,105 +161,133 @@ function renderVideoList() {
 }
 
 /**
- * Handle file upload - Direct S3 Upload Method
+ * Handle file upload - Direct S3 Upload Method with Multiple Files Support
  */
 async function handleFileUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+  const files = Array.from(event.target.files);
+  if (files.length === 0) return;
 
-  // Validate file type
-  const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo'];
-  if (!validTypes.includes(file.type)) {
-    showError('Please select a valid video file (MP4, WebM, OGG, MOV, AVI)');
-    event.target.value = '';
-    return;
-  }
-
-  // Validate file size (e.g., 500MB max)
+  // Validate file types and sizes
+  const validVideoTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo'];
+  const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  const validTypes = [...validVideoTypes, ...validImageTypes];
   const maxSize = 500 * 1024 * 1024; // 500MB
-  if (file.size > maxSize) {
-    showError('File size exceeds 500MB limit');
-    event.target.value = '';
-    return;
+
+  // Pre-validate all files
+  for (const file of files) {
+    if (!validTypes.includes(file.type)) {
+      showError(`Invalid file type: ${file.name}. Please select valid video or image files.`);
+      event.target.value = '';
+      return;
+    }
+    if (file.size > maxSize) {
+      showError(`File size exceeds 500MB limit: ${file.name}`);
+      event.target.value = '';
+      return;
+    }
   }
 
-  let videoId = null;
+  let successCount = 0;
+  let errorCount = 0;
+  const errors = [];
 
   try {
-    // Step 1: Request upload URL
-    showLoading(true, 'Preparing upload...');
+    // Upload each file sequentially
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileNum = i + 1;
+      let videoId = null;
 
-    const urlResponse = await fetch('/api/media/request-upload-url', {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        fileName: file.name,
-        fileSize: file.size,
-        mimeType: file.type,
-      }),
-    });
+      try {
+        // Step 1: Request upload URL
+        showLoading(true, `Preparing upload ${fileNum}/${files.length}: ${file.name}...`);
 
-    const urlData = await urlResponse.json();
+        const urlResponse = await fetch('/api/media/request-upload-url', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileSize: file.size,
+            mimeType: file.type,
+          }),
+        });
 
-    if (!urlResponse.ok) {
-      throw new Error(urlData.message || 'Failed to get upload URL');
+        const urlData = await urlResponse.json();
+
+        if (!urlResponse.ok) {
+          throw new Error(urlData.message || 'Failed to get upload URL');
+        }
+
+        videoId = urlData.data.videoId;
+        const uploadUrl = urlData.data.uploadUrl;
+
+        // Step 2: Upload directly to S3
+        showLoading(true, `Uploading ${fileNum}/${files.length}: ${file.name}...`);
+
+        const uploadResponse = await fetch(uploadUrl, {
+          method: 'PUT',
+          // Don't set Content-Type header - it triggers CORS preflight
+          // S3 will use the content type from the pre-signed URL signature
+          body: file,
+        });
+
+        console.log(`S3 Upload Response for ${file.name}:`, {
+          status: uploadResponse.status,
+          statusText: uploadResponse.statusText,
+          ok: uploadResponse.ok,
+          headers: Object.fromEntries(uploadResponse.headers.entries())
+        });
+
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text().catch(() => 'Unable to read error response');
+          console.error('S3 Upload Failed:', errorText);
+          throw new Error(`Failed to upload to storage: ${uploadResponse.status} ${uploadResponse.statusText}`);
+        }
+
+        // Step 3: Complete the upload (extract metadata, generate thumbnail)
+        showLoading(true, `Processing ${fileNum}/${files.length}: ${file.name}...`);
+
+        const completeResponse = await fetch(`/api/media/${videoId}/complete-upload`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+
+        const completeData = await completeResponse.json();
+
+        if (!completeResponse.ok) {
+          throw new Error(completeData.message || 'Failed to process file');
+        }
+
+        console.log(`✅ Successfully uploaded: ${file.name}`);
+        successCount++;
+
+      } catch (error) {
+        console.error(`❌ Error uploading ${file.name}:`, error);
+        errorCount++;
+        errors.push({ fileName: file.name, error: error.message });
+      }
     }
 
-    videoId = urlData.data.videoId;
-    const uploadUrl = urlData.data.uploadUrl;
-
-    // Step 2: Upload directly to S3
-    showLoading(true, 'Uploading to cloud storage...');
-
-    const uploadResponse = await fetch(uploadUrl, {
-      method: 'PUT',
-      // Don't set Content-Type header - it triggers CORS preflight
-      // S3 will use the content type from the pre-signed URL signature
-      // headers: {
-      //   'Content-Type': file.type,
-      // },
-      body: file,
-    });
-
-    console.log('S3 Upload Response:', {
-      status: uploadResponse.status,
-      statusText: uploadResponse.statusText,
-      ok: uploadResponse.ok,
-      headers: Object.fromEntries(uploadResponse.headers.entries())
-    });
-
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text().catch(() => 'Unable to read error response');
-      console.error('S3 Upload Failed:', errorText);
-      throw new Error(`Failed to upload video to storage: ${uploadResponse.status} ${uploadResponse.statusText}`);
-    }
-
-    // Step 3: Complete the upload (extract metadata, generate thumbnail)
-    showLoading(true, 'Processing video...');
-
-    const completeResponse = await fetch(`/api/media/${videoId}/complete-upload`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-
-    const completeData = await completeResponse.json();
-
-    if (!completeResponse.ok) {
-      throw new Error(completeData.message || 'Failed to process video');
-    }
-
-    showSuccess('Video uploaded successfully!');
+    // Show results
     event.target.value = '';
+    
+    if (successCount > 0 && errorCount === 0) {
+      showSuccess(`Successfully uploaded ${successCount} file(s)!`);
+    } else if (successCount > 0 && errorCount > 0) {
+      const errorList = errors.map(e => `${e.fileName}: ${e.error}`).join(', ');
+      showWarning(`Uploaded ${successCount} file(s). ${errorCount} failed: ${errorList}`);
+    } else {
+      const errorList = errors.map(e => `${e.fileName}: ${e.error}`).join(', ');
+      throw new Error(`All uploads failed: ${errorList}`);
+    }
+
     await loadVideos();
   } catch (error) {
     console.error('Upload error:', error);
     showError('Upload failed: ' + error.message);
-    
-    // If we have a videoId but upload failed, optionally clean up
-    // (The backend will handle orphaned records, but you could add cleanup here)
   } finally {
     showLoading(false);
   }

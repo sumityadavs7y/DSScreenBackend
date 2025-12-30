@@ -288,16 +288,42 @@
                 <form id="uploadForm" action="javascript:void(0);" enctype="multipart/form-data">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label for="video" class="form-label">Select Media File</label>
-                            <input type="file" class="form-control" id="video" name="video" accept="video/*,image/*" required>
-                            <small class="text-muted">Max size: 500MB. Videos: MP4, WebM, OGG, MOV, AVI | Images: JPG, PNG, GIF, WebP (10s display)</small>
+                            <label for="video" class="form-label">Select Media Files</label>
+                            <input type="file" class="form-control" id="video" name="video" accept="video/*,image/*" multiple required>
+                            <small class="text-muted">Max size: 500MB per file. Videos: MP4, WebM, OGG, MOV, AVI | Images: JPG, PNG, GIF, WebP (10s display)</small>
+                        </div>
+                        <div id="fileList" class="mb-3" style="display: none;">
+                            <small class="text-muted">Selected files:</small>
+                            <div id="fileListItems" class="mt-2"></div>
                         </div>
                         <!-- Progress Bar -->
                         <div id="uploadProgressContainer" style="display: none;">
+                            <!-- Overall Progress -->
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <strong class="text-primary">Overall Progress</strong>
+                                    <small class="text-muted">
+                                        <span id="uploadCompletedFiles">0</span> of <span id="uploadTotalFiles">1</span> files completed
+                                    </small>
+                                </div>
+                                <div class="progress" style="height: 25px; background-color: #e9ecef;">
+                                    <div id="uploadOverallProgressBar" 
+                                         class="progress-bar bg-success" 
+                                         role="progressbar" 
+                                         style="width: 0%"
+                                         aria-valuenow="0" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        <span id="uploadOverallPercent" class="fw-bold">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Current File Progress -->
                             <div class="mb-2">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <small class="text-muted">Uploading...</small>
-                                    <small class="text-muted"><span id="uploadProgressPercent">0</span>%</small>
+                                    <small class="text-muted" id="uploadStatus">Uploading...</small>
+                                    <small class="text-muted"><span id="uploadCurrentFilePercent">0</span>%</small>
                                 </div>
                                 <div class="progress" style="height: 20px;">
                                     <div id="uploadProgressBar" 
@@ -309,6 +335,11 @@
                                          aria-valuemax="100">
                                     </div>
                                 </div>
+                            </div>
+                            
+                            <!-- File List -->
+                            <div id="uploadFileStatusList" class="mt-3" style="max-height: 200px; overflow-y: auto;">
+                                <!-- File status items will be added here dynamically -->
                             </div>
                         </div>
                     </div>
@@ -401,15 +432,67 @@
         const uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));
         let player = null;
 
-        // Handle direct S3 upload
+        // Show selected files
+        const videoInput = document.getElementById('video');
+        const fileList = document.getElementById('fileList');
+        const fileListItems = document.getElementById('fileListItems');
+        
+        videoInput.addEventListener('change', () => {
+            const files = Array.from(videoInput.files);
+            if (files.length > 0) {
+                fileList.style.display = 'block';
+                fileListItems.innerHTML = files.map((file, index) => 
+                    `<small class="d-block text-muted mb-1">
+                        <i class="bi bi-file-earmark-fill"></i> ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)
+                    </small>`
+                ).join('');
+            } else {
+                fileList.style.display = 'none';
+            }
+        });
+        
+        // Helper function to create file status item
+        function createFileStatusItem(fileName, index) {
+            return `
+                <div id="fileStatus-${index}" class="d-flex align-items-center mb-2 p-2 rounded" style="background-color: #f8f9fa;">
+                    <i id="fileIcon-${index}" class="bi bi-hourglass-split text-secondary me-2"></i>
+                    <span class="flex-grow-1 small" style="word-break: break-all;">${fileName}</span>
+                    <span id="fileStatusText-${index}" class="badge bg-secondary ms-2">Waiting</span>
+                </div>
+            `;
+        }
+        
+        // Helper function to update file status
+        function updateFileStatus(index, status, iconClass, badgeClass) {
+            const icon = document.getElementById(`fileIcon-${index}`);
+            const statusText = document.getElementById(`fileStatusText-${index}`);
+            const statusItem = document.getElementById(`fileStatus-${index}`);
+            
+            if (icon) {
+                icon.className = `bi ${iconClass} me-2`;
+            }
+            if (statusText) {
+                statusText.textContent = status;
+                statusText.className = `badge ${badgeClass} ms-2`;
+            }
+            if (statusItem && status === 'Completed') {
+                statusItem.style.backgroundColor = '#d4edda';
+            } else if (statusItem && status === 'Failed') {
+                statusItem.style.backgroundColor = '#f8d7da';
+            } else if (statusItem && status === 'Uploading') {
+                statusItem.style.backgroundColor = '#d1ecf1';
+            }
+        }
+
+        // Handle direct S3 upload with multiple files
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const fileInput = document.getElementById('video');
-            const file = fileInput.files[0];
+            const files = Array.from(fileInput.files);
             
-            if (!file) {
-                alert('Please select a media file (video or image)');
+            if (files.length === 0) {
+                alert('Please select at least one media file (video or image)');
                 return;
             }
 
@@ -418,7 +501,17 @@
             const closeBtn = document.getElementById('uploadModalClose');
             const progressContainer = document.getElementById('uploadProgressContainer');
             const progressBar = document.getElementById('uploadProgressBar');
-            const progressPercent = document.getElementById('uploadProgressPercent');
+            const uploadStatus = document.getElementById('uploadStatus');
+            const uploadTotalFiles = document.getElementById('uploadTotalFiles');
+            const uploadCompletedFiles = document.getElementById('uploadCompletedFiles');
+            const uploadOverallProgressBar = document.getElementById('uploadOverallProgressBar');
+            const uploadOverallPercent = document.getElementById('uploadOverallPercent');
+            const uploadCurrentFilePercent = document.getElementById('uploadCurrentFilePercent');
+            const uploadFileStatusList = document.getElementById('uploadFileStatusList');
+
+            let successCount = 0;
+            let errorCount = 0;
+            const errors = [];
 
             try {
                 // Disable buttons
@@ -427,118 +520,164 @@
                 closeBtn.disabled = true;
                 fileInput.disabled = true;
                 progressContainer.style.display = 'block';
+                
+                uploadTotalFiles.textContent = files.length;
+                uploadCompletedFiles.textContent = '0';
+                
+                // Create file status list
+                uploadFileStatusList.innerHTML = files.map((file, index) => 
+                    createFileStatusItem(file.name, index)
+                ).join('');
 
                 // Update progress
                 function updateProgress(percent, status) {
                     progressBar.style.width = percent + '%';
                     progressBar.setAttribute('aria-valuenow', percent);
-                    progressPercent.textContent = Math.round(percent);
+                    uploadCurrentFilePercent.textContent = Math.round(percent);
                     if (status) {
-                        progressBar.textContent = status;
+                        uploadStatus.textContent = status;
                     }
                 }
-
-                // Step 1: Request upload URL
-                updateProgress(10, 'Preparing...');
                 
-                const urlResponse = await fetch('/api/media/request-upload-url', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        fileName: file.name,
-                        fileSize: file.size,
-                        mimeType: file.type,
-                    }),
-                });
-
-                if (!urlResponse.ok) {
-                    const error = await urlResponse.json();
-                    throw new Error(error.message || 'Failed to get upload URL');
+                // Update overall progress
+                function updateOverallProgress() {
+                    const completedCount = successCount + errorCount;
+                    const overallPercent = (completedCount / files.length) * 100;
+                    uploadOverallProgressBar.style.width = overallPercent + '%';
+                    uploadOverallProgressBar.setAttribute('aria-valuenow', overallPercent);
+                    uploadOverallPercent.textContent = Math.round(overallPercent) + '%';
+                    uploadCompletedFiles.textContent = completedCount;
                 }
 
-                const { data } = await urlResponse.json();
-                console.log('✅ Got upload URL for video:', data.videoId);
-
-                // Step 2: Upload to S3 with progress
-                updateProgress(20, 'Uploading...');
-
-                await new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
+                // Upload each file
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    const fileNum = i + 1;
                     
-                    xhr.upload.addEventListener('progress', (e) => {
-                        if (e.lengthComputable) {
-                            const percent = 20 + (e.loaded / e.total) * 60; // 20% to 80%
-                            updateProgress(percent, 'Uploading to cloud...');
-                        }
-                    });
-
-                    xhr.addEventListener('load', () => {
-                        console.log('S3 Response Status:', xhr.status);
-                        console.log('S3 Response Text:', xhr.responseText);
-                        if (xhr.status === 200) {
-                            console.log('✅ Uploaded to S3');
-                            resolve();
-                        } else {
-                            console.error('❌ S3 upload failed:', {
-                                status: xhr.status,
-                                statusText: xhr.statusText,
-                                response: xhr.responseText,
-                                headers: xhr.getAllResponseHeaders()
-                            });
-                            reject(new Error(`S3 upload failed: ${xhr.status} ${xhr.statusText}`));
-                        }
-                    });
-
-                    xhr.addEventListener('error', (e) => {
-                        console.error('❌ Network error:', e);
-                        reject(new Error('Network error during upload'));
-                    });
-
-                    xhr.open('PUT', data.uploadUrl);
-                    // Don't set Content-Type header - let browser set it automatically
-                    // Setting it manually triggers CORS preflight which S3 pre-signed URLs don't handle well
-                    // xhr.setRequestHeader('Content-Type', file.type);
-                    xhr.send(file);
-                });
-
-                // Step 3: Complete upload
-                updateProgress(85, 'Processing...');
-
-                const completeResponse = await fetch(`/api/media/${data.videoId}/complete-upload`, {
-                    method: 'POST',
-                    credentials: 'include',
-                });
-
-                console.log('Complete response status:', completeResponse.status);
-
-                if (!completeResponse.ok) {
-                    let errorMessage = 'Failed to process video';
                     try {
-                        const error = await completeResponse.json();
-                        console.error('Complete-upload error response:', error);
-                        errorMessage = error.message || errorMessage;
-                    } catch (e) {
-                        console.error('Could not parse error response');
+                        console.log(`\n📤 Uploading file ${fileNum}/${files.length}: ${file.name}`);
+                        updateFileStatus(i, 'Uploading', 'bi-cloud-upload-fill text-primary', 'bg-primary');
+                        
+                        // Step 1: Request upload URL
+                        console.log('Step 1: Requesting upload URL...');
+                        updateProgress(10, `[${fileNum}/${files.length}] Preparing ${file.name}...`);
+                        
+                        const urlResponse = await fetch('/api/media/request-upload-url', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                fileName: file.name,
+                                fileSize: file.size,
+                                mimeType: file.type,
+                            }),
+                        });
+
+                        if (!urlResponse.ok) {
+                            const error = await urlResponse.json();
+                            throw new Error(error.message || 'Failed to get upload URL');
+                        }
+
+                        const { data } = await urlResponse.json();
+                        console.log('✅ Got upload URL. Video ID:', data.videoId);
+
+                        // Step 2: Upload to S3 with progress
+                        console.log('Step 2: Uploading to S3...');
+                        updateProgress(20, `[${fileNum}/${files.length}] Uploading ${file.name}...`);
+
+                        await new Promise((resolve, reject) => {
+                            const xhr = new XMLHttpRequest();
+                            
+                            xhr.upload.addEventListener('progress', (e) => {
+                                if (e.lengthComputable) {
+                                    const percent = 20 + (e.loaded / e.total) * 60; // 20% to 80%
+                                    const uploadPercent = Math.round((e.loaded / e.total) * 100);
+                                    updateProgress(percent, `[${fileNum}/${files.length}] Uploading ${file.name}... ${uploadPercent}%`);
+                                }
+                            });
+
+                            xhr.addEventListener('load', () => {
+                                console.log('S3 Response Status:', xhr.status);
+                                if (xhr.status === 200) {
+                                    console.log('✅ Uploaded to S3');
+                                    resolve();
+                                } else {
+                                    console.error('❌ S3 upload failed:', {
+                                        status: xhr.status,
+                                        statusText: xhr.statusText,
+                                        response: xhr.responseText,
+                                        headers: xhr.getAllResponseHeaders()
+                                    });
+                                    reject(new Error(`S3 upload failed: ${xhr.status} ${xhr.statusText}`));
+                                }
+                            });
+
+                            xhr.addEventListener('error', (e) => {
+                                console.error('❌ Network error:', e);
+                                reject(new Error('Network error during upload'));
+                            });
+
+                            xhr.open('PUT', data.uploadUrl);
+                            xhr.send(file);
+                        });
+
+                        // Step 3: Complete upload
+                        updateProgress(85, `[${fileNum}/${files.length}] Processing ${file.name}...`);
+
+                        const completeResponse = await fetch(`/api/media/${data.videoId}/complete-upload`, {
+                            method: 'POST',
+                            credentials: 'include',
+                        });
+
+                        console.log('Complete response status:', completeResponse.status);
+
+                        if (!completeResponse.ok) {
+                            let errorMessage = 'Failed to process video';
+                            try {
+                                const error = await completeResponse.json();
+                                console.error('Complete-upload error response:', error);
+                                errorMessage = error.message || errorMessage;
+                            } catch (e) {
+                                console.error('Could not parse error response');
+                            }
+                            throw new Error(errorMessage);
+                        }
+
+                        const result = await completeResponse.json();
+                        console.log('✅ Upload complete! Result:', result);
+
+                        if (!result.success) {
+                            throw new Error(result.message || 'Upload completed but with errors');
+                        }
+
+                        updateProgress(100, `[${fileNum}/${files.length}] ${file.name} complete!`);
+                        updateFileStatus(i, 'Completed', 'bi-check-circle-fill text-success', 'bg-success');
+                        successCount++;
+                        updateOverallProgress();
+                        
+                    } catch (error) {
+                        console.error(`❌ Error uploading ${file.name}:`, error);
+                        updateFileStatus(i, 'Failed', 'bi-x-circle-fill text-danger', 'bg-danger');
+                        errorCount++;
+                        errors.push({ fileName: file.name, error: error.message });
+                        updateOverallProgress();
                     }
-                    throw new Error(errorMessage);
                 }
 
-                const result = await completeResponse.json();
-                console.log('✅ Upload complete! Result:', result);
-
-                if (!result.success) {
-                    throw new Error(result.message || 'Upload completed but with errors');
-                }
-
-                updateProgress(100, 'Complete!');
-                console.log('✅ Upload complete!');
-
-                // Success!
-                setTimeout(() => {
+                // All uploads complete - show results
+                if (successCount > 0 && errorCount === 0) {
+                    alert(`Successfully uploaded ${successCount} file(s)!`);
                     uploadModal.hide();
                     window.location.reload();
-                }, 500);
+                } else if (successCount > 0 && errorCount > 0) {
+                    const errorList = errors.map(e => `${e.fileName}: ${e.error}`).join('\n');
+                    alert(`Uploaded ${successCount} file(s) successfully.\n${errorCount} file(s) failed:\n\n${errorList}`);
+                    uploadModal.hide();
+                    window.location.reload();
+                } else {
+                    const errorList = errors.map(e => `${e.fileName}: ${e.error}`).join('\n');
+                    throw new Error(`All uploads failed:\n\n${errorList}`);
+                }
 
             } catch (error) {
                 console.error('Upload error:', error);
@@ -547,11 +686,18 @@
                 // Reset form
                 progressContainer.style.display = 'none';
                 progressBar.style.width = '0%';
-                progressPercent.textContent = '0';
+                uploadCurrentFilePercent.textContent = '0';
+                uploadStatus.textContent = 'Uploading...';
+                uploadOverallProgressBar.style.width = '0%';
+                uploadOverallPercent.textContent = '0%';
+                uploadCompletedFiles.textContent = '0';
+                uploadFileStatusList.innerHTML = '';
                 submitBtn.disabled = false;
                 cancelBtn.disabled = false;
                 closeBtn.disabled = false;
                 fileInput.disabled = false;
+                fileInput.value = '';
+                fileList.style.display = 'none';
             }
         });
 

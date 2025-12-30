@@ -675,9 +675,12 @@
     <script>
         // Timeline Data
         let timelineData = <%- JSON.stringify(schedule.items || []) %>;
-        let zoomScale = 100; // pixels per minute
         let totalDurationSeconds = 0;
         let isListView = false;
+        
+        // Restore zoom state from sessionStorage or use default
+        const savedZoom = sessionStorage.getItem('scheduleTimelineZoom_<%= schedule.id %>');
+        let zoomScale = savedZoom ? parseFloat(savedZoom) : 100; // pixels per minute
 
         // Initialize timeline on page load
         document.addEventListener('DOMContentLoaded', function() {
@@ -1089,16 +1092,23 @@
             document.getElementById('endTime').textContent = formatTime(totalDurationSeconds);
         }
 
+        // Save zoom state to sessionStorage
+        function saveZoomState() {
+            sessionStorage.setItem('scheduleTimelineZoom_<%= schedule.id %>', zoomScale.toString());
+        }
+
         // Zoom controls
         function zoomIn() {
             zoomScale = Math.min(200, zoomScale + 20);
             document.getElementById('zoomLevel').textContent = `${Math.round((zoomScale / 100) * 100)}%`;
+            saveZoomState();
             renderTimeline();
         }
 
         function zoomOut() {
             zoomScale = Math.max(40, zoomScale - 20);
             document.getElementById('zoomLevel').textContent = `${Math.round((zoomScale / 100) * 100)}%`;
+            saveZoomState();
             renderTimeline();
         }
 

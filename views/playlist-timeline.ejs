@@ -730,9 +730,12 @@
     <script>
         // Timeline Data
         let timelineData = <%- JSON.stringify(playlist.items || []) %>;
-        let zoomScale = 100; // pixels per minute
         let totalDurationSeconds = 0;
         let isListView = false;
+        
+        // Restore zoom state from sessionStorage or use default
+        const savedZoom = sessionStorage.getItem('playlistTimelineZoom_<%= playlist.id %>');
+        let zoomScale = savedZoom ? parseFloat(savedZoom) : 100; // pixels per minute
         
         // Zoom levels: 
         // Max zoom: 3600 pixels per minute (60 px/sec) - can see individual seconds
@@ -1547,6 +1550,11 @@
             document.getElementById('avgDuration').textContent = formatDuration(avgSeconds);
         }
 
+        // Save zoom state to sessionStorage
+        function saveZoomState() {
+            sessionStorage.setItem('playlistTimelineZoom_<%= playlist.id %>', zoomScale.toString());
+        }
+
         // Zoom controls with exponential scaling
         function zoomIn() {
             // Exponential zoom for smoother transitions
@@ -1560,6 +1568,7 @@
                 zoomScale = Math.min(MAX_ZOOM, zoomScale * 1.2);
             }
             
+            saveZoomState();
             updateZoomDisplay();
             renderTimeline();
         }
@@ -1578,6 +1587,7 @@
                 zoomScale = Math.max(MIN_ZOOM, zoomScale / 1.5);
             }
             
+            saveZoomState();
             updateZoomDisplay();
             renderTimeline();
         }

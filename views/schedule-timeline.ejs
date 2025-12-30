@@ -329,6 +329,83 @@
             font-size: 0.875rem;
         }
         
+        .video-card-thumbnail {
+            width: 60px;
+            height: 45px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .video-card-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .video-card-thumbnail .play-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .video-card:hover .video-card-thumbnail .play-overlay {
+            opacity: 1;
+        }
+        
+        .video-card-thumbnail .play-overlay i {
+            font-size: 1.25rem;
+            color: white;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+        }
+        
+        .video-card-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .media-type-badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .media-type-badge.badge-video {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .media-type-badge.badge-image {
+            background-color: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        .media-type-badge i {
+            font-size: 0.75rem;
+        }
+        
         /* Edit Modal */
         .modal-backdrop.show {
             opacity: 0.5;
@@ -490,20 +567,51 @@
                                     </a>
                                 </div>
                             <% } else { %>
-                                <% availableVideos.forEach(video => { %>
+                                <% availableVideos.forEach(video => { 
+                                    const isImage = video.mimeType && video.mimeType.startsWith('image/');
+                                    const isVideo = !isImage;
+                                %>
                                     <div class="video-card video-library-item" 
                                          data-video-id="<%= video.id %>"
                                          data-video-name="<%= video.fileName %>"
                                          data-video-duration="<%= video.duration || 10 %>"
+                                         data-mime-type="<%= video.mimeType || 'video/mp4' %>"
                                          draggable="true">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <i class="bi bi-grip-vertical text-muted" style="font-size: 0.875rem;"></i>
-                                            <i class="bi bi-play-circle-fill" style="font-size: 1.25rem; color: #667eea;"></i>
-                                            <div class="flex-grow-1">
-                                                <div class="video-card-title">
-                                                    <%= video.fileName %>
+                                        <div class="d-flex align-items-start gap-2">
+                                            <i class="bi bi-grip-vertical text-muted" style="font-size: 0.875rem; margin-top: 0.25rem;"></i>
+                                            
+                                            <!-- Thumbnail -->
+                                            <div class="video-card-thumbnail">
+                                                <% if (video.thumbnailPath) { %>
+                                                    <img src="/api/media/<%= video.id %>/thumbnail" alt="<%= video.fileName %>" loading="lazy">
+                                                    <div class="play-overlay">
+                                                        <i class="bi bi-<%= isImage ? 'eye-fill' : 'play-fill' %>"></i>
+                                                    </div>
+                                                <% } else { %>
+                                                    <i class="bi bi-<%= isImage ? 'image' : 'play-circle' %>"></i>
+                                                <% } %>
+                                            </div>
+                                            
+                                            <!-- Content -->
+                                            <div class="video-card-content flex-grow-1">
+                                                <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
+                                                    <div class="video-card-title" style="flex: 1; min-width: 0;">
+                                                        <%= video.fileName %>
+                                                    </div>
+                                                    <% if (isImage) { %>
+                                                        <span class="media-type-badge badge-image">
+                                                            <i class="bi bi-image-fill"></i>
+                                                            Image
+                                                        </span>
+                                                    <% } else { %>
+                                                        <span class="media-type-badge badge-video">
+                                                            <i class="bi bi-film"></i>
+                                                            Video
+                                                        </span>
+                                                    <% } %>
                                                 </div>
                                                 <small class="text-muted">
+                                                    <i class="bi bi-clock"></i>
                                                     <% if (video.duration) { %>
                                                         <%= video.duration %>s
                                                     <% } else { %>

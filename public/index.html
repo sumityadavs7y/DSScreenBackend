@@ -26,6 +26,11 @@
             width: 100%;
             overflow: hidden;
         }
+        @media (min-width: 768px) {
+            .main-card {
+                max-width: 900px;
+            }
+        }
         .card-header-custom {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -185,6 +190,43 @@
         .qr-section {
             margin-bottom: 20px;
         }
+        .registration-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .registration-col {
+            flex: 1;
+            min-width: 280px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .vertical-divider {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 0 20px;
+            color: #6c757d;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        @media (min-width: 768px) {
+            .registration-row {
+                flex-wrap: nowrap;
+            }
+            .registration-col {
+                flex: 1;
+                min-width: 0;
+            }
+            .vertical-divider {
+                display: flex;
+            }
+            .mobile-divider {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -198,74 +240,86 @@
             <!-- Alert Messages -->
             <div id="alert"></div>
 
-            <!-- QR Code Registration Section -->
-            <div class="qr-section">
-                <div class="text-center">
-                    <h5><i class="bi bi-qr-code"></i> Quick Registration</h5>
-                    <p class="text-muted small mb-2">Scan QR code with your mobile device</p>
-                    
-                    <!-- Connection Status -->
-                    <div id="statusIndicator" class="status-indicator connecting">
-                        <span class="status-dot"></span>
-                        <span id="statusText">Connecting...</span>
+            <!-- Registration Methods Row -->
+            <div class="registration-row">
+                <!-- QR Code Registration Column -->
+                <div class="registration-col">
+                    <div class="qr-section">
+                        <div class="text-center">
+                            <h5><i class="bi bi-qr-code"></i> Quick Registration</h5>
+                            <p class="text-muted small mb-2">Scan QR code with your mobile device</p>
+                            
+                            <!-- Connection Status -->
+                            <div id="statusIndicator" class="status-indicator connecting">
+                                <span class="status-dot"></span>
+                                <span id="statusText">Connecting...</span>
+                            </div>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div id="qrLoading" style="text-align: center; padding: 20px;">
+                            <div class="spinner-small"></div>
+                            <p class="text-muted small mb-0">Generating QR Code...</p>
+                        </div>
+
+                        <!-- QR Code Display -->
+                        <div id="qrContainer" class="qr-container">
+                            <img id="qrCode" class="qr-code" alt="Registration QR Code">
+                            <div class="registration-url">
+                                <p class="mb-1">Or open this link:</p>
+                                <a id="registrationUrl" href="#" target="_blank"></a>
+                            </div>
+                        </div>
+
+                        <!-- Success Message -->
+                        <div id="qrSuccess" class="alert alert-success" style="display: none; margin-top: 10px;">
+                            <h6 class="mb-1">✅ Registration Successful!</h6>
+                            <p id="qrSuccessMessage" class="small mb-0"></p>
+                        </div>
+
+                        <!-- Error Message -->
+                        <div id="qrError" class="alert alert-danger" style="display: none; margin-top: 10px;">
+                            <p class="small mb-0" id="qrErrorMessage"></p>
+                        </div>
+
+                        <div class="device-id text-center" style="margin-top: 10px;">
+                            <small class="text-muted">Device: <span id="deviceId">...</span></small>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Loading State -->
-                <div id="qrLoading" style="text-align: center; padding: 20px;">
-                    <div class="spinner-small"></div>
-                    <p class="text-muted small mb-0">Generating QR Code...</p>
+                <!-- Vertical Divider (Desktop Only) -->
+                <div class="vertical-divider">
+                    <span>OR</span>
                 </div>
 
-                <!-- QR Code Display -->
-                <div id="qrContainer" class="qr-container">
-                    <img id="qrCode" class="qr-code" alt="Registration QR Code">
-                    <div class="registration-url">
-                        <p class="mb-1">Or open this link:</p>
-                        <a id="registrationUrl" href="#" target="_blank"></a>
+                <!-- Manual Entry Column -->
+                <div class="registration-col">
+                    <div class="text-center mb-1">
+                        <h5><i class="bi bi-keyboard"></i> Manual Entry</h5>
+                        <p class="text-muted small mb-2">Enter your 5-character playlist code</p>
                     </div>
-                </div>
 
-                <!-- Success Message -->
-                <div id="qrSuccess" class="alert alert-success" style="display: none; margin-top: 10px;">
-                    <h6 class="mb-1">✅ Registration Successful!</h6>
-                    <p id="qrSuccessMessage" class="small mb-0"></p>
-                </div>
-
-                <!-- Error Message -->
-                <div id="qrError" class="alert alert-danger" style="display: none; margin-top: 10px;">
-                    <p class="small mb-0" id="qrErrorMessage"></p>
-                </div>
-
-                <div class="device-id text-center" style="margin-top: 10px;">
-                    <small class="text-muted">Device: <span id="deviceId">...</span></small>
+                    <form id="deviceForm">
+                        <div class="code-input-group">
+                            <input type="text" class="code-input form-control" maxlength="1" id="code1" autocomplete="off" required>
+                            <input type="text" class="code-input form-control" maxlength="1" id="code2" autocomplete="off" required>
+                            <input type="text" class="code-input form-control" maxlength="1" id="code3" autocomplete="off" required>
+                            <input type="text" class="code-input form-control" maxlength="1" id="code4" autocomplete="off" required>
+                            <input type="text" class="code-input form-control" maxlength="1" id="code5" autocomplete="off" required>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-gradient btn-lg w-100 mb-3">
+                            <i class="bi bi-check-circle"></i> Register Device
+                        </button>
+                    </form>
                 </div>
             </div>
 
-            <!-- Divider -->
-            <div class="divider">
-                <span>or enter code manually</span>
+            <!-- Mobile Divider (Mobile Only) -->
+            <div class="divider mobile-divider">
+                <span>or</span>
             </div>
-
-            <!-- Manual Device Registration -->
-            <div class="text-center mb-3">
-                <h5><i class="bi bi-keyboard"></i> Manual Entry</h5>
-                <p class="text-muted small">Enter your 5-character playlist code</p>
-            </div>
-
-            <form id="deviceForm">
-                <div class="code-input-group">
-                    <input type="text" class="code-input form-control" maxlength="1" id="code1" autocomplete="off" required>
-                    <input type="text" class="code-input form-control" maxlength="1" id="code2" autocomplete="off" required>
-                    <input type="text" class="code-input form-control" maxlength="1" id="code3" autocomplete="off" required>
-                    <input type="text" class="code-input form-control" maxlength="1" id="code4" autocomplete="off" required>
-                    <input type="text" class="code-input form-control" maxlength="1" id="code5" autocomplete="off" required>
-                </div>
-                
-                <button type="submit" class="btn btn-gradient btn-lg w-100 mb-3">
-                    <i class="bi bi-check-circle"></i> Register Device
-                </button>
-            </form>
 
             <!-- Divider -->
             <div class="divider">

@@ -468,6 +468,138 @@
             font-size: 0.875rem;
         }
 
+        /* List View Styles */
+        .list-view-container {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .list-view-item {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        .list-view-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+        }
+        
+        .list-view-item-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .list-view-item-number {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.875rem;
+            flex-shrink: 0;
+        }
+        
+        .list-view-item-thumbnail {
+            width: 60px;
+            height: 45px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .list-view-item-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .list-view-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .list-view-item-name {
+            font-weight: 600;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+            word-break: break-word;
+        }
+        
+        .list-view-item-controls {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .list-view-item-duration-input {
+            width: 100px;
+            font-size: 0.875rem;
+        }
+        
+        .list-view-item-buttons {
+            display: flex;
+            gap: 0.375rem;
+        }
+        
+        .list-view-actions {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            padding: 1rem 0 0 0;
+            margin-top: 1rem;
+            border-top: 2px solid #dee2e6;
+        }
+        
+        .list-view-add-section {
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        
+        .list-view-available-media {
+            max-height: 300px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 6px;
+            padding: 0.5rem;
+        }
+        
+        .list-view-available-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        
+        .list-view-available-item:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
         /* Responsive */
         @media (max-width: 768px) {
             .timeline-hour-marker {
@@ -488,6 +620,20 @@
             .timeline-video-block-duration {
                 font-size: 0.6rem;
                 padding: 0 16px;
+            }
+            
+            .list-view-item-header {
+                flex-wrap: wrap;
+            }
+            
+            .list-view-item-controls {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .list-view-item-duration-input {
+                flex: 1;
+                max-width: 120px;
             }
         }
     </style>
@@ -589,11 +735,23 @@
                                 </div>
                             <% } %>
                         </div>
+                        
+                        <!-- List View (initially hidden) -->
+                        <div class="list-view-container" id="listViewContainer" style="display: none;">
+                            <div id="listViewContent">
+                                <!-- List items will be generated dynamically -->
+                            </div>
+                            <div class="list-view-actions">
+                                <button class="btn btn-success btn-lg w-100" id="btnSaveListView">
+                                    <i class="bi bi-check-lg"></i> Save Changes
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Video Library Section -->
-                <div class="col-lg-3">
+                <div class="col-lg-3" id="mediaLibrarySection">
                     <div class="video-library-container">
                         <h5 class="mb-3">
                             <i class="bi bi-collection-play"></i> Media Library
@@ -731,7 +889,10 @@
         // Timeline Data
         let timelineData = <%- JSON.stringify(playlist.items || []) %>;
         let totalDurationSeconds = 0;
-        let isListView = false;
+        
+        // Restore view state from sessionStorage or use default
+        const savedViewState = sessionStorage.getItem('playlistTimelineView_<%= playlist.id %>');
+        let isListView = savedViewState === 'list';
         
         // Restore zoom state from sessionStorage or use default
         const savedZoom = sessionStorage.getItem('playlistTimelineZoom_<%= playlist.id %>');
@@ -797,6 +958,12 @@
             setupDragAndDrop();
             setupVideoLibraryDragHandlers();
             setupButtonEventListeners();
+            
+            // Restore view state if it was list view
+            if (isListView && timelineData && timelineData.length > 0) {
+                // Apply the view directly without toggling
+                applyViewState();
+            }
         });
 
         // Setup button event listeners
@@ -1342,6 +1509,7 @@
                 
                 if (result.success) {
                     Toast.success('Video reordered');
+                    saveViewState();
                     window.location.reload();
                 } else {
                     Toast.error(result.error || 'Failed to reorder video');
@@ -1419,6 +1587,7 @@
                 
                 if (result.success) {
                     Toast.success('Video added to timeline');
+                    saveViewState();
                     window.location.reload();
                 } else {
                     Toast.error(result.error || 'Failed to add video');
@@ -1507,6 +1676,7 @@
                 
                 if (result.success) {
                     Toast.success('Video removed from timeline');
+                    saveViewState();
                     window.location.reload();
                 } else {
                     Toast.error(result.error || 'Failed to remove media');
@@ -1531,6 +1701,7 @@
                 
                 if (result.success) {
                     Toast.success('Timeline cleared');
+                    saveViewState();
                     window.location.reload();
                 } else {
                     Toast.error(result.error || 'Failed to clear timeline');
@@ -1618,11 +1789,342 @@
             document.getElementById('zoomLevel').textContent = zoomText;
         }
 
+        // Save view state to sessionStorage
+        function saveViewState() {
+            sessionStorage.setItem('playlistTimelineView_<%= playlist.id %>', isListView ? 'list' : 'timeline');
+        }
+        
+        // Apply the current view state without toggling
+        function applyViewState() {
+            const timelineView = document.getElementById('timelineVisualization');
+            const listView = document.getElementById('listViewContainer');
+            const toggleBtn = document.getElementById('btnToggleView');
+            const zoomControls = document.querySelector('.timeline-zoom-controls');
+            const mediaLibrary = document.getElementById('mediaLibrarySection');
+            
+            if (isListView) {
+                // Switch to list view
+                timelineView.style.display = 'none';
+                listView.style.display = 'block';
+                if (zoomControls) zoomControls.style.display = 'none';
+                if (mediaLibrary) mediaLibrary.style.display = 'none';
+                toggleBtn.innerHTML = '<i class="bi bi-grid-3x2"></i> Timeline View';
+                renderListView();
+            } else {
+                // Switch to timeline view
+                timelineView.style.display = 'block';
+                listView.style.display = 'none';
+                if (zoomControls) zoomControls.style.display = 'flex';
+                if (mediaLibrary) mediaLibrary.style.display = 'block';
+                toggleBtn.innerHTML = '<i class="bi bi-list"></i> List View';
+            }
+        }
+        
         // Toggle between timeline and list view
         function toggleGridView() {
-            // Placeholder for list view toggle
-            Toast.info('List view coming soon');
+            isListView = !isListView;
+            applyViewState();
+            saveViewState();
         }
+        
+        // Render list view
+        function renderListView() {
+            const listViewContent = document.getElementById('listViewContent');
+            
+            // Add "Add Media" section header
+            let html = `
+                <div class="list-view-add-section mb-4">
+                    <button class="btn btn-outline-primary btn-sm w-100" onclick="toggleAddMediaSection()">
+                        <i class="bi bi-plus-lg"></i> Add Media to Playlist
+                    </button>
+                    <div id="addMediaList" class="mt-3" style="display: none;">
+                        <h6 class="text-muted mb-2">Available Media</h6>
+                        <div class="list-view-available-media">
+                            ${renderAvailableMedia()}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            if (!timelineData || timelineData.length === 0) {
+                html += `
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">No Media in Playlist</h5>
+                        <p>Click "Add Media to Playlist" button above to get started</p>
+                    </div>
+                `;
+                listViewContent.innerHTML = html;
+                return;
+            }
+            
+            html += `<h6 class="text-muted mb-3">Playlist Items (${timelineData.length})</h6>`;
+            listViewContent.innerHTML = html;
+            
+            html += timelineData.map((item, index) => {
+                const video = item.video || {};
+                const duration = item.duration || video.duration || 10;
+                const isImage = video.mimeType && video.mimeType.startsWith('image/');
+                const thumbnailUrl = video.thumbnailPath ? `/api/media/${video.id}/thumbnail` : null;
+                
+                return `
+                    <div class="list-view-item" data-item-id="${item.id}" data-index="${index}">
+                        <div class="list-view-item-header">
+                            <div class="list-view-item-number">${index + 1}</div>
+                            
+                            <div class="list-view-item-thumbnail">
+                                ${thumbnailUrl 
+                                    ? `<img src="${thumbnailUrl}" alt="${video.fileName || 'Video'}" loading="lazy">`
+                                    : `<i class="bi bi-${isImage ? 'image' : 'play-circle'}"></i>`
+                                }
+                            </div>
+                            
+                            <div class="list-view-item-info">
+                                <div class="list-view-item-name">${video.fileName || item.videoName || 'Untitled'}</div>
+                                <small class="text-muted">
+                                    ${isImage 
+                                        ? '<i class="bi bi-image-fill"></i> Image' 
+                                        : '<i class="bi bi-film"></i> Video'
+                                    }
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="list-view-item-controls">
+                            <div class="input-group input-group-sm list-view-item-duration-input">
+                                <input type="number" 
+                                       class="form-control" 
+                                       value="${duration}" 
+                                       min="1" 
+                                       step="1"
+                                       data-item-id="${item.id}"
+                                       placeholder="Duration">
+                                <span class="input-group-text">sec</span>
+                            </div>
+                            
+                            <div class="list-view-item-buttons">
+                                <button class="btn btn-sm btn-outline-secondary" 
+                                        onclick="moveListItem(${index}, 'up')"
+                                        ${index === 0 ? 'disabled' : ''}
+                                        title="Move Up">
+                                    <i class="bi bi-arrow-up"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" 
+                                        onclick="moveListItem(${index}, 'down')"
+                                        ${index === timelineData.length - 1 ? 'disabled' : ''}
+                                        title="Move Down">
+                                    <i class="bi bi-arrow-down"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        onclick="deleteListItem(${index})"
+                                        title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            listViewContent.innerHTML = html;
+        }
+        
+        // Render available media for adding
+        function renderAvailableMedia() {
+            const availableVideos = <%- JSON.stringify(availableVideos || []) %>;
+            
+            if (!availableVideos || availableVideos.length === 0) {
+                return `
+                    <div class="text-center text-muted py-3">
+                        <small>No media available</small>
+                    </div>
+                `;
+            }
+            
+            return availableVideos.map(video => {
+                const isImage = video.mimeType && video.mimeType.startsWith('image/');
+                const thumbnailUrl = video.thumbnailPath ? `/api/media/${video.id}/thumbnail` : null;
+                const duration = video.duration || 10;
+                
+                return `
+                    <div class="list-view-available-item" data-video-id="${video.id}">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="list-view-item-thumbnail">
+                                ${thumbnailUrl 
+                                    ? `<img src="${thumbnailUrl}" alt="${video.fileName}" loading="lazy">`
+                                    : `<i class="bi bi-${isImage ? 'image' : 'play-circle'}"></i>`
+                                }
+                            </div>
+                            
+                            <div class="flex-grow-1" style="min-width: 0;">
+                                <div class="small fw-semibold text-truncate">${video.fileName}</div>
+                                <small class="text-muted">
+                                    ${isImage ? '<i class="bi bi-image-fill"></i> Image' : '<i class="bi bi-film"></i> Video'} · ${duration}s
+                                </small>
+                            </div>
+                            
+                            <button class="btn btn-sm btn-success" onclick="addMediaToPlaylist('${video.id}', ${duration})">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Toggle add media section
+        function toggleAddMediaSection() {
+            const addMediaList = document.getElementById('addMediaList');
+            if (addMediaList.style.display === 'none') {
+                addMediaList.style.display = 'block';
+            } else {
+                addMediaList.style.display = 'none';
+            }
+        }
+        
+        // Add media to playlist
+        async function addMediaToPlaylist(videoId, duration) {
+            try {
+                const response = await fetch('/dashboard/playlists/<%= playlist.id %>/timeline/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        videoId: videoId,
+                        duration: duration
+                    }),
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    Toast.success('Media added to playlist!');
+                    // Save view state before reloading
+                    saveViewState();
+                    // Reload to get fresh data
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 500);
+                } else {
+                    throw new Error(result.error || 'Failed to add media');
+                }
+            } catch (error) {
+                console.error('Error adding media:', error);
+                Toast.error('Failed to add media: ' + error.message);
+            }
+        }
+        
+        // Move list item up or down
+        function moveListItem(index, direction) {
+            if (direction === 'up' && index > 0) {
+                // Swap with previous item
+                [timelineData[index], timelineData[index - 1]] = [timelineData[index - 1], timelineData[index]];
+            } else if (direction === 'down' && index < timelineData.length - 1) {
+                // Swap with next item
+                [timelineData[index], timelineData[index + 1]] = [timelineData[index + 1], timelineData[index]];
+            }
+            renderListView();
+        }
+        
+        // Delete list item
+        function deleteListItem(index) {
+            if (confirm('Are you sure you want to remove this media from the playlist?')) {
+                timelineData.splice(index, 1);
+                renderListView();
+            }
+        }
+        
+        // Save list view changes
+        async function saveListViewChanges() {
+            const btnSave = document.getElementById('btnSaveListView');
+            const originalText = btnSave.innerHTML;
+            
+            try {
+                btnSave.disabled = true;
+                btnSave.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+                
+                let successCount = 0;
+                let errorCount = 0;
+                
+                // Process each item: update order and duration
+                for (let index = 0; index < timelineData.length; index++) {
+                    const item = timelineData[index];
+                    const input = document.querySelector(`input[data-item-id="${item.id}"]`);
+                    const newDuration = input ? parseInt(input.value) || 10 : item.duration || 10;
+                    const needsUpdate = item.order !== index || item.duration !== newDuration;
+                    
+                    if (needsUpdate) {
+                        try {
+                            // First, update order if changed
+                            if (item.order !== index) {
+                                const reorderResponse = await fetch(`/dashboard/playlists/<%= playlist.id %>/timeline/${item.id}/reorder`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({ newOrder: index }),
+                                });
+                                
+                                if (!reorderResponse.ok) {
+                                    throw new Error('Failed to reorder item');
+                                }
+                            }
+                            
+                            // Then, update duration if changed
+                            if (item.duration !== newDuration) {
+                                const updateResponse = await fetch(`/dashboard/playlists/<%= playlist.id %>/timeline/${item.id}/update`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({ duration: newDuration }),
+                                });
+                                
+                                if (!updateResponse.ok) {
+                                    throw new Error('Failed to update duration');
+                                }
+                            }
+                            
+                            successCount++;
+                        } catch (error) {
+                            console.error(`Error updating item ${item.id}:`, error);
+                            errorCount++;
+                        }
+                    }
+                }
+                
+                if (errorCount === 0) {
+                    Toast.success('All changes saved successfully!');
+                } else if (successCount > 0) {
+                    Toast.warning(`Saved ${successCount} changes, ${errorCount} failed`);
+                } else {
+                    throw new Error('Failed to save changes');
+                }
+                
+                // Save view state before reloading
+                saveViewState();
+                
+                // Reload to get fresh data
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error saving changes:', error);
+                Toast.error('Failed to save changes: ' + error.message);
+                btnSave.disabled = false;
+                btnSave.innerHTML = originalText;
+            }
+        }
+        
+        // Setup save button listener
+        document.addEventListener('DOMContentLoaded', function() {
+            const btnSaveListView = document.getElementById('btnSaveListView');
+            if (btnSaveListView) {
+                btnSaveListView.addEventListener('click', saveListViewChanges);
+            }
+        });
 
         // Video search filter
         function filterVideos() {

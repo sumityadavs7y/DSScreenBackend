@@ -401,10 +401,14 @@ router.get('/cleanup-stats', (req, res) => {
  * Deregister a device and remove all playlist associations
  */
 router.delete('/deregister/:uid', async (req, res) => {
+  const { sequelize } = require('../models');
+  const transaction = await sequelize.transaction();
+  
   try {
     const { uid } = req.params;
 
     if (!uid) {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
         message: 'Device UID is required',
@@ -416,9 +420,11 @@ router.delete('/deregister/:uid', async (req, res) => {
     // Find the device
     const device = await Device.findOne({
       where: { uid },
+      transaction,
     });
 
     if (!device) {
+      await transaction.rollback();
       log.warn('Device not found for deregistration', { uid });
       // Return success even if device not found (idempotent operation)
       return res.json({
@@ -427,24 +433,36 @@ router.delete('/deregister/:uid', async (req, res) => {
       });
     }
 
-    // Delete all device-playlist associations
+    const deviceId = device.id;
+
+    // Delete all device-playlist associations first
+    // Even though CASCADE is set up, we delete explicitly to get the count
     const deletedAssociations = await DevicePlaylist.destroy({
       where: {
         deviceId: device.id,
       },
+      transaction,
+      force: true, // Ensure hard delete
     });
 
     log.debug('Deleted device-playlist associations', { 
       uid, 
+      deviceId,
       deletedAssociations 
     });
 
     // Delete the device itself
-    await device.destroy();
+    await device.destroy({ 
+      transaction,
+      force: true, // Ensure hard delete
+    });
+
+    // Commit the transaction
+    await transaction.commit();
 
     log.info('Device successfully deregistered and deleted', { 
       uid, 
-      deviceId: device.id,
+      deviceId,
       deletedAssociations 
     });
 
@@ -452,17 +470,23 @@ router.delete('/deregister/:uid', async (req, res) => {
       success: true,
       message: 'Device deregistered successfully',
       data: {
-        deviceId: device.id,
-        uid: device.uid,
+        deviceId,
+        uid,
         deletedAssociations,
       },
     });
   } catch (error) {
+    // Rollback transaction on error
+    await transaction.rollback();
+    
     log.error('Error deregistering device', { 
       error: error.message, 
       stack: error.stack,
-      uid: req.params.uid 
+      uid: req.params.uid,
+      errorName: error.name,
+      errorCode: error.code,
     });
+    
     res.status(500).json({
       success: false,
       message: 'Error deregistering device',

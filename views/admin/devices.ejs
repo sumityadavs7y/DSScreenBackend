@@ -259,6 +259,7 @@
     <script>
         let selectedDeviceUID = null;
         let socket = null;
+        let deleteModalEl = null;
 
         // Initialize Socket.IO for real-time updates
         function initSocket() {
@@ -493,7 +494,7 @@
         // Event listeners
         document.addEventListener('DOMContentLoaded', () => {
             // Ensure modal is hidden on page load
-            const deleteModalEl = document.getElementById('deleteModal');
+            deleteModalEl = document.getElementById('deleteModal');
             if (deleteModalEl) {
                 deleteModalEl.style.display = 'none';
                 deleteModalEl.classList.remove('show');

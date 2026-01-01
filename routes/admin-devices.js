@@ -312,48 +312,78 @@ router.delete('/devices/:uid', async (req, res) => {
       }
     }
 
-    // Delete device playlists
-    const deletedAssociations = await DevicePlaylist.destroy({
-      where: {
-        deviceId: device.id,
-      },
-    });
+    const { sequelize } = require('../models');
+    const transaction = await sequelize.transaction();
 
-    // Delete device
-    await device.destroy();
+    try {
+      const deviceId = device.id;
+      const deviceUid = device.uid;
 
-    log.info('Device deleted successfully', { 
-      uid, 
-      deletedBy: user.email, 
-      userId: user.id,
-      deletedAssociations 
-    });
-
-    // Emit socket event to force-deregister if device is online
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`player:${uid}`).emit('device:force-deregister', {
-        reason: 'Device deleted by administrator',
-        timestamp: new Date(),
+      // Delete device playlists first
+      // Even though CASCADE is set up, we delete explicitly to get the count
+      const deletedAssociations = await DevicePlaylist.destroy({
+        where: {
+          deviceId: device.id,
+        },
+        transaction,
+        force: true, // Ensure hard delete
       });
-      log.debug('Force-deregister event sent to device', { uid });
-    }
 
-    res.json({
-      success: true,
-      message: 'Device deleted successfully',
-      data: {
-        deviceId: device.id,
-        uid: device.uid,
-        deletedAssociations,
-      },
-    });
+      log.debug('Deleted device-playlist associations', { 
+        uid, 
+        deviceId,
+        deletedAssociations 
+      });
+
+      // Delete device
+      await device.destroy({ 
+        transaction,
+        force: true, // Ensure hard delete
+      });
+
+      // Commit the transaction
+      await transaction.commit();
+
+      log.info('Device deleted successfully', { 
+        uid, 
+        deviceId,
+        deletedBy: user.email, 
+        userId: user.id,
+        deletedAssociations 
+      });
+
+      // Emit socket event to force-deregister if device is online
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`player:${uid}`).emit('device:force-deregister', {
+          reason: 'Device deleted by administrator',
+          timestamp: new Date(),
+        });
+        log.debug('Force-deregister event sent to device', { uid });
+      }
+
+      res.json({
+        success: true,
+        message: 'Device deleted successfully',
+        data: {
+          deviceId,
+          uid: deviceUid,
+          deletedAssociations,
+        },
+      });
+    } catch (deleteError) {
+      // Rollback transaction on error
+      await transaction.rollback();
+      throw deleteError; // Re-throw to be caught by outer catch
+    }
   } catch (error) {
     log.error('Error deleting device', { 
       error: error.message, 
       stack: error.stack,
       uid,
-      userId: req.session?.userId 
+      userId: req.session?.userId,
+      errorName: error.name,
+      errorCode: error.code,
     });
     res.status(500).json({
       success: false,

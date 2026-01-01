@@ -51,15 +51,27 @@ if (typeof session === 'undefined') {
                             </span></li>
                             <li><hr class="dropdown-divider"></li>
                         <% } %>
-                        <% if (user && user.isSuperAdmin) { %>
+                        <% if (user && user.isSuperAdmin && !isImpersonating) { %>
                             <li>
                                 <a class="dropdown-item" href="/admin">
                                     <i class="bi bi-shield-fill-check"></i> Super Admin Panel
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item" href="/admin/devices">
+                                    <i class="bi bi-display"></i> Device Management
+                                </a>
+                            </li>
                             <li><hr class="dropdown-divider"></li>
                         <% } %>
                         <% if (typeof company !== 'undefined' && company) { %>
+                            <% if (typeof userCompany !== 'undefined' && userCompany && ['owner', 'admin', 'manager'].includes(userCompany.role)) { %>
+                            <li>
+                                <a class="dropdown-item" href="/admin/devices">
+                                    <i class="bi bi-display"></i> Device Management
+                                </a>
+                            </li>
+                            <% } %>
                             <% if (typeof userCompany !== 'undefined' && userCompany && ['owner', 'admin'].includes(userCompany.role)) { %>
                             <li>
                                 <a class="dropdown-item" href="/dashboard/users">

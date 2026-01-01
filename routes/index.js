@@ -274,10 +274,25 @@ router.post('/playlists/device/register', async (req, res) => {
  */
 router.get('/api/playlists/:playlistId/timeline', async (req, res) => {
   try {
-    const { Playlist, PlaylistItem, Video, Company, License } = require('../models');
+    const { Playlist, PlaylistItem, Video, Company, License, Device } = require('../models');
     const { playlistId } = req.params;
+    const { deviceUID } = req.query;
 
     console.log('📋 Fetching timeline for playlist:', playlistId);
+    
+    // Check if device exists (if deviceUID provided)
+    if (deviceUID) {
+      const device = await Device.findOne({ where: { uid: deviceUID } });
+      
+      if (!device) {
+        console.log('❌ Device not found in database:', deviceUID);
+        return res.status(410).json({
+          success: false,
+          deviceDeleted: true,
+          message: 'Device has been deregistered by an administrator',
+        });
+      }
+    }
 
     // Find the playlist with items
     const playlist = await Playlist.findOne({

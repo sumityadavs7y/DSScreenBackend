@@ -387,6 +387,9 @@
         </div>
     </div>
 
+    <!-- Socket.IO Client Library -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
     <script>
         // ==================== INDEXEDDB SETUP ====================
         const DB_NAME = 'digitalSignageCache';
@@ -460,6 +463,62 @@
         let timelineCheckIntervalId = null;
         let lastTimelineCheck = Date.now();
         let hasEnteredFullscreenOnce = false;
+        let socket = null; // Socket.IO connection
+        let deviceUID = null; // Device unique identifier
+        let pingIntervalId = null; // Socket ping interval
+
+        // ==================== SOCKET.IO CONNECTION ====================
+        function initSocketIO() {
+            console.log('🔌 Initializing Socket.IO...');
+            
+            socket = io(window.location.origin, {
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionDelay: 1000,
+                reconnectionAttempts: Infinity
+            });
+
+            socket.on('connect', () => {
+                console.log('✅ Socket.IO connected:', socket.id);
+                
+                // Send device player connect event
+                if (deviceUID && registrationData) {
+                    const playlist = registrationData.data?.playlist || registrationData.playlist;
+                    socket.emit('device:player:connect', {
+                        uid: deviceUID,
+                        playlistId: playlist.id
+                    });
+                }
+            });
+
+            socket.on('device:player:connected', (data) => {
+                console.log('✅ Device player registered with server:', data);
+            });
+
+            socket.on('disconnect', () => {
+                console.log('⚠️  Socket.IO disconnected');
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('❌ Socket.IO connection error:', error);
+            });
+
+            // Listen for force deregister command from admin
+            socket.on('device:force-deregister', (data) => {
+                console.log('🗑️  Force deregister received from admin:', data);
+                showError('⚠️ This device has been deregistered by an administrator. You will be redirected to the registration page.');
+                setTimeout(() => {
+                    autoDeregister('Device deregistered by admin');
+                }, 3000);
+            });
+
+            // Start periodic ping (every 30 seconds)
+            pingIntervalId = setInterval(() => {
+                if (socket && socket.connected && deviceUID) {
+                    socket.emit('device:ping', { uid: deviceUID });
+                }
+            }, 30000);
+        }
 
         // ==================== INITIALIZATION ====================
         document.addEventListener('DOMContentLoaded', init);
@@ -481,6 +540,12 @@
                 }
                 
                 registrationData = JSON.parse(storedData);
+                
+                // Get device UID
+                deviceUID = registrationData.uid || registrationData.device?.uid;
+                
+                // Initialize Socket.IO for real-time tracking
+                initSocketIO();
                 const playlist = registrationData.data?.playlist || registrationData.playlist;
                 
                 if (!playlist || !playlist.items || playlist.items.length === 0) {
@@ -488,10 +553,12 @@
                     return;
                 }
                 
-                // Check license status immediately on load
+                // Check license status immediately on load (without device existence check)
+                // Device existence will be checked in periodic updates, not on initial load
                 console.log('🔍 Checking license status...');
                 try {
                     const timelineResponse = await fetch(`/api/playlists/${playlist.id}/timeline`);
+                    
                     if (timelineResponse.ok) {
                         const timelineResult = await timelineResponse.json();
                         
@@ -529,8 +596,7 @@
                 }
                 
                 // Update info overlay
-                const deviceUID = localStorage.getItem('deviceUID') || 'Unknown';
-                document.getElementById('infoDeviceUID').textContent = deviceUID;
+                document.getElementById('infoDeviceUID').textContent = deviceUID || 'Unknown';
                 document.getElementById('infoPlaylistName').textContent = playlist.name;
                 document.getElementById('infoTotalVideos').textContent = timelineItems.length;
                 
@@ -587,8 +653,21 @@
                 const playlist = registrationData.data?.playlist || registrationData.playlist;
                 const playlistId = playlist.id;
                 
-                // Fetch latest timeline from server
-                const response = await fetch(`/api/playlists/${playlistId}/timeline`);
+                // Fetch latest timeline from server (include deviceUID for existence check)
+                const response = await fetch(`/api/playlists/${playlistId}/timeline?deviceUID=${encodeURIComponent(deviceUID)}`);
+                
+                // Check if device was deleted (410 Gone status)
+                if (response.status === 410) {
+                    const result = await response.json();
+                    if (result.deviceDeleted) {
+                        console.log('🗑️  Device has been deregistered by admin, auto-deregistering...');
+                        showError('⚠️ This device has been deregistered by an administrator. You will be redirected to the registration page.');
+                        setTimeout(() => {
+                            autoDeregister('Device deregistered by admin');
+                        }, 3000);
+                        return;
+                    }
+                }
                 
                 if (!response.ok) {
                     console.error('Failed to fetch timeline updates:', response.status);
@@ -596,6 +675,16 @@
                 }
                 
                 const result = await response.json();
+                
+                // Double-check for deviceDeleted flag (in case it comes with 200 OK)
+                if (result.deviceDeleted) {
+                    console.log('🗑️  Device has been deregistered by admin, auto-deregistering...');
+                    showError('⚠️ This device has been deregistered by an administrator. You will be redirected to the registration page.');
+                    setTimeout(() => {
+                        autoDeregister('Device deregistered by admin');
+                    }, 3000);
+                    return;
+                }
                 
                 // Check license status first
                 if (result.license) {
@@ -1314,39 +1403,64 @@
                 if (checkIntervalId) clearInterval(checkIntervalId);
                 if (updateIntervalId) clearInterval(updateIntervalId);
                 if (timelineCheckIntervalId) clearInterval(timelineCheckIntervalId);
+                if (pingIntervalId) clearInterval(pingIntervalId);
                 
                 try {
-                    // Get device UID from registration data
-                    const storedData = localStorage.getItem('devicePlaylistRegistration');
-                    if (storedData) {
-                        const regData = JSON.parse(storedData);
-                        const deviceUID = regData.uid || regData.device?.uid;
+                    // Use global deviceUID variable (already set during initialization)
+                    if (deviceUID) {
+                        console.log('🗑️  Deregistering device from database:', deviceUID);
                         
-                        if (deviceUID) {
-                            console.log('🗑️  Deregistering device from database:', deviceUID);
+                        // Call API to deregister device
+                        try {
+                            const response = await fetch(`/api/device/deregister/${encodeURIComponent(deviceUID)}`, {
+                                method: 'DELETE',
+                            });
                             
-                            // Call API to deregister device
-                            try {
-                                const response = await fetch(`/api/device/deregister/${encodeURIComponent(deviceUID)}`, {
-                                    method: 'DELETE',
-                                });
-                                
-                                const result = await response.json();
-                                
-                                if (result.success) {
-                                    console.log('✅ Device deregistered from database');
-                                } else {
-                                    console.warn('⚠️  Failed to deregister device:', result.message);
-                                }
-                            } catch (apiError) {
-                                console.error('❌ Error calling deregister API:', apiError);
-                                // Continue with cleanup even if API call fails
+                            const result = await response.json();
+                            
+                            if (result.success) {
+                                console.log('✅ Device deregistered from database');
+                            } else {
+                                console.warn('⚠️  Failed to deregister device:', result.message);
                             }
+                        } catch (apiError) {
+                            console.error('❌ Error calling deregister API:', apiError);
+                            // Continue with cleanup even if API call fails
                         }
                     }
                     
+                    // Stop video playback first to prevent AudioContext errors
+                    if (videoPlayer) {
+                        try {
+                            videoPlayer.pause();
+                            videoPlayer.removeAttribute('src');
+                            videoPlayer.load();
+                        } catch (e) {
+                            // Ignore video cleanup errors
+                            console.warn('Video cleanup warning:', e.message);
+                        }
+                    }
+                    
+                    if (imagePlayer) {
+                        try {
+                            imagePlayer.removeAttribute('src');
+                        } catch (e) {
+                            // Ignore image cleanup errors
+                            console.warn('Image cleanup warning:', e.message);
+                        }
+                    }
+                    
+                    // Disconnect socket
+                    if (socket) {
+                        socket.disconnect();
+                    }
+                    
                     // Clear video cache
-                    await clearVideoCache();
+                    try {
+                        await clearVideoCache();
+                    } catch (cacheErr) {
+                        console.warn('Cache cleanup warning:', cacheErr.message);
+                    }
                     
                     // Clear local storage
                     localStorage.removeItem('devicePlaylistRegistration');
@@ -1362,6 +1476,67 @@
                     localStorage.removeItem('deviceUID');
                     window.location.href = '/';
                 }
+            }
+        }
+
+        async function autoDeregister(reason = 'Device deleted from system') {
+            console.log('🗑️  Auto-deregistering device:', reason);
+            
+            // Stop all intervals
+            if (checkIntervalId) clearInterval(checkIntervalId);
+            if (updateIntervalId) clearInterval(updateIntervalId);
+            if (timelineCheckIntervalId) clearInterval(timelineCheckIntervalId);
+            if (pingIntervalId) clearInterval(pingIntervalId);
+            
+            try {
+                // Stop video playback first to prevent AudioContext errors
+                if (videoPlayer) {
+                    try {
+                        videoPlayer.pause();
+                        videoPlayer.removeAttribute('src');
+                        videoPlayer.load();
+                    } catch (e) {
+                        // Ignore video cleanup errors
+                        console.warn('Video cleanup warning:', e.message);
+                    }
+                }
+                
+                if (imagePlayer) {
+                    try {
+                        imagePlayer.removeAttribute('src');
+                    } catch (e) {
+                        // Ignore image cleanup errors
+                        console.warn('Image cleanup warning:', e.message);
+                    }
+                }
+                
+                // Disconnect socket
+                if (socket) {
+                    socket.disconnect();
+                }
+                
+                // Clear video cache
+                try {
+                    await clearVideoCache();
+                } catch (cacheErr) {
+                    console.warn('Cache cleanup warning:', cacheErr.message);
+                }
+                
+                // Clear local storage
+                localStorage.removeItem('devicePlaylistRegistration');
+                localStorage.removeItem('deviceUID');
+                
+                console.log('✅ Auto-deregistration complete, redirecting to home...');
+                
+                // Redirect to home
+                window.location.href = '/';
+            } catch (err) {
+                console.error('Error during auto-deregistration:', err);
+                
+                // Clean up local data even if there's an error
+                localStorage.removeItem('devicePlaylistRegistration');
+                localStorage.removeItem('deviceUID');
+                window.location.href = '/';
             }
         }
 

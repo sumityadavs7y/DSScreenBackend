@@ -54,6 +54,7 @@ const webRoutes = require('./routes/web');
 const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
 const adminRoutes = require('./routes/admin');
+const adminDevicesRoutes = require('./routes/admin-devices');
 const companyRoutes = require('./routes/company');
 const userRoutes = require('./routes/user');
 const videoRoutes = require('./routes/video');
@@ -62,6 +63,7 @@ const deviceRoutes = require('./routes/device');
 
 app.use('/', webRoutes);  // Web routes (login, register, logout)
 app.use('/dashboard', dashboardRoutes); // Dashboard routes BEFORE static files
+app.use('/admin', adminDevicesRoutes); // Admin device management routes (BEFORE adminRoutes to allow impersonating access)
 app.use('/admin', adminRoutes); // Super Admin panel routes
 app.use('/api/auth', authRoutes);
 app.use('/api/company', companyRoutes);
@@ -79,7 +81,7 @@ app.use('/videos', express.static(__dirname + '/videos'));
 io.on('connection', (socket) => {
   console.log('🔌 Socket connected:', socket.id);
 
-  // Device joins a room with their device ID
+  // Device joins a room with their device ID (for QR registration)
   socket.on('device:join', (deviceId) => {
     socket.join(`device:${deviceId}`);
     console.log(`📱 Device ${deviceId} joined room`);
@@ -88,9 +90,87 @@ io.on('connection', (socket) => {
     socket.emit('device:connected', { deviceId, socketId: socket.id });
   });
 
+  // Device player connects (for tracking)
+  socket.on('device:player:connect', async (data) => {
+    const { uid, playlistId } = data;
+    
+    try {
+      const { Device, DevicePlaylist } = require('./models');
+      
+      // Update device lastSeen and join room
+      const device = await Device.findOne({ where: { uid } });
+      
+      if (device) {
+        await device.update({
+          lastSeen: new Date(),
+          isActive: true,
+        });
+        
+        // Store device info in socket
+        socket.deviceUID = uid;
+        socket.playlistId = playlistId;
+        
+        // Join device room for targeted communication
+        socket.join(`player:${uid}`);
+        
+        console.log(`📺 Device player connected: ${uid} (Playlist: ${playlistId})`);
+        
+        // Notify admins that device came online
+        io.emit('admin:device:online', {
+          uid,
+          playlistId,
+          timestamp: new Date(),
+        });
+        
+        // Send connection confirmation to device
+        socket.emit('device:player:connected', {
+          uid,
+          status: 'online',
+          timestamp: new Date(),
+        });
+      } else {
+        console.warn(`⚠️  Device not found in database: ${uid}`);
+        socket.emit('device:player:error', {
+          message: 'Device not found in system',
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error in device:player:connect:', error);
+    }
+  });
+
+  // Device periodic ping (updates lastSeen)
+  socket.on('device:ping', async (data) => {
+    const { uid } = data;
+    
+    try {
+      const { Device } = require('./models');
+      
+      const device = await Device.findOne({ where: { uid } });
+      
+      if (device) {
+        await device.update({
+          lastSeen: new Date(),
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error in device:ping:', error);
+    }
+  });
+
   // Handle device disconnection
   socket.on('disconnect', () => {
     console.log('🔌 Socket disconnected:', socket.id);
+    
+    // Notify admins if it was a device player
+    if (socket.deviceUID) {
+      console.log(`📺 Device player disconnected: ${socket.deviceUID}`);
+      
+      io.emit('admin:device:offline', {
+        uid: socket.deviceUID,
+        timestamp: new Date(),
+      });
+    }
   });
 });
 

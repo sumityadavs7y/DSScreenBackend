@@ -8,7 +8,7 @@ if (existingRegistration) {
         // Verify the data is valid
         if (data.device && data.playlist) {
             console.log('Device already registered, redirecting to player...');
-            window.location.href = '/device-player.html';
+            window.location.href = '/device-player';
         }
     } catch (e) {
         // Invalid data, clear it
@@ -123,7 +123,7 @@ deviceForm.addEventListener('submit', async (e) => {
             
             // Redirect to player page
             setTimeout(() => {
-                window.location.href = '/device-player.html';
+                window.location.href = '/device-player';
             }, 1000);
         } else {
             showAlert(data.message || 'Registration failed. Please check your code.', 'error');

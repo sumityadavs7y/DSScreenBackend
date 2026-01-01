@@ -59,10 +59,7 @@ router.get('/health', (req, res) => {
     });
 });
 
-// Video demo page
-router.get('/demo/video', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/video-demo.html'));
-});
+// Video demo page removed - was only for testing
 
 // Favicon handler (prevent 404)
 router.get('/favicon.ico', (req, res) => {

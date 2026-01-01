@@ -16,7 +16,7 @@ const { Op } = require('sequelize');
 router.get('/', async (req, res) => {
   // If not authenticated, show device registration page
   if (!req.session || !req.session.userId) {
-    return res.sendFile(require('path').join(__dirname, '../public/index.html'));
+    return res.render('device-registration');
   }
   
   // If authenticated, check if super admin
@@ -373,11 +373,28 @@ router.post('/company-selection', async (req, res) => {
 });
 
 /**
+ * GET /device-register
+ * Show mobile device registration page
+ */
+router.get('/device-register', (req, res) => {
+  const sessionToken = req.query.session || '';
+  res.render('device-register', { sessionToken });
+});
+
+/**
+ * GET /device-player
+ * Show device video player page
+ */
+router.get('/device-player', (req, res) => {
+  res.render('device-player');
+});
+
+/**
  * GET /privacy-policy
  * Show privacy policy page
  */
 router.get('/privacy-policy', (req, res) => {
-  res.sendFile(require('path').join(__dirname, '../public/privacy-policy.html'));
+  res.render('privacy-policy');
 });
 
 /**

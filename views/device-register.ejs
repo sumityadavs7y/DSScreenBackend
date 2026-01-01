@@ -304,7 +304,7 @@
             </div>
 
             <div class="device-info">
-                <strong>Session:</strong> <span id="sessionToken">Loading...</span>
+                <strong>Session:</strong> <span id="sessionToken"><%= sessionToken ? sessionToken.substring(0, 8) + '...' : 'Loading...' %></span>
             </div>
         </div>
 
@@ -331,7 +331,7 @@
         const API_BASE_URL = window.location.origin;
 
         // State
-        let sessionToken = null;
+        let sessionToken = '<%= sessionToken || "" %>';
 
         // DOM Elements
         const loadingState = document.getElementById('loadingState');
@@ -468,7 +468,7 @@
 
         // Initialize
         async function init() {
-            sessionToken = getSessionTokenFromURL();
+            sessionToken = getSessionTokenFromURL() || sessionToken;
 
             if (!sessionToken) {
                 showAlert('error', 'Invalid registration link. Please scan the QR code again.');

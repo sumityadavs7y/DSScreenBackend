@@ -50,7 +50,7 @@ router.post('/init-registration', async (req, res) => {
 
     // Generate QR code URL
     const baseUrl = envConfig.baseUrl || `http://localhost:${envConfig.port}`;
-    const registrationUrl = `${baseUrl}/device-register.html?session=${sessionToken}`;
+    const registrationUrl = `${baseUrl}/device-register?session=${sessionToken}`;
 
     // Generate QR code as data URL
     const qrCodeDataUrl = await QRCode.toDataURL(registrationUrl, {

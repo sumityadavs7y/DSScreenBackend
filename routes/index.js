@@ -1,6 +1,9 @@
 const express = require('express');
 const path = require('path');
 const router = express.Router();
+const { createModuleLogger } = require('../utils/logger');
+
+const log = createModuleLogger('Routes');
 
 // Note: Login, register, company-selection, and dashboard routes are handled by web.js and dashboard.js
 // This file only contains API routes and device-specific pages

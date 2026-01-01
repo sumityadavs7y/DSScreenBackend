@@ -12,6 +12,9 @@ const { Video, User, Company, sequelize, Sequelize } = require('../models');
 const { protect, requireRole } = require('../middleware/sessionAuth');
 const { checkCompanyLicense } = require('../middleware/licenseCheck');
 const verifyToken = protect; // Alias for compatibility
+const { createModuleLogger } = require('../utils/logger');
+
+const log = createModuleLogger('Schedule');
 
 /**
  * Helper function to validate UUID format
@@ -270,7 +273,7 @@ router.post('/',
         },
       });
     } catch (error) {
-      console.error('Create schedule error:', error);
+      log.error('Create schedule error:', { error: error.message, stack: error.stack });
       res.status(500).json({
         success: false,
         message: 'An error occurred while creating the schedule',
@@ -345,7 +348,7 @@ router.get('/', verifyToken, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('List schedules error:', error);
+    log.error('List schedules error:', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching schedules',
@@ -448,7 +451,7 @@ router.get('/:scheduleId', verifyToken, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Get schedule error:', error);
+    log.error('Get schedule error:', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching the schedule',
@@ -551,7 +554,7 @@ router.get('/public/:code', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Get public schedule error:', error);
+    log.error('Get public schedule error:', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching the schedule',
@@ -654,7 +657,7 @@ router.post('/device/register',
       });
 
       if (!activeLicense) {
-        console.log('❌ No active license found for company:', schedule.companyId);
+        log.warn('No active license found for company', { companyId: schedule.companyId, scheduleId: schedule.id });
         return res.status(403).json({
           success: false,
           message: 'This company does not have an active license. Device registration is not allowed.',
@@ -665,14 +668,14 @@ router.post('/device/register',
       const now = new Date();
       const expiryDate = new Date(activeLicense.expiresAt);
       if (expiryDate < now) {
-        console.log('❌ License expired for company:', schedule.companyId);
+        log.warn('License expired for company', { companyId: schedule.companyId, expiresAt: activeLicense.expiresAt });
         return res.status(403).json({
           success: false,
           message: 'This company\'s license has expired. Device registration is not allowed.',
         });
       }
 
-      console.log('✅ Valid license found for company:', schedule.companyId);
+      log.info('Valid license found for company:', schedule.companyId);
 
       // Create or update device registration
       const [device, created] = await Device.findOrCreate({
@@ -738,7 +741,7 @@ router.post('/device/register',
         },
       });
     } catch (error) {
-      console.error('Device registration error:', error);
+      log.error('Device registration error:', { error: error.message, stack: error.stack });
       res.status(500).json({
         success: false,
         message: 'An error occurred while registering the device',
@@ -830,7 +833,7 @@ router.put('/device/:deviceId/name',
         },
       });
     } catch (error) {
-      console.error('Update device name error:', error);
+      log.error('Update device name error:', { error: error.message, stack: error.stack });
       res.status(500).json({
         success: false,
         message: 'An error occurred while updating device name',
@@ -944,7 +947,7 @@ router.put('/:scheduleId',
         },
       });
     } catch (error) {
-      console.error('Update schedule error:', error);
+      log.error('Update schedule error:', { error: error.message, stack: error.stack });
       res.status(500).json({
         success: false,
         message: 'An error occurred while updating the schedule',
@@ -1014,7 +1017,7 @@ router.delete('/:scheduleId',
         },
       });
     } catch (error) {
-      console.error('Delete schedule error:', error);
+      log.error('Delete schedule error:', { error: error.message, stack: error.stack });
       res.status(500).json({
         success: false,
         message: 'An error occurred while deleting the schedule',
@@ -1206,7 +1209,7 @@ router.post('/:scheduleId/items',
     } catch (error) {
       // Rollback transaction on error
       await t.rollback();
-      console.error('Add schedule item error:', error);
+      log.error('Add schedule item error:', { error: error.message, stack: error.stack });
       res.status(500).json({
         success: false,
         message: 'An error occurred while adding the schedule item',
@@ -1419,7 +1422,7 @@ router.put('/:scheduleId/items/:itemId',
     } catch (error) {
       // Rollback transaction on error
       await t.rollback();
-      console.error('Update schedule item error:', error);
+      log.error('Update schedule item error:', { error: error.message, stack: error.stack });
       res.status(500).json({
         success: false,
         message: 'An error occurred while updating the schedule item',
@@ -1493,7 +1496,7 @@ router.delete('/:scheduleId/items/:itemId',
         },
       });
     } catch (error) {
-      console.error('Delete schedule item error:', error);
+      log.error('Delete schedule item error:', { error: error.message, stack: error.stack });
       res.status(500).json({
         success: false,
         message: 'An error occurred while deleting the schedule item',

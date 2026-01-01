@@ -11,6 +11,9 @@ const { body, validationResult } = require('express-validator');
 const { User, Company, UserCompany } = require('../models');
 const { protect, requireRole } = require('../middleware/sessionAuth');
 const verifyToken = protect; // Alias for compatibility
+const { createModuleLogger } = require('../utils/logger');
+
+const log = createModuleLogger('User');
 
 /**
  * POST /api/users/create

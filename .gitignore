@@ -37,3 +37,4 @@ public/uploads/
 # Videos - ignore all files in videos folder but keep the directory structure
 videos/*
 !videos/.gitkeep
+logs/

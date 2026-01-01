@@ -3,6 +3,9 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const { User, Company, UserCompany } = require('../models');
 const { loadUserContext, isAuthenticated } = require('../middleware/sessionAuth');
+const { createModuleLogger } = require('../utils/logger');
+
+const log = createModuleLogger('Auth');
 
 /**
  * Helper function to validate UUID format
@@ -113,7 +116,7 @@ router.post('/register', [
       },
     });
   } catch (error) {
-    console.error('Registration error:', error);
+    log.error('Registration error:', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'An error occurred during registration',
@@ -211,7 +214,7 @@ router.post('/login', [
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
+    log.error('Login error:', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'An error occurred during login',
@@ -293,7 +296,7 @@ router.post('/select-company', isAuthenticated, [
       },
     });
   } catch (error) {
-    console.error('Company selection error:', error);
+    log.error('Company selection error:', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'An error occurred while selecting company',
@@ -310,7 +313,7 @@ router.post('/logout', (req, res) => {
   try {
     req.session.destroy((err) => {
       if (err) {
-        console.error('Logout error:', err);
+        log.error('Logout error', { error: err });
         return res.status(500).json({
           success: false,
           message: 'An error occurred during logout',
@@ -324,7 +327,7 @@ router.post('/logout', (req, res) => {
       });
     });
   } catch (error) {
-    console.error('Logout error:', error);
+    log.error('Logout error:', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'An error occurred during logout',
@@ -361,7 +364,7 @@ router.get('/me', loadUserContext, async (req, res) => {
 
     res.json(response);
   } catch (error) {
-    console.error('Get user info error:', error);
+    log.error('Get user info error:', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching user info',
@@ -404,7 +407,7 @@ router.get('/companies', loadUserContext, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Get companies error:', error);
+    log.error('Get companies error:', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching companies',
@@ -482,7 +485,7 @@ router.post('/switch-company', loadUserContext, [
       },
     });
   } catch (error) {
-    console.error('Company switch error:', error);
+    log.error('Company switch error:', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'An error occurred while switching company',

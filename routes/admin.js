@@ -7,6 +7,8 @@ const express = require('express');
 const router = express.Router();
 const { User, Company, UserCompany, Video, Playlist, PlaylistItem, Device, License } = require('../models');
 const { webRequireAuth } = require('../middleware/sessionAuth');
+const { createModuleLogger } = require('../utils/logger');
+const log = createModuleLogger('Admin');
 const { webRequireSuperAdmin } = require('../middleware/superAdminAuth');
 const crypto = require('crypto');
 

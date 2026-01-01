@@ -7,6 +7,8 @@ const { Video, User, Company, UserCompany, License } = require('../models');
 const { webRequireAuth, webRequireCompany } = require('../middleware/sessionAuth');
 const { webCheckCompanyLicense } = require('../middleware/licenseCheck');
 const { isValidVideoMimeType } = require('../utils/fileStorage');
+const { createModuleLogger } = require('../utils/logger');
+const log = createModuleLogger('Dashboard');
 const { storageConfig, envConfig } = require('../config');
 const { extractVideoMetadata, generateThumbnailAtPercentage } = require('../utils/videoMetadata');
 const {

@@ -7,6 +7,8 @@ const express = require('express');
 const router = express.Router();
 const { User, Company, UserCompany, License } = require('../models');
 const { body, validationResult } = require('express-validator');
+const { createModuleLogger } = require('../utils/logger');
+const log = createModuleLogger('Web');
 const { Op } = require('sequelize');
 
 /**

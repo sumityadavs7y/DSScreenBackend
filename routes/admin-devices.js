@@ -8,6 +8,9 @@ const router = express.Router();
 const { Device, DevicePlaylist, Playlist, Company, UserCompany } = require('../models');
 const { Op } = require('sequelize');
 const { webRequireAuth } = require('../middleware/sessionAuth');
+const { createModuleLogger } = require('../utils/logger');
+
+const log = createModuleLogger('Admin:Devices');
 
 // Apply authentication middleware to all device management routes
 router.use(webRequireAuth);
@@ -200,7 +203,12 @@ router.get('/devices', async (req, res) => {
       title: 'Device Management',
     });
   } catch (error) {
-    console.error('❌ Error fetching devices:', error);
+    log.error('Error fetching devices', { 
+      error: error.message, 
+      stack: error.stack,
+      userId: req.session?.userId,
+      companyId: req.session?.companyId 
+    });
     res.status(500).render('error', {
       title: 'Error',
       message: 'An error occurred while fetching devices.',
@@ -314,7 +322,12 @@ router.delete('/devices/:uid', async (req, res) => {
     // Delete device
     await device.destroy();
 
-    console.log(`✅ Device ${uid} deleted by ${user.email}`);
+    log.info('Device deleted successfully', { 
+      uid, 
+      deletedBy: user.email, 
+      userId: user.id,
+      deletedAssociations 
+    });
 
     // Emit socket event to force-deregister if device is online
     const io = req.app.get('io');
@@ -323,7 +336,7 @@ router.delete('/devices/:uid', async (req, res) => {
         reason: 'Device deleted by administrator',
         timestamp: new Date(),
       });
-      console.log(`📢 Sent force-deregister to device: ${uid}`);
+      log.debug('Force-deregister event sent to device', { uid });
     }
 
     res.json({
@@ -336,7 +349,12 @@ router.delete('/devices/:uid', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Error deleting device:', error);
+    log.error('Error deleting device', { 
+      error: error.message, 
+      stack: error.stack,
+      uid,
+      userId: req.session?.userId 
+    });
     res.status(500).json({
       success: false,
       message: 'Error deleting device',

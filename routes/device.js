@@ -6,6 +6,9 @@ const { RegistrationSession, Device, Playlist, DevicePlaylist } = require('../mo
 const { Op } = require('sequelize');
 const { envConfig } = require('../config');
 const sessionCleanupService = require('../services/sessionCleanupService');
+const { createModuleLogger } = require('../utils/logger');
+
+const log = createModuleLogger('Device');
 
 /**
  * POST /api/device/init-registration
@@ -62,9 +65,12 @@ router.post('/init-registration', async (req, res) => {
       },
     });
 
-    console.log(`✅ Registration session created for device: ${deviceId}`);
-    console.log(`📱 Session token: ${sessionToken}`);
-    console.log(`🔗 Registration URL: ${registrationUrl}`);
+    log.info('Registration session created', { 
+      deviceId, 
+      sessionToken, 
+      registrationUrl, 
+      expiresAt 
+    });
 
     res.json({
       success: true,
@@ -77,7 +83,10 @@ router.post('/init-registration', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Error creating registration session:', error);
+    log.error('Error creating registration session', { 
+      error: error.message, 
+      stack: error.stack 
+    });
     res.status(500).json({
       success: false,
       message: 'Error creating registration session',
@@ -120,7 +129,11 @@ router.get('/register/:sessionToken', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Error fetching registration session:', error);
+    log.error('Error fetching registration session', { 
+      error: error.message, 
+      stack: error.stack,
+      sessionToken: req.params.sessionToken 
+    });
     res.status(500).json({
       success: false,
       message: 'Error fetching registration session',
@@ -229,7 +242,13 @@ router.post('/register/:sessionToken', async (req, res) => {
       registrationCode: code.toUpperCase(),
     });
 
-    console.log(`✅ Device ${session.deviceId} registered with code: ${code}`);
+    log.info('Device registered successfully', { 
+      deviceId: session.deviceId, 
+      deviceUID: device.uid,
+      code: code.toUpperCase(), 
+      playlistId: playlist.id,
+      playlistCode: code.toUpperCase() 
+    });
 
     // Fetch full playlist with items for Socket.IO notification
     const fullPlaylist = await Playlist.findOne({
@@ -272,7 +291,10 @@ router.post('/register/:sessionToken', async (req, res) => {
           items: fullPlaylist.items || [],
         },
       });
-      console.log(`📢 Socket notification sent to device:${session.deviceId} with ${fullPlaylist.items?.length || 0} items`);
+      log.debug('Socket notification sent to device', { 
+        deviceId: session.deviceId, 
+        playlistItemsCount: fullPlaylist.items?.length || 0 
+      });
     }
 
     res.json({
@@ -291,7 +313,11 @@ router.post('/register/:sessionToken', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Error completing registration:', error);
+    log.error('Error completing registration', { 
+      error: error.message, 
+      stack: error.stack,
+      code: req.body.code 
+    });
     res.status(500).json({
       success: false,
       message: 'Error completing registration',
@@ -334,7 +360,10 @@ router.get('/check-session/:sessionToken', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Error checking session:', error);
+    log.error('Error checking session', { 
+      error: error.message, 
+      stack: error.stack 
+    });
     res.status(500).json({
       success: false,
       message: 'Error checking session',
@@ -355,7 +384,10 @@ router.get('/cleanup-stats', (req, res) => {
       data: stats,
     });
   } catch (error) {
-    console.error('❌ Error getting cleanup stats:', error);
+    log.error('Error getting cleanup stats', { 
+      error: error.message, 
+      stack: error.stack 
+    });
     res.status(500).json({
       success: false,
       message: 'Error getting cleanup stats',
@@ -379,7 +411,7 @@ router.delete('/deregister/:uid', async (req, res) => {
       });
     }
 
-    console.log(`🗑️  Deregistering device: ${uid}`);
+    log.info('Deregistering device', { uid });
 
     // Find the device
     const device = await Device.findOne({
@@ -387,7 +419,7 @@ router.delete('/deregister/:uid', async (req, res) => {
     });
 
     if (!device) {
-      console.log(`⚠️  Device not found: ${uid}`);
+      log.warn('Device not found for deregistration', { uid });
       // Return success even if device not found (idempotent operation)
       return res.json({
         success: true,
@@ -402,12 +434,19 @@ router.delete('/deregister/:uid', async (req, res) => {
       },
     });
 
-    console.log(`✅ Deleted ${deletedAssociations} playlist association(s) for device ${uid}`);
+    log.debug('Deleted device-playlist associations', { 
+      uid, 
+      deletedAssociations 
+    });
 
     // Delete the device itself
     await device.destroy();
 
-    console.log(`✅ Device ${uid} successfully deregistered and deleted`);
+    log.info('Device successfully deregistered and deleted', { 
+      uid, 
+      deviceId: device.id,
+      deletedAssociations 
+    });
 
     res.json({
       success: true,
@@ -419,7 +458,11 @@ router.delete('/deregister/:uid', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Error deregistering device:', error);
+    log.error('Error deregistering device', { 
+      error: error.message, 
+      stack: error.stack,
+      uid: req.params.uid 
+    });
     res.status(500).json({
       success: false,
       message: 'Error deregistering device',

@@ -1,4 +1,7 @@
 const { User, Company, UserCompany } = require('../models');
+const { createModuleLogger } = require('../utils/logger');
+
+const log = createModuleLogger('SessionAuth');
 
 /**
  * Middleware to check if user is authenticated via session
@@ -99,7 +102,11 @@ const loadUserContext = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error('Session auth error:', error);
+    log.error('Session auth error', { 
+      error: error.message, 
+      stack: error.stack,
+      userId: req.session?.userId 
+    });
     return res.status(500).json({
       success: false,
       message: 'Authentication error',
@@ -168,7 +175,12 @@ const webRequireAuth = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    console.error('Session authentication error:', error);
+    log.error('Session authentication error', { 
+      error: error.message, 
+      stack: error.stack,
+      userId: req.session?.userId,
+      path: req.path 
+    });
     res.redirect('/login');
   }
 };
@@ -223,7 +235,13 @@ const webRequireCompany = async (req, res, next) => {
     req.userCompany = userCompany;
     next();
   } catch (error) {
-    console.error('Company context error:', error);
+    log.error('Company context error', { 
+      error: error.message, 
+      stack: error.stack,
+      userId: req.session?.userId,
+      companyId: req.session?.companyId,
+      path: req.path 
+    });
     res.redirect('/dashboard');
   }
 };

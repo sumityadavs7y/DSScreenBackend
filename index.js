@@ -6,6 +6,10 @@ const session = require('express-session');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
+const { createModuleLogger } = require('./utils/logger');
+
+const log = createModuleLogger('Server');
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -78,13 +82,15 @@ app.use(express.static(__dirname + '/public'));
 app.use('/videos', express.static(__dirname + '/videos'));
 
 // Socket.IO connection handling
+const socketLog = createModuleLogger('Socket.IO');
+
 io.on('connection', (socket) => {
-  console.log('🔌 Socket connected:', socket.id);
+  socketLog.debug('Socket connected', { socketId: socket.id });
 
   // Device joins a room with their device ID (for QR registration)
   socket.on('device:join', (deviceId) => {
     socket.join(`device:${deviceId}`);
-    console.log(`📱 Device ${deviceId} joined room`);
+    socketLog.info('Device joined room', { deviceId, socketId: socket.id });
     
     // Send connection confirmation
     socket.emit('device:connected', { deviceId, socketId: socket.id });
@@ -113,7 +119,7 @@ io.on('connection', (socket) => {
         // Join device room for targeted communication
         socket.join(`player:${uid}`);
         
-        console.log(`📺 Device player connected: ${uid} (Playlist: ${playlistId})`);
+        socketLog.info('Device player connected', { uid, playlistId, socketId: socket.id });
         
         // Notify admins that device came online
         io.emit('admin:device:online', {
@@ -129,13 +135,13 @@ io.on('connection', (socket) => {
           timestamp: new Date(),
         });
       } else {
-        console.warn(`⚠️  Device not found in database: ${uid}`);
+        socketLog.warn('Device not found in database', { uid, socketId: socket.id });
         socket.emit('device:player:error', {
           message: 'Device not found in system',
         });
       }
     } catch (error) {
-      console.error('❌ Error in device:player:connect:', error);
+      socketLog.error('Error in device:player:connect', { error: error.message, stack: error.stack, uid });
     }
   });
 
@@ -154,17 +160,17 @@ io.on('connection', (socket) => {
         });
       }
     } catch (error) {
-      console.error('❌ Error in device:ping:', error);
+      socketLog.error('Error in device:ping', { error: error.message, uid });
     }
   });
 
   // Handle device disconnection
   socket.on('disconnect', () => {
-    console.log('🔌 Socket disconnected:', socket.id);
+    socketLog.debug('Socket disconnected', { socketId: socket.id });
     
     // Notify admins if it was a device player
     if (socket.deviceUID) {
-      console.log(`📺 Device player disconnected: ${socket.deviceUID}`);
+      socketLog.info('Device player disconnected', { uid: socket.deviceUID, socketId: socket.id });
       
       io.emit('admin:device:offline', {
         uid: socket.deviceUID,
@@ -177,9 +183,9 @@ io.on('connection', (socket) => {
 // Initialize database and start server
 const startServer = async () => {
     try {
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🚀 Starting Server...');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      log.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      log.info('Starting Server...', { environment: process.env.NODE_ENV || 'development' });
+      log.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
       // Test database connection
       await testConnection();
@@ -190,16 +196,16 @@ const startServer = async () => {
       
       // Start the server
       server.listen(envConfig.port, () => {
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log(`✅ Server is running on port ${envConfig.port}`);
-        console.log(`✅ Socket.IO is ready for connections`);
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        log.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        log.info('Server is running', { port: envConfig.port, baseUrl: envConfig.baseUrl });
+        log.info('Socket.IO is ready for connections');
+        log.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         // Start session cleanup service
         sessionCleanupService.start();
       });
     } catch (error) {
-      console.error('❌ Failed to start server:', error);
+      log.error('Failed to start server', { error: error.message, stack: error.stack });
       process.exit(1);
     }
 };
@@ -208,13 +214,13 @@ startServer();
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('\n🛑 SIGTERM received, shutting down gracefully...');
+  log.info('SIGTERM received, shutting down gracefully...');
   sessionCleanupService.stop();
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  console.log('\n🛑 SIGINT received, shutting down gracefully...');
+  log.info('SIGINT received, shutting down gracefully...');
   sessionCleanupService.stop();
   process.exit(0);
 });

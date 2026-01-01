@@ -8,6 +8,9 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const { User, Company, UserCompany } = require('../models');
+const { createModuleLogger } = require('../utils/logger');
+
+const log = createModuleLogger('Company');
 const { protect, requireRole } = require('../middleware/sessionAuth');
 const verifyToken = protect; // Alias for compatibility
 
@@ -66,7 +69,7 @@ router.get('/members', verifyToken, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Get members error:', error);
+    log.error('Get members error:', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching members',
@@ -181,7 +184,7 @@ router.post('/members/add',
         },
       });
     } catch (error) {
-      console.error('Add member error:', error);
+      log.error('Add member error:', { error: error.message, stack: error.stack });
       res.status(500).json({
         success: false,
         message: 'An error occurred while adding member',
@@ -305,7 +308,7 @@ router.post('/members/add-by-id',
         },
       });
     } catch (error) {
-      console.error('Add member error:', error);
+      log.error('Add member error:', { error: error.message, stack: error.stack });
       res.status(500).json({
         success: false,
         message: 'An error occurred while adding member',
@@ -402,7 +405,7 @@ router.put('/members/:userId/role',
         },
       });
     } catch (error) {
-      console.error('Update role error:', error);
+      log.error('Update role error:', { error: error.message, stack: error.stack });
       res.status(500).json({
         success: false,
         message: 'An error occurred while updating role',
@@ -480,7 +483,7 @@ router.put('/members/:userId/permissions',
         },
       });
     } catch (error) {
-      console.error('Update permissions error:', error);
+      log.error('Update permissions error:', { error: error.message, stack: error.stack });
       res.status(500).json({
         success: false,
         message: 'An error occurred while updating permissions',
@@ -571,7 +574,7 @@ router.delete('/members/:userId',
         },
       });
     } catch (error) {
-      console.error('Remove member error:', error);
+      log.error('Remove member error:', { error: error.message, stack: error.stack });
       res.status(500).json({
         success: false,
         message: 'An error occurred while removing member',
@@ -618,7 +621,7 @@ router.get('/info', verifyToken, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Get company info error:', error);
+    log.error('Get company info error:', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching company info',
@@ -687,7 +690,7 @@ router.put('/info',
         },
       });
     } catch (error) {
-      console.error('Update company info error:', error);
+      log.error('Update company info error:', { error: error.message, stack: error.stack });
       res.status(500).json({
         success: false,
         message: 'An error occurred while updating company info',

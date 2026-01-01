@@ -331,6 +331,12 @@ router.get('/companies/:companyId', async (req, res) => {
             }
           ],
           required: false,
+        },
+        {
+          model: License,
+          as: 'licenses',
+          required: false,
+          order: [['createdAt', 'DESC']],
         }
       ],
     });
@@ -339,11 +345,16 @@ router.get('/companies/:companyId', async (req, res) => {
       return res.status(404).send('Company not found');
     }
 
+    // Get the most recent active license
+    const activeLicense = company.licenses?.find(l => l.isActive) || null;
+    const companyData = company.toJSON();
+    companyData.activeLicense = activeLicense;
+
     res.render('admin/company-detail', {
       title: `Company: ${company.name}`,
       user: req.user,
       session: req.session,
-      company: company.toJSON(),
+      company: companyData,
     });
   } catch (error) {
     console.error('Admin company detail error:', error);

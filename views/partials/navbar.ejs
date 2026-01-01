@@ -60,7 +60,7 @@ if (typeof session === 'undefined') {
                             <li><hr class="dropdown-divider"></li>
                         <% } %>
                         <% if (typeof company !== 'undefined' && company) { %>
-                            <% if (userCompany && ['owner', 'admin'].includes(userCompany.role)) { %>
+                            <% if (typeof userCompany !== 'undefined' && userCompany && ['owner', 'admin'].includes(userCompany.role)) { %>
                             <li>
                                 <a class="dropdown-item" href="/dashboard/users">
                                     <i class="bi bi-people-fill"></i> User Management

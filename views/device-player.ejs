@@ -512,6 +512,18 @@
                 }, 3000);
             });
 
+            // Handle fullscreen enter command
+            socket.on('device:command:fullscreen-enter', (data) => {
+                console.log('📺 Fullscreen enter command received:', data);
+                enterFullscreen();
+            });
+
+            // Handle fullscreen exit command
+            socket.on('device:command:fullscreen-exit', (data) => {
+                console.log('📺 Fullscreen exit command received:', data);
+                exitFullscreen();
+            });
+
             // Start periodic ping (every 30 seconds)
             pingIntervalId = setInterval(() => {
                 if (socket && socket.connected && deviceUID) {

@@ -170,15 +170,17 @@
                                     </td>
                                     <td><%= new Date(company.createdAt).toLocaleDateString() %></td>
                                     <td>
-                                        <a href="/admin/companies/<%= company.id %>" class="btn btn-sm btn-primary me-1" title="View Details">
-                                            <i class="bi bi-eye"></i>
-                                        </a>
-                                        <button class="btn btn-sm btn-info me-1" onclick="loginAsCompany('<%= company.id %>')" title="Login as Company">
-                                            <i class="bi bi-box-arrow-in-right"></i>
-                                        </button>
-                                        <button class="btn btn-sm <%= company.isActive ? 'btn-danger' : 'btn-success' %>" onclick="toggleCompanyActive('<%= company.id %>', this)" title="<%= company.isActive ? 'Deactivate' : 'Activate' %>">
-                                            <i class="bi <%= company.isActive ? 'bi-x-circle' : 'bi-check-circle' %>"></i>
-                                        </button>
+                                        <div class="btn-group" role="group">
+                                            <a href="/admin/companies/<%= company.id %>" class="btn btn-sm btn-primary" title="View Details">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <button class="btn btn-sm btn-info" onclick="loginAsCompany('<%= company.id %>')" title="Login as Company">
+                                                <i class="bi bi-box-arrow-in-right"></i>
+                                            </button>
+                                            <button class="btn btn-sm <%= company.isActive ? 'btn-danger' : 'btn-success' %>" onclick="toggleCompanyActive('<%= company.id %>', this)" title="<%= company.isActive ? 'Deactivate' : 'Activate' %>">
+                                                <i class="bi <%= company.isActive ? 'bi-x-circle' : 'bi-check-circle' %>"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             <% }) %>
@@ -305,14 +307,16 @@
                                     </td>
                                     <td><%= license.maxUsers %></td>
                                     <td>
-                                        <button class="btn btn-sm btn-info" onclick="viewLicense('<%= license.id %>', '<%= license.token %>', '<%= license.companyName || '' %>', '<%= license.notes || '' %>', <%= isActive %>, <%= license.companyId ? true : false %>, '<%= license.company ? license.company.name : '' %>')">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
-                                        <% if (!license.isUsed || (license.isUsed && license.companyId)) { %>
-                                            <button class="btn btn-sm btn-danger" onclick="deleteLicense('<%= license.id %>', <%= license.isUsed && license.companyId ? true : false %>)">
-                                                <i class="bi bi-trash"></i>
+                                        <div class="btn-group" role="group">
+                                            <button class="btn btn-sm btn-info" onclick="viewLicense('<%= license.id %>', '<%= license.token %>', '<%= license.companyName || '' %>', '<%= license.notes || '' %>', <%= isActive %>, <%= license.companyId ? true : false %>, '<%= license.company ? license.company.name : '' %>')">
+                                                <i class="bi bi-eye"></i>
                                             </button>
-                                        <% } %>
+                                            <% if (!license.isUsed || (license.isUsed && license.companyId)) { %>
+                                                <button class="btn btn-sm btn-danger" onclick="deleteLicense('<%= license.id %>', <%= license.isUsed && license.companyId ? true : false %>)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            <% } %>
+                                        </div>
                                     </td>
                                 </tr>
                             <% }) %>

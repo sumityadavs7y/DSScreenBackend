@@ -164,6 +164,30 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle fullscreen enter command from admin
+  socket.on('device:fullscreen:enter', (data) => {
+    const { uid } = data;
+    
+    socketLog.info('Fullscreen enter command received', { uid, fromSocket: socket.id });
+    
+    // Forward command to the specific device
+    io.to(`player:${uid}`).emit('device:command:fullscreen-enter', {
+      timestamp: new Date(),
+    });
+  });
+
+  // Handle fullscreen exit command from admin
+  socket.on('device:fullscreen:exit', (data) => {
+    const { uid } = data;
+    
+    socketLog.info('Fullscreen exit command received', { uid, fromSocket: socket.id });
+    
+    // Forward command to the specific device
+    io.to(`player:${uid}`).emit('device:command:fullscreen-exit', {
+      timestamp: new Date(),
+    });
+  });
+
   // Handle device disconnection
   socket.on('disconnect', () => {
     socketLog.debug('Socket disconnected', { socketId: socket.id });

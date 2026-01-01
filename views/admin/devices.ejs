@@ -195,12 +195,28 @@
                                             <% } %>
                                         </td>
                                         <td>
-                                            <button class="btn btn-sm btn-danger delete-device-btn"
-                                                    data-device-uid="<%= device.uid %>"
-                                                    data-playlist-name="<%= device.devicePlaylists[0]?.playlist?.name || 'Unknown' %>"
-                                                    title="Delete Device">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
+                                            <div class="btn-group" role="group">
+                                                <!-- Fullscreen Controls (only for online devices) -->
+                                                <% if (device.isOnline) { %>
+                                                    <button class="btn btn-sm btn-primary fullscreen-enter-btn"
+                                                            data-device-uid="<%= device.uid %>"
+                                                            title="Enter Fullscreen">
+                                                        <i class="bi bi-arrows-fullscreen"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-secondary fullscreen-exit-btn"
+                                                            data-device-uid="<%= device.uid %>"
+                                                            title="Exit Fullscreen">
+                                                        <i class="bi bi-fullscreen-exit"></i>
+                                                    </button>
+                                                <% } %>
+                                                <!-- Delete Button -->
+                                                <button class="btn btn-sm btn-danger delete-device-btn"
+                                                        data-device-uid="<%= device.uid %>"
+                                                        data-playlist-name="<%= device.devicePlaylists[0]?.playlist?.name || 'Unknown' %>"
+                                                        title="Delete Device">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 <% }); %>
@@ -265,19 +281,129 @@
             if (deviceRow) {
                 const statusCell = deviceRow.querySelector('.status-cell');
                 const lastSeenCell = deviceRow.querySelector('.last-seen-cell');
+                const actionsCell = deviceRow.querySelector('td:last-child .btn-group');
                 
                 if (isOnline) {
                     statusCell.innerHTML = '<span class="badge bg-success"><span class="status-dot online"></span> Online</span>';
                     lastSeenCell.innerHTML = '<span class="text-success">Just now</span>';
                     deviceRow.dataset.status = 'online';
+                    
+                    // Show fullscreen buttons for online devices
+                    if (actionsCell && actionsCell.querySelectorAll('.fullscreen-enter-btn').length === 0) {
+                        // Add fullscreen buttons if they don't exist
+                        const deleteBtn = actionsCell.querySelector('.delete-device-btn');
+                        const playlistName = deleteBtn.dataset.playlistName;
+                        
+                        actionsCell.innerHTML = `
+                            <button class="btn btn-sm btn-primary fullscreen-enter-btn"
+                                    data-device-uid="${uid}"
+                                    title="Enter Fullscreen">
+                                <i class="bi bi-arrows-fullscreen"></i>
+                            </button>
+                            <button class="btn btn-sm btn-secondary fullscreen-exit-btn"
+                                    data-device-uid="${uid}"
+                                    title="Exit Fullscreen">
+                                <i class="bi bi-fullscreen-exit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger delete-device-btn"
+                                    data-device-uid="${uid}"
+                                    data-playlist-name="${playlistName}"
+                                    title="Delete Device">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        `;
+                        
+                        // Re-attach event listeners
+                        attachButtonListeners(actionsCell);
+                    }
                 } else {
                     statusCell.innerHTML = '<span class="badge bg-danger"><span class="status-dot offline"></span> Offline</span>';
                     lastSeenCell.textContent = 'Just now';
                     deviceRow.dataset.status = 'offline';
+                    
+                    // Hide fullscreen buttons for offline devices
+                    if (actionsCell) {
+                        const fullscreenBtns = actionsCell.querySelectorAll('.fullscreen-enter-btn, .fullscreen-exit-btn');
+                        fullscreenBtns.forEach(btn => btn.remove());
+                    }
                 }
                 
                 updateCounts();
             }
+        }
+        
+        // Attach button event listeners
+        function attachButtonListeners(container) {
+            // Fullscreen Enter
+            container.querySelectorAll('.fullscreen-enter-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const button = this;
+                    const uid = button.dataset.deviceUid;
+                    
+                    // Send command
+                    socket.emit('device:fullscreen:enter', { uid });
+                    
+                    // Show feedback
+                    const originalHtml = button.innerHTML;
+                    button.innerHTML = '<i class="bi bi-check-circle"></i>';
+                    button.disabled = true;
+                    
+                    // Reset after 3 seconds
+                    setTimeout(() => {
+                        button.innerHTML = originalHtml;
+                        button.disabled = false;
+                    }, 3000);
+                });
+            });
+            
+            // Fullscreen Exit
+            container.querySelectorAll('.fullscreen-exit-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const button = this;
+                    const uid = button.dataset.deviceUid;
+                    
+                    // Send command
+                    socket.emit('device:fullscreen:exit', { uid });
+                    
+                    // Show feedback
+                    const originalHtml = button.innerHTML;
+                    button.innerHTML = '<i class="bi bi-check-circle"></i>';
+                    button.disabled = true;
+                    
+                    // Reset after 3 seconds
+                    setTimeout(() => {
+                        button.innerHTML = originalHtml;
+                        button.disabled = false;
+                    }, 3000);
+                });
+            });
+            
+            // Delete
+            container.querySelectorAll('.delete-device-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const uid = e.currentTarget.dataset.deviceUid;
+                    const playlistName = e.currentTarget.dataset.playlistName;
+                    
+                    selectedDeviceUID = uid;
+                    document.getElementById('deleteDeviceUID').textContent = uid;
+                    document.getElementById('deletePlaylistName').textContent = playlistName;
+                    
+                    const modal = new bootstrap.Modal(deleteModalEl, {
+                        backdrop: 'static',
+                        keyboard: false
+                    });
+                    modal.show();
+                });
+            });
         }
 
         // Update counts
@@ -386,25 +512,9 @@
             }
             document.getElementById('searchInput').addEventListener('input', filterDevices);
             
-            // Delete button listeners
-            document.querySelectorAll('.delete-device-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    const uid = e.currentTarget.dataset.deviceUid;
-                    const playlistName = e.currentTarget.dataset.playlistName;
-                    
-                    selectedDeviceUID = uid;
-                    document.getElementById('deleteDeviceUID').textContent = uid;
-                    document.getElementById('deletePlaylistName').textContent = playlistName;
-                    
-                    const modal = new bootstrap.Modal(deleteModalEl, {
-                        backdrop: 'static',
-                        keyboard: false
-                    });
-                    modal.show();
-                });
+            // Attach button listeners to all initial buttons
+            document.querySelectorAll('.btn-group').forEach(btnGroup => {
+                attachButtonListeners(btnGroup);
             });
             
             // Confirm delete

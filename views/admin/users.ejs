@@ -80,25 +80,27 @@
                                 </td>
                                 <td><%= new Date(u.createdAt).toLocaleDateString() %></td>
                                 <td>
-                                    <button class="btn btn-sm btn-primary me-1" onclick="editUser('<%= u.id %>')" title="Edit User">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-sm <%= u.isActive ? 'btn-danger' : 'btn-success' %> me-1" onclick="toggleUserActive('<%= u.id %>', this)" title="<%= u.isActive ? 'Deactivate' : 'Activate' %> User">
-                                        <i class="bi <%= u.isActive ? 'bi-x-circle' : 'bi-check-circle' %>"></i>
-                                    </button>
-                                    <% if (String(u.id) === String(user.id) && u.isSuperAdmin) { %>
-                                        <button class="btn btn-sm btn-secondary" disabled title="You cannot revoke your own super admin privileges">
-                                            <i class="bi bi-shield-fill-check"></i>
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-sm btn-primary" onclick="editUser('<%= u.id %>')" title="Edit User">
+                                            <i class="bi bi-pencil"></i>
                                         </button>
-                                    <% } else { %>
-                                        <button 
-                                            class="btn btn-sm <%= u.isSuperAdmin ? 'btn-warning' : 'btn-outline-warning' %>" 
-                                            onclick="toggleSuperAdmin('<%= u.id %>', '<%= user.id %>', this)"
-                                            data-user-id="<%= u.id %>"
-                                            title="<%= u.isSuperAdmin ? 'Revoke' : 'Grant' %> Super Admin">
-                                            <i class="bi bi-shield-fill-check"></i>
+                                        <button class="btn btn-sm <%= u.isActive ? 'btn-danger' : 'btn-success' %>" onclick="toggleUserActive('<%= u.id %>', this)" title="<%= u.isActive ? 'Deactivate' : 'Activate' %> User">
+                                            <i class="bi <%= u.isActive ? 'bi-x-circle' : 'bi-check-circle' %>"></i>
                                         </button>
-                                    <% } %>
+                                        <% if (String(u.id) === String(user.id) && u.isSuperAdmin) { %>
+                                            <button class="btn btn-sm btn-secondary" disabled title="You cannot revoke your own super admin privileges">
+                                                <i class="bi bi-shield-fill-check"></i>
+                                            </button>
+                                        <% } else { %>
+                                            <button 
+                                                class="btn btn-sm <%= u.isSuperAdmin ? 'btn-warning' : 'btn-outline-warning' %>" 
+                                                onclick="toggleSuperAdmin('<%= u.id %>', '<%= user.id %>', this)"
+                                                data-user-id="<%= u.id %>"
+                                                title="<%= u.isSuperAdmin ? 'Revoke' : 'Grant' %> Super Admin">
+                                                <i class="bi bi-shield-fill-check"></i>
+                                            </button>
+                                        <% } %>
+                                    </div>
                                 </td>
                             </tr>
                         <% }) %>

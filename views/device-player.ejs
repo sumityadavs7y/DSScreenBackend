@@ -1309,22 +1309,59 @@
             console.log(`📅 License: ${displayText} (Expires: ${expiryDate.toLocaleDateString()})`);
         }
 
-        function goHome() {
+        async function goHome() {
             if (confirm('Clear registration and go back to home?')) {
                 if (checkIntervalId) clearInterval(checkIntervalId);
                 if (updateIntervalId) clearInterval(updateIntervalId);
                 if (timelineCheckIntervalId) clearInterval(timelineCheckIntervalId);
                 
-                clearVideoCache().then(() => {
+                try {
+                    // Get device UID from registration data
+                    const storedData = localStorage.getItem('devicePlaylistRegistration');
+                    if (storedData) {
+                        const regData = JSON.parse(storedData);
+                        const deviceUID = regData.uid || regData.device?.uid;
+                        
+                        if (deviceUID) {
+                            console.log('🗑️  Deregistering device from database:', deviceUID);
+                            
+                            // Call API to deregister device
+                            try {
+                                const response = await fetch(`/api/device/deregister/${encodeURIComponent(deviceUID)}`, {
+                                    method: 'DELETE',
+                                });
+                                
+                                const result = await response.json();
+                                
+                                if (result.success) {
+                                    console.log('✅ Device deregistered from database');
+                                } else {
+                                    console.warn('⚠️  Failed to deregister device:', result.message);
+                                }
+                            } catch (apiError) {
+                                console.error('❌ Error calling deregister API:', apiError);
+                                // Continue with cleanup even if API call fails
+                            }
+                        }
+                    }
+                    
+                    // Clear video cache
+                    await clearVideoCache();
+                    
+                    // Clear local storage
+                    localStorage.removeItem('devicePlaylistRegistration');
+                    localStorage.removeItem('deviceUID');
+                    
+                    // Redirect to home
+                    window.location.href = '/';
+                } catch (err) {
+                    console.error('Error during deregistration:', err);
+                    
+                    // Clean up local data even if there's an error
                     localStorage.removeItem('devicePlaylistRegistration');
                     localStorage.removeItem('deviceUID');
                     window.location.href = '/';
-                }).catch(err => {
-                    console.error('Error clearing cache:', err);
-                    localStorage.removeItem('devicePlaylistRegistration');
-                    localStorage.removeItem('deviceUID');
-                    window.location.href = '/';
-                });
+                }
             }
         }
 

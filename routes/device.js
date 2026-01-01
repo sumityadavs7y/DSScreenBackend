@@ -364,5 +364,69 @@ router.get('/cleanup-stats', (req, res) => {
   }
 });
 
+/**
+ * DELETE /api/device/deregister/:uid
+ * Deregister a device and remove all playlist associations
+ */
+router.delete('/deregister/:uid', async (req, res) => {
+  try {
+    const { uid } = req.params;
+
+    if (!uid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Device UID is required',
+      });
+    }
+
+    console.log(`🗑️  Deregistering device: ${uid}`);
+
+    // Find the device
+    const device = await Device.findOne({
+      where: { uid },
+    });
+
+    if (!device) {
+      console.log(`⚠️  Device not found: ${uid}`);
+      // Return success even if device not found (idempotent operation)
+      return res.json({
+        success: true,
+        message: 'Device not found or already deregistered',
+      });
+    }
+
+    // Delete all device-playlist associations
+    const deletedAssociations = await DevicePlaylist.destroy({
+      where: {
+        deviceId: device.id,
+      },
+    });
+
+    console.log(`✅ Deleted ${deletedAssociations} playlist association(s) for device ${uid}`);
+
+    // Delete the device itself
+    await device.destroy();
+
+    console.log(`✅ Device ${uid} successfully deregistered and deleted`);
+
+    res.json({
+      success: true,
+      message: 'Device deregistered successfully',
+      data: {
+        deviceId: device.id,
+        uid: device.uid,
+        deletedAssociations,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error deregistering device:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deregistering device',
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;
 

@@ -1,0 +1,58 @@
+# A2 Hosting - Node.js Application Configuration
+# This file routes all requests to your Node.js application
+
+# Enable rewrite engine
+RewriteEngine On
+
+# Passenger configuration
+PassengerEnabled on
+PassengerAppRoot /home/logicalv/repositories/DSScreenBackend
+PassengerAppType node
+PassengerStartupFile index.js
+PassengerNodejs /usr/bin/node
+
+# Environment (production)
+PassengerAppEnv production
+
+# Force HTTPS (uncomment if you have SSL)
+# RewriteCond %{HTTPS} !=on
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+
+# Prevent access to sensitive files
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Protect sensitive files
+<FilesMatch "\.(env|gitignore|htaccess|htpasswd)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Protect node_modules
+RedirectMatch 403 /node_modules/
+
+# Allow CORS (if needed for API)
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+</IfModule>
+
+# Compression for better performance
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+</IfModule>
+
+# Browser caching for static files
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType video/mp4 "access plus 1 year"
+</IfModule>
+

@@ -1,0 +1,28 @@
+---
+# cPanel Git Deployment Configuration
+# This file tells cPanel what to do after pulling code from Git
+
+deployment:
+  tasks:
+    # Set the deployment path
+    - export DEPLOYPATH=/home/logicalv/repositories/DSScreenBackend
+    
+    # Navigate to app directory
+    - cd $DEPLOYPATH
+    
+    # Install/update dependencies (production only)
+    - npm install --production
+    
+    # Run database migrations
+    - npm run migrate:run || echo "No migrations to run"
+    
+    # Restart the Node.js application using Passenger
+    - mkdir -p $DEPLOYPATH/tmp
+    - touch $DEPLOYPATH/tmp/restart.txt
+    
+    # Log deployment
+    - echo "Deployment completed at $(date)" >> $DEPLOYPATH/deployment.log
+    
+    # Optional: If using PM2 instead, use this:
+    # - pm2 restart dsscreen-backend || pm2 start index.js --name dsscreen-backend
+

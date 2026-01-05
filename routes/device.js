@@ -11,6 +11,30 @@ const { createModuleLogger } = require('../utils/logger');
 const log = createModuleLogger('Device');
 
 /**
+ * GET /api/device/debug-config
+ * Debug endpoint to check configuration (remove in production)
+ */
+router.get('/debug-config', (req, res) => {
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+  const host = req.headers['x-forwarded-host'] || req.headers['host'] || `localhost:${envConfig.port}`;
+  
+  res.json({
+    success: true,
+    config: {
+      envBaseUrl: envConfig.baseUrl,
+      detectedProtocol: protocol,
+      detectedHost: host,
+      requestHeaders: {
+        'x-forwarded-proto': req.headers['x-forwarded-proto'],
+        'x-forwarded-host': req.headers['x-forwarded-host'],
+        'host': req.headers['host'],
+      },
+      constructedUrl: envConfig.baseUrl || `${protocol}://${host}`,
+    },
+  });
+});
+
+/**
  * POST /api/device/init-registration
  * Initialize a new registration session for a device
  * Returns session token and QR code data

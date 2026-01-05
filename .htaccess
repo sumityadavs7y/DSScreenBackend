@@ -1,8 +1,0 @@
-# Force use of Node.js 20
-PassengerNodejs /home/logicalv/nodevenv/repositories/DSScreenBackend/20/bin/node
-
-# Passenger configuration
-PassengerEnabled on
-PassengerAppType node
-PassengerStartupFile index.js
-

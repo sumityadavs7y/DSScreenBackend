@@ -36,8 +36,8 @@ else
     # Wait for process to stop
     sleep 2
     
-    # Start new process in background
-    NODE_ENV="$NODE_ENV" nohup node index.js > app.log 2>&1 &
+    # Start new process in background with memory optimization
+    NODE_ENV="$NODE_ENV" NODE_OPTIONS='--no-experimental-fetch --no-experimental-global-webcrypto --max-old-space-size=2048' nohup node index.js > app.log 2>&1 &
     
     echo "Application started with PID: $!"
 fi

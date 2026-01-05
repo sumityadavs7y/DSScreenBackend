@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 exports.envConfig = {
     port: process.env.PORT || "3000",
     sessionSecret: process.env.SESSION_SECRET || 'dsscreen-secret-key-2024',

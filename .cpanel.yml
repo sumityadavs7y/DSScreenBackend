@@ -6,7 +6,7 @@
 deployment:
   tasks:
     # Install/update dependencies
-    - export DEPLOYPATH=/home/YOUR_CPANEL_USERNAME/YOUR_APP_FOLDER
+    - export DEPLOYPATH=/home/logicalv/repositories/DSScreenBackend
     - /bin/cp -r * $DEPLOYPATH
     - cd $DEPLOYPATH
     - npm install --production

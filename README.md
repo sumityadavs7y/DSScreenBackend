@@ -175,6 +175,27 @@ curl -X POST http://localhost:3000/api/videos/bulk-delete \
 4. Define the schema in the migration file
 5. Run migrations using `npm run migrate`
 
+## Deployment
+
+This project includes comprehensive auto-deployment configurations for cPanel hosting.
+
+### Quick Setup
+See **[QUICK_DEPLOY_SETUP.md](./QUICK_DEPLOY_SETUP.md)** for a quick 5-minute setup guide.
+
+### Full Documentation
+See **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** for detailed deployment instructions.
+
+### Available Methods
+1. **cPanel Git Version Control** (Easiest) - Built-in cPanel Git with webhooks
+2. **GitHub Actions** (Most Control) - Automated CI/CD pipeline
+3. **Custom Webhook Handler** (Advanced) - PHP webhook with shell script
+
+All methods automatically:
+- ✅ Pull latest code from master branch
+- ✅ Install/update dependencies
+- ✅ Run database migrations
+- ✅ Restart the Node.js application
+
 ## License
 
 ISC

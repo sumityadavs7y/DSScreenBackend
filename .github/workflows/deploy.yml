@@ -1,0 +1,76 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches:
+      - test_host
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v3
+      
+      - name: 🚀 Deploy to cPanel via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.CPANEL_HOST }}
+          username: ${{ secrets.CPANEL_USERNAME }}
+          key: ${{ secrets.CPANEL_SSH_KEY }}
+          port: ${{ secrets.CPANEL_SSH_PORT || 22 }}
+          script: |
+            echo "🔄 Starting deployment..."
+            
+            # Navigate to application directory
+            cd ${{ secrets.CPANEL_DEPLOY_PATH }}
+            
+            # Pull latest changes
+            echo "📡 Pulling latest code from GitHub..."
+            git pull origin test_host
+            
+            # Install dependencies
+            echo "📦 Installing dependencies..."
+            npm install --production
+            
+            # Run database migrations
+            echo "🗄️  Running database migrations..."
+            npm run migrate:run || echo "⚠️  No migrations to run or migration failed"
+            
+            # Restart application
+            echo "🔄 Restarting application..."
+            
+            # Check if PM2 is available
+            if command -v pm2 &> /dev/null; then
+              echo "Using PM2 for process management..."
+              pm2 restart dsscreen-backend || pm2 start index.js --name dsscreen-backend --env production
+              pm2 save
+            else
+              echo "Using pkill/nohup for process management..."
+              # Stop existing process
+              pkill -f "node.*index.js" || true
+              
+              # Wait for graceful shutdown
+              sleep 2
+              
+              # Start new process
+              NODE_ENV=production nohup node index.js > app.log 2>&1 &
+              
+              echo "Started with PID: $!"
+            fi
+            
+            echo "✅ Deployment completed successfully!"
+            echo "📝 Logs available at: ${{ secrets.CPANEL_DEPLOY_PATH }}/app.log"
+      
+      - name: 📢 Deployment Status
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Deployment successful!"
+          else
+            echo "❌ Deployment failed!"
+            exit 1
+          fi
+

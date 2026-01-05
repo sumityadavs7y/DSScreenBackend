@@ -6,33 +6,31 @@ Choose the method that works best for you:
 
 ## 🥇 Method 1: cPanel Git (Easiest - 5 minutes)
 
+⚠️ **Note**: Not all cPanel versions show a webhook URL. If you can't find it, use **Method 2 (GitHub Actions)** instead.
+
 ### On cPanel:
 1. Login → **Git™ Version Control** → **Create**
 2. Enter your repo URL: `https://github.com/YOUR_USERNAME/DSScreenBackend.git`
 3. Choose deployment path: `/home/USERNAME/apps/dsscreen`
-4. Click **Create**
+4. Select branch: `test_host` (for testing)
+5. Click **Create**
 
-### Update .cpanel.yml:
-```bash
-# Edit .cpanel.yml and replace:
-# YOUR_CPANEL_USERNAME → your actual username
-# YOUR_APP_PATH → your deployment path
-```
+### Find Webhook URL (if available):
+1. Click **Manage** next to your repository
+2. Look for **"Pull or Deploy"** section
+3. If you see a **webhook URL**, copy it
+4. If you DON'T see it → **Use Method 2 instead** ⬇️
 
-### On GitHub:
-1. Go to repository → **Settings** → **Webhooks** → **Add webhook**
-2. Copy webhook URL from cPanel Git interface
-3. Paste it, set Content-type: `application/json`
-4. Click **Add webhook**
+### If Webhook URL Found:
+1. Go to GitHub → **Settings** → **Webhooks** → **Add webhook**
+2. Paste webhook URL
+3. Set Content-type: `application/json`
+4. Select "Just the push event"
+5. Click **Add webhook**
 
-### Push & Test:
-```bash
-git add .cpanel.yml
-git commit -m "Add auto-deployment config"
-git push origin master
-```
+**✅ Done! Every push to test_host will auto-deploy.**
 
-**✅ Done! Every push to master will auto-deploy.**
+**📚 Can't find webhook URL?** See **[CPANEL_GIT_SETUP.md](./CPANEL_GIT_SETUP.md)** for detailed help!
 
 ---
 

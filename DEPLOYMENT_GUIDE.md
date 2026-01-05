@@ -267,3 +267,5 @@ Now whenever you push to the master branch, your cPanel server will:
 
 Need help? Check the logs or contact your hosting provider!
 
+
+

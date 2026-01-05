@@ -58,6 +58,7 @@ router.get('/api', (req, res) => {
 router.get('/health', (req, res) => {
     res.json({
         status: 'healthy',
+        message: 'hello',
         timestamp: new Date().toISOString()
     });
 });

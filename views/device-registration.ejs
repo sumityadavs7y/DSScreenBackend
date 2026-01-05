@@ -506,8 +506,11 @@
                 
                 // Display QR code
                 qrCode.src = result.data.qrCodeDataUrl;
-                registrationUrl.href = result.data.registrationUrl;
-                registrationUrl.textContent = result.data.registrationUrl;
+                
+                // Construct registration URL using current origin (fixes localhost issue in production)
+                const actualRegistrationUrl = `${window.location.origin}/device-register?session=${sessionToken}`;
+                registrationUrl.href = actualRegistrationUrl;
+                registrationUrl.textContent = actualRegistrationUrl;
 
                 // Show QR container
                 qrLoading.style.display = 'none';

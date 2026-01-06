@@ -6,7 +6,7 @@ RewriteEngine On
 
 # Passenger configuration
 PassengerEnabled on
-PassengerAppRoot /home/logicalv/repositories/DSScreenBackend
+PassengerAppRoot /home/logicalv/repositories/SignageBackend
 PassengerAppType node
 PassengerStartupFile index.js
 PassengerNodejs /usr/bin/node

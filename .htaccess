@@ -14,6 +14,21 @@ PassengerNodejs /usr/bin/node
 # Environment (production)
 PassengerAppEnv production
 
+# Environment Variables
+# Method 1: Set them here (less secure, visible in .htaccess)
+# SetEnv NODE_ENV production
+# SetEnv PORT 3000
+# SetEnv DB_HOST localhost
+# SetEnv DB_NAME your_database
+# SetEnv DB_USER your_user
+# SetEnv DB_PASSWORD your_password
+# SetEnv JWT_SECRET your_secret_key
+SetEnv BASE_URL https://signage.logicalvalleys.in
+
+# Method 2: Use .env file (recommended - your app already uses dotenv)
+# Create .env file in app root with your variables
+# The app will load it automatically via require('dotenv').config()
+
 # Force HTTPS (uncomment if you have SSL)
 # RewriteCond %{HTTPS} !=on
 # RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]

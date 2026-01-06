@@ -75,6 +75,30 @@ app.use('/api/users', userRoutes);
 app.use('/api/media', videoRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/device', deviceRoutes); // Device registration routes
+
+
+// Debug endpoint - CHECK ENVIRONMENT VARIABLES
+// REMOVE THIS IN PRODUCTION!
+router.get('/debug-env', (req, res) => {
+  res.json({
+      NODE_ENV: process.env.NODE_ENV,
+      PORT: process.env.PORT,
+      BASE_URL: process.env.BASE_URL,
+      DB_HOST: process.env.DB_HOST,
+      DB_NAME: process.env.DB_NAME,
+      DB_USER: process.env.DB_USER,
+      hasDbPassword: !!process.env.DB_PASSWORD,
+      hasJwtSecret: !!process.env.JWT_SECRET,
+      hasSessionSecret: !!process.env.SESSION_SECRET,
+      allEnvKeys: Object.keys(process.env).filter(key => 
+          !key.includes('PASSWORD') && 
+          !key.includes('SECRET') && 
+          !key.includes('KEY')
+      ).sort(),
+      timestamp: new Date().toISOString()
+  });
+});
+
 app.use('/', indexRoutes); // Static pages
 
 // Static files (AFTER routes so routes take precedence)

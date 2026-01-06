@@ -9,6 +9,8 @@ deployment:
     
     # Navigate to app directory
     - cd $DEPLOYPATH
+
+    - git pull
     
     # Install/update dependencies (production only)
     - npm install --production

@@ -79,7 +79,7 @@ app.use('/api/device', deviceRoutes); // Device registration routes
 
 // Debug endpoint - CHECK ENVIRONMENT VARIABLES
 // REMOVE THIS IN PRODUCTION!
-router.get('/debug-env', (req, res) => {
+app.get('/debug-env', (req, res) => {
   res.json({
       NODE_ENV: process.env.NODE_ENV,
       PORT: process.env.PORT,

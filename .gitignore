@@ -38,3 +38,8 @@ public/uploads/
 videos/*
 !videos/.gitkeep
 logs/
+
+cgi-bin/
+tmp/
+stdrerr.log
+.htaccess
